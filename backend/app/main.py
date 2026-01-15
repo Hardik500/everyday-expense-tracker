@@ -120,6 +120,172 @@ def list_categories() -> dict:
     }
 
 
+@app.post("/categories")
+def create_category(name: str = Form(...)) -> dict:
+    """Create a new category."""
+    with get_conn() as conn:
+        # Check if already exists
+        existing = conn.execute(
+            "SELECT id FROM categories WHERE LOWER(name) = LOWER(?)", (name.strip(),)
+        ).fetchone()
+        if existing:
+            raise HTTPException(status_code=400, detail="Category already exists")
+        
+        cursor = conn.execute(
+            "INSERT INTO categories (name) VALUES (?)", (name.strip(),)
+        )
+        conn.commit()
+        return {"id": cursor.lastrowid, "name": name.strip()}
+
+
+@app.put("/categories/{category_id}")
+def update_category(category_id: int, name: str = Form(...)) -> dict:
+    """Update a category name."""
+    with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT id FROM categories WHERE id = ?", (category_id,)
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Category not found")
+        
+        # Check for duplicate name
+        duplicate = conn.execute(
+            "SELECT id FROM categories WHERE LOWER(name) = LOWER(?) AND id != ?",
+            (name.strip(), category_id)
+        ).fetchone()
+        if duplicate:
+            raise HTTPException(status_code=400, detail="Category name already exists")
+        
+        conn.execute(
+            "UPDATE categories SET name = ? WHERE id = ?", (name.strip(), category_id)
+        )
+        conn.commit()
+        return {"id": category_id, "name": name.strip()}
+
+
+@app.delete("/categories/{category_id}")
+def delete_category(category_id: int) -> dict:
+    """Delete a category (only if no transactions use it)."""
+    with get_conn() as conn:
+        # Check if any transactions use this category
+        txn_count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM transactions WHERE category_id = ?",
+            (category_id,)
+        ).fetchone()["cnt"]
+        
+        if txn_count > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot delete: {txn_count} transactions use this category"
+            )
+        
+        # Delete subcategories first
+        conn.execute("DELETE FROM subcategories WHERE category_id = ?", (category_id,))
+        # Delete any rules using this category
+        conn.execute("DELETE FROM rules WHERE category_id = ?", (category_id,))
+        # Delete the category
+        conn.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+        conn.commit()
+        
+        return {"deleted": True, "category_id": category_id}
+
+
+@app.post("/subcategories")
+def create_subcategory(category_id: int = Form(...), name: str = Form(...)) -> dict:
+    """Create a new subcategory under a category."""
+    with get_conn() as conn:
+        # Verify category exists
+        category = conn.execute(
+            "SELECT id FROM categories WHERE id = ?", (category_id,)
+        ).fetchone()
+        if not category:
+            raise HTTPException(status_code=404, detail="Category not found")
+        
+        # Check if subcategory already exists in this category
+        existing = conn.execute(
+            "SELECT id FROM subcategories WHERE category_id = ? AND LOWER(name) = LOWER(?)",
+            (category_id, name.strip())
+        ).fetchone()
+        if existing:
+            raise HTTPException(status_code=400, detail="Subcategory already exists in this category")
+        
+        cursor = conn.execute(
+            "INSERT INTO subcategories (category_id, name) VALUES (?, ?)",
+            (category_id, name.strip())
+        )
+        conn.commit()
+        return {"id": cursor.lastrowid, "category_id": category_id, "name": name.strip()}
+
+
+@app.put("/subcategories/{subcategory_id}")
+def update_subcategory(subcategory_id: int, name: str = Form(...)) -> dict:
+    """Update a subcategory name."""
+    with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT id, category_id FROM subcategories WHERE id = ?", (subcategory_id,)
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Subcategory not found")
+        
+        conn.execute(
+            "UPDATE subcategories SET name = ? WHERE id = ?", (name.strip(), subcategory_id)
+        )
+        conn.commit()
+        return {"id": subcategory_id, "category_id": existing["category_id"], "name": name.strip()}
+
+
+@app.delete("/subcategories/{subcategory_id}")
+def delete_subcategory(subcategory_id: int) -> dict:
+    """Delete a subcategory (only if no transactions use it)."""
+    with get_conn() as conn:
+        # Check if any transactions use this subcategory
+        txn_count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM transactions WHERE subcategory_id = ?",
+            (subcategory_id,)
+        ).fetchone()["cnt"]
+        
+        if txn_count > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot delete: {txn_count} transactions use this subcategory"
+            )
+        
+        # Delete any rules using this subcategory
+        conn.execute("DELETE FROM rules WHERE subcategory_id = ?", (subcategory_id,))
+        # Delete the subcategory
+        conn.execute("DELETE FROM subcategories WHERE id = ?", (subcategory_id,))
+        conn.commit()
+        
+        return {"deleted": True, "subcategory_id": subcategory_id}
+
+
+@app.get("/categories/{category_id}/stats")
+def get_category_stats(category_id: int) -> dict:
+    """Get usage stats for a category."""
+    with get_conn() as conn:
+        txn_count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM transactions WHERE category_id = ?",
+            (category_id,)
+        ).fetchone()["cnt"]
+        
+        subcat_count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM subcategories WHERE category_id = ?",
+            (category_id,)
+        ).fetchone()["cnt"]
+        
+        rule_count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM rules WHERE category_id = ?",
+            (category_id,)
+        ).fetchone()["cnt"]
+        
+        return {
+            "category_id": category_id,
+            "transaction_count": txn_count,
+            "subcategory_count": subcat_count,
+            "rule_count": rule_count,
+        }
+
+
 @app.post("/rules")
 def create_rule(payload: schemas.RuleCreate) -> dict:
     with get_conn() as conn:
