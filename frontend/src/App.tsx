@@ -95,6 +95,12 @@ function App() {
   }, []);
 
   const handleCategorySelect = (categoryId: number) => {
+    // Update URL immediately so Analytics component reads the correct value on mount
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", "analytics");
+    params.set("cat", categoryId.toString());
+    window.history.pushState({}, "", "?" + params.toString());
+
     setSelectedCategoryId(categoryId);
     setActiveTab("analytics");
   };
