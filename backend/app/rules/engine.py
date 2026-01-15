@@ -25,7 +25,10 @@ def _match_rule(rule, description_norm: str, amount: float, account_type: Option
         return False
     if rule["max_amount"] is not None and amount > rule["max_amount"]:
         return False
-    return re.search(rule["pattern"], description_norm) is not None
+    try:
+        return re.search(rule["pattern"], description_norm, re.IGNORECASE) is not None
+    except re.error:
+        return False
 
 
 def _score_rule(rule, description_norm: str) -> int:
@@ -63,6 +66,7 @@ def apply_rules(
     rules = _load_rules(conn)
 
     for tx in transactions:
+        # First check for existing mappings (user-created)
         mapping = conn.execute(
             """
             SELECT category_id, subcategory_id
@@ -82,6 +86,7 @@ def apply_rules(
             )
             continue
 
+        # Try to match against rules
         best: Optional[Tuple[int, int]] = None
         best_score = -1
         for rule in rules:
@@ -92,13 +97,19 @@ def apply_rules(
                 best_score = score
                 best = (rule["category_id"], rule["subcategory_id"])
 
+        # If no rule matched, try AI classification
         if not best:
-            ai_match = ai_classify(tx["description_norm"], tx["amount"])
+            ai_match = ai_classify(
+                tx["description_norm"],
+                tx["amount"],
+                conn=conn,  # Pass connection so AI can look up categories and create rules
+            )
             if ai_match:
                 best = ai_match
-                best_score = 60
+                best_score = 55  # AI matches have medium confidence
 
         if best:
+            # Mark as certain if score is high enough
             is_uncertain = 0 if best_score >= 50 else 1
             conn.execute(
                 """

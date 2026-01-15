@@ -2,19 +2,22 @@ import csv
 import io
 from typing import Optional, Tuple
 
-from app.ingest.normalize import compute_hash, normalize_amount, normalize_description, parse_date
+from app.ingest.normalize import compute_hash, normalize_amount, normalize_description, parse_amount, parse_date
 from app.ingest.profiles import resolve_profile
 
 
 def _get_amount(row: dict, mapping: dict) -> float:
+    """Extract and parse amount from row, handling debit/credit columns."""
     if mapping.get("amount") and row.get(mapping["amount"]):
-        return float(row[mapping["amount"]])
+        return parse_amount(row[mapping["amount"]])
+    
     debit = row.get(mapping.get("debit", "")) if mapping.get("debit") else None
     credit = row.get(mapping.get("credit", "")) if mapping.get("credit") else None
-    if debit:
-        return -abs(float(debit))
-    if credit:
-        return abs(float(credit))
+    
+    if debit and str(debit).strip():
+        return -abs(parse_amount(debit))
+    if credit and str(credit).strip():
+        return abs(parse_amount(credit))
     return 0.0
 
 

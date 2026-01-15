@@ -4,13 +4,14 @@ from typing import Optional, Tuple
 
 import pdfplumber
 
-from app.ingest.normalize import compute_hash, normalize_amount, normalize_description, parse_date
+from app.ingest.normalize import compute_hash, normalize_amount, normalize_description, parse_amount, parse_date
 
 
 DATE_PATTERN = re.compile(r"(\d{2}[/-]\d{2}[/-]\d{2,4})")
 
 
 def _parse_line(line: str) -> Optional[Tuple[str, str, float]]:
+    """Parse a PDF line to extract date, description, and amount."""
     date_match = DATE_PATTERN.search(line)
     if not date_match:
         return None
@@ -18,11 +19,20 @@ def _parse_line(line: str) -> Optional[Tuple[str, str, float]]:
     tokens = line.split()
     if not tokens:
         return None
-    amount_token = tokens[-1].replace(",", "")
-    try:
-        amount = float(amount_token)
-    except ValueError:
+    
+    # Try to find amount from the end of the line
+    # Handle formats like "1,000.39" or "100039"
+    amount_token = tokens[-1]
+    amount = parse_amount(amount_token)
+    
+    if amount == 0.0 and len(tokens) > 1:
+        # Try second-to-last token (some statements have trailing text)
+        amount_token = tokens[-2]
+        amount = parse_amount(amount_token)
+    
+    if amount == 0.0:
         return None
+    
     description = line.replace(date_str, "").replace(amount_token, "").strip()
     if not description:
         description = line.strip()
