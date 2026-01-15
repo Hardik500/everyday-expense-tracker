@@ -429,13 +429,18 @@ def ingest_statement(
 from app.search import perform_ai_search
 
 @app.post("/transactions/search")
-def search_transactions_ai(query: str = Body(..., embed=True)) -> dict:
+def search_transactions_ai(payload: schemas.SearchRequest) -> dict:
     """
     Natural language search for transactions using AI.
     Example: "zomato last 30 days"
     """
-    print(f"AI Search Query: {query}")
-    return perform_ai_search(query)
+    print(f"AI Search Query: {payload.query} [Page {payload.page}]")
+    return perform_ai_search(
+        query=payload.query,
+        filters=payload.filters,
+        page=payload.page,
+        page_size=payload.page_size
+    )
 
 
 

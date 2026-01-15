@@ -83,6 +83,8 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
   // AI Search State
   const [isAIMode, setIsAIMode] = useState(false);
   const [aiFilters, setAIFilters] = useState<any>(null);
+  const [rawAIFilters, setRawAIFilters] = useState<any>(null);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Initialize from props
   useEffect(() => {
@@ -93,7 +95,10 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
       }
       setDateRange("all"); // Ensure they see the transactions
       setIsAIMode(false);
+      setIsAIMode(false);
       setAIFilters(null);
+      setRawAIFilters(null);
+      setTotalCount(0);
     }
   }, [initialFilter]);
 
@@ -151,56 +156,76 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
     setPage(0);
   }, [searchQuery]);
 
-  const handleAISearch = async () => {
-    if (!searchQuery.trim()) return;
+  const executeAISearch = async (targetPage: number, useExistingFilters: boolean) => {
     setLoading(true);
     try {
+      const payload: any = {
+        page: targetPage + 1, // Backend is 1-indexed
+        page_size: pageSize
+      };
+
+      if (useExistingFilters && rawAIFilters) {
+        payload.filters = rawAIFilters;
+      } else {
+        payload.query = searchQuery;
+      }
+
       const res = await fetch(`${apiBase}/transactions/search`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchQuery }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
 
       // Update data
       setTransactions(data.results || []);
+      setTotalCount(data.total || 0);
 
-      // Map standard filters to UI state
-      const filters = data.filters || {};
-      const remainingFilters: any = { ...filters };
+      if (!useExistingFilters) {
+        // Map standard filters to UI state (only on initial search)
+        const filters = data.filters || {};
+        const remainingFilters: any = { ...filters };
+        setRawAIFilters(filters); // Store full filters for pagination reuse
 
-      // 1. Date Range
-      if (filters.start_date || filters.end_date) {
-        setDateRange("custom");
-        if (filters.start_date) setCustomStartDate(filters.start_date);
-        if (filters.end_date) setCustomEndDate(filters.end_date);
-        delete remainingFilters.start_date;
-        delete remainingFilters.end_date;
+        // 1. Date Range
+        if (filters.start_date || filters.end_date) {
+          setDateRange("custom");
+          if (filters.start_date) setCustomStartDate(filters.start_date);
+          if (filters.end_date) setCustomEndDate(filters.end_date);
+          delete remainingFilters.start_date;
+          delete remainingFilters.end_date;
+        }
+
+        // 2. Category
+        if (filters.category_id) {
+          setCategoryFilter(filters.category_id.toString());
+          delete remainingFilters.category_id;
+          delete remainingFilters.category;
+        }
+
+        // 3. Subcategory
+        if (filters.subcategory_id) {
+          setSubcategoryFilter(filters.subcategory_id.toString());
+          delete remainingFilters.subcategory_id;
+          delete remainingFilters.subcategory;
+        }
+
+        setAIFilters(Object.keys(remainingFilters).length > 0 ? remainingFilters : null);
+        setIsAIMode(true);
       }
 
-      // 2. Category
-      if (filters.category_id) {
-        setCategoryFilter(filters.category_id.toString());
-        delete remainingFilters.category_id;
-        delete remainingFilters.category; // remove name too
-      }
-
-      // 3. Subcategory
-      if (filters.subcategory_id) {
-        setSubcategoryFilter(filters.subcategory_id.toString());
-        delete remainingFilters.subcategory_id;
-        delete remainingFilters.subcategory;
-      }
-
-      setAIFilters(Object.keys(remainingFilters).length > 0 ? remainingFilters : null);
-      setIsAIMode(true);
-      setPage(0);
+      setPage(targetPage);
     } catch (e) {
       console.error(e);
       setTransactions([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAISearch = () => {
+    if (!searchQuery.trim()) return;
+    executeAISearch(0, false);
   };
 
   const filteredTransactions = isAIMode
@@ -211,12 +236,21 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
       )
       : transactions;
 
-  const pagedTransactions = filteredTransactions.slice(
-    page * pageSize,
-    (page + 1) * pageSize
-  );
-  const totalPages = Math.ceil(filteredTransactions.length / pageSize);
-  const totalAmount = filteredTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+  const pagedTransactions = isAIMode
+    ? transactions
+    : filteredTransactions.slice(
+      page * pageSize,
+      (page + 1) * pageSize
+    );
+
+  const totalPages = isAIMode
+    ? Math.ceil(totalCount / pageSize)
+    : Math.ceil(filteredTransactions.length / pageSize);
+
+  // Only calculate amount for client-side validset (approximate for AI mode? Or use total from backend? Backend logic implies sum of ALL results? 
+  // For now, let's just sum what we see or disable total amount in AI mode if it's confusing. 
+  // Actually, showing sum of *visible* page is consistent.
+  const totalAmount = pagedTransactions.reduce((sum, tx) => sum + tx.amount, 0);
 
   // Open edit modal
   const openEdit = (tx: Transaction) => {
@@ -461,11 +495,14 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
             onClick={() => {
               setIsAIMode(false);
               setAIFilters(null);
+              setRawAIFilters(null);
+              setTotalCount(0);
               setSearchQuery("");
               // Optional: Reset other filters? Maybe not, user might want to keep the context.
               // But usually clearing search means reset.
               setCategoryFilter("");
               setDateRange("30d");
+              setPage(0);
             }}
             style={{
               fontSize: "0.75rem",
@@ -665,7 +702,14 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button
                     className="secondary"
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    onClick={() => {
+                      const newPage = Math.max(0, page - 1);
+                      if (isAIMode) {
+                        executeAISearch(newPage, true);
+                      } else {
+                        setPage(newPage);
+                      }
+                    }}
                     disabled={page === 0}
                     style={{ padding: "0.5rem 1rem" }}
                   >
@@ -673,7 +717,14 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
                   </button>
                   <button
                     className="secondary"
-                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    onClick={() => {
+                      const newPage = Math.min(totalPages - 1, page + 1);
+                      if (isAIMode) {
+                        executeAISearch(newPage, true);
+                      } else {
+                        setPage(newPage);
+                      }
+                    }}
                     disabled={page >= totalPages - 1}
                     style={{ padding: "0.5rem 1rem" }}
                   >

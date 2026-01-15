@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from pydantic import BaseModel, Field
 
@@ -59,7 +59,16 @@ class RuleCreate(BaseModel):
     merchant_contains: Optional[str] = None
 
 
+
 class ReportItem(BaseModel):
     category_id: int
     category_name: str
     total: float
+
+
+class SearchRequest(BaseModel):
+    query: Optional[str] = None
+    filters: Optional[Dict[str, Any]] = None
+    page: int = 1
+    page_size: int = 50
+

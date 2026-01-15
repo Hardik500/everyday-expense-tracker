@@ -104,26 +104,17 @@ Return ONLY the JSON. No markdown formatting.
     except Exception:
         return {}
 
-def perform_ai_search(query: str) -> Dict[str, Any]:
+def perform_ai_search(query: Optional[str] = None, filters: Optional[Dict[str, Any]] = None, page: int = 1, page_size: int = 50) -> Dict[str, Any]:
     with get_conn() as conn:
-        filters = parse_search_query(query, conn)
+        if not filters:
+            if not query:
+                return {"results": [], "total": 0, "filters": {}}
+            filters = parse_search_query(query, conn)
         
         clauses = []
         params = []
         
-        # Build SQL
-        query_sql = """
-            SELECT t.id, t.account_id, t.posted_at, t.amount, t.currency, 
-                   t.description_raw, t.description_norm, 
-                   t.category_id, t.subcategory_id, t.is_uncertain,
-                   c.name as category_name, s.name as subcategory_name, a.name as account_name
-            FROM transactions t
-            LEFT JOIN categories c ON c.id = t.category_id
-            LEFT JOIN subcategories s ON s.id = t.subcategory_id
-            LEFT JOIN accounts a ON a.id = t.account_id
-            WHERE 1=1
-        """
-        
+        # Build SQL Filters
         if filters.get("start_date"):
             clauses.append("t.posted_at >= ?")
             params.append(filters["start_date"])
@@ -133,7 +124,6 @@ def perform_ai_search(query: str) -> Dict[str, Any]:
             params.append(filters["end_date"] + " 23:59:59")
             
         if filters.get("min_amount") is not None:
-            # Absolute amount comparison
             clauses.append("ABS(t.amount) >= ?")
             params.append(filters["min_amount"])
             
@@ -142,37 +132,67 @@ def perform_ai_search(query: str) -> Dict[str, Any]:
              params.append(filters["max_amount"])
              
         if filters.get("account"):
-            # Subquery or Join filter
             clauses.append("a.name LIKE ?")
             params.append(f"%{filters['account']}%")
             
         if filters.get("category"):
-            clauses.append("c.name LIKE ?")
-            params.append(f"%{filters['category']}%")
-            # Resolve ID for frontend
-            cat_row = conn.execute("SELECT id FROM categories WHERE name LIKE ?", (f"%{filters['category']}%",)).fetchone()
-            if cat_row:
-                filters["category_id"] = cat_row["id"]
-            
+            # Resolve ID if not already resolved, but trust filters if ID present
+            if filters.get("category_id"):
+                clauses.append("t.category_id = ?")
+                params.append(filters["category_id"])
+            else:
+                clauses.append("c.name LIKE ?")
+                params.append(f"%{filters['category']}%")
+                # Resolve ID logic for initial search
+                cat_row = conn.execute("SELECT id FROM categories WHERE name LIKE ?", (f"%{filters['category']}%",)).fetchone()
+                if cat_row:
+                    filters["category_id"] = cat_row["id"]
+
+        # Subcategory logic
         if filters.get("subcategory"):
-            clauses.append("s.name LIKE ?")
-            params.append(f"%{filters['subcategory']}%")
-            # Resolve ID for frontend
-            sub_row = conn.execute("SELECT id FROM subcategories WHERE name LIKE ?", (f"%{filters['subcategory']}%",)).fetchone()
-            if sub_row:
-                filters["subcategory_id"] = sub_row["id"]
+            if filters.get("subcategory_id"):
+                 clauses.append("t.subcategory_id = ?")
+                 params.append(filters["subcategory_id"])
+            else:
+                clauses.append("s.name LIKE ?")
+                params.append(f"%{filters['subcategory']}%")
+                sub_row = conn.execute("SELECT id FROM subcategories WHERE name LIKE ?", (f"%{filters['subcategory']}%",)).fetchone()
+                if sub_row:
+                    filters["subcategory_id"] = sub_row["id"]
             
         if filters.get("description"):
             term = filters["description"]
-            # Search both raw and norm
             clauses.append("(t.description_raw LIKE ? OR t.description_norm LIKE ?)")
             params.append(f"%{term}%")
             params.append(f"%{term}%")
             
-        # Add filtering clauses
-        for clause in clauses:
-            query_sql += f" AND {clause}"
-            
+        base_where = f" AND {' AND '.join(clauses)}" if clauses else ""
+        
+        # 1. Get Total Count
+        count_sql = f"""
+            SELECT COUNT(*) as count
+            FROM transactions t
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN subcategories s ON s.id = t.subcategory_id
+            LEFT JOIN accounts a ON a.id = t.account_id
+            WHERE 1=1 {base_where}
+        """
+        # Re-use params for count
+        total_count = conn.execute(count_sql, params).fetchone()["count"]
+        
+        # 2. Get Paged Data
+        query_sql = f"""
+            SELECT t.id, t.account_id, t.posted_at, t.amount, t.currency, 
+                   t.description_raw, t.description_norm, 
+                   t.category_id, t.subcategory_id, t.is_uncertain,
+                   c.name as category_name, s.name as subcategory_name, a.name as account_name
+            FROM transactions t
+            LEFT JOIN categories c ON c.id = t.category_id
+            LEFT JOIN subcategories s ON s.id = t.subcategory_id
+            LEFT JOIN accounts a ON a.id = t.account_id
+            WHERE 1=1 {base_where}
+        """
+        
         # Sort
         sort_mode = filters.get("sort", "newest")
         if sort_mode == "oldest":
@@ -184,11 +204,16 @@ def perform_ai_search(query: str) -> Dict[str, Any]:
         else:
             query_sql += " ORDER BY t.posted_at DESC"
             
-        query_sql += " LIMIT 100"
+        # Limit & Offset
+        offset = (page - 1) * page_size
+        query_sql += f" LIMIT {page_size} OFFSET {offset}"
         
         rows = conn.execute(query_sql, params).fetchall()
         
         return {
-            "filters": filters, # Return detailed filters so frontend can show what it understood
-            "results": [dict(row) for row in rows]
+            "filters": filters, 
+            "results": [dict(row) for row in rows],
+            "total": total_count,
+            "page": page,
+            "page_size": page_size
         }
