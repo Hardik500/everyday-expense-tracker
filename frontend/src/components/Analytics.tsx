@@ -363,11 +363,14 @@ function Analytics({ apiBase, refreshKey, initialCategoryId }: Props) {
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        outerRadius={100}
-                        innerRadius={50}
+                        outerRadius={80}
+                        innerRadius={40}
                         paddingAngle={2}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
+                        label={({ name, percent }) => {
+                          const val = `${(percent * 100).toFixed(0)}%`;
+                          return name.length > 15 ? `${name.slice(0, 12)}... ${val}` : `${name} ${val}`;
+                        }}
+                        labelLine={true}
                       >
                         {categoryDetail.subcategories.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

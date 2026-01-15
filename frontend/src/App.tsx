@@ -220,11 +220,12 @@ function App() {
                 <span
                   style={{
                     position: "absolute",
-                    top: 0,
-                    right: 0,
-                    width: 18,
+                    top: -4,
+                    right: -4,
+                    minWidth: 18,
                     height: 18,
-                    borderRadius: "50%",
+                    padding: "0 4px",
+                    borderRadius: 9,
                     background: "var(--danger)",
                     color: "#fff",
                     fontSize: 10,
@@ -232,6 +233,7 @@ function App() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    border: "2px solid var(--bg-secondary)",
                   }}
                 >
                   {reviewCount > 99 ? "99+" : reviewCount}
