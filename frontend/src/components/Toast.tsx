@@ -111,10 +111,12 @@ function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () =>
   );
 }
 
+import { createPortal } from "react-dom";
+
 function ToastContainer({ toasts, onDismiss }: Props) {
   if (toasts.length === 0) return null;
 
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -139,7 +141,8 @@ function ToastContainer({ toasts, onDismiss }: Props) {
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onDismiss={() => onDismiss(toast.id)} />
       ))}
-    </div>
+    </div>,
+    document.body
   );
 }
 
