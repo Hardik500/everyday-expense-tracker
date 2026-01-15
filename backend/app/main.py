@@ -1340,3 +1340,439 @@ def link_transfer(source_id: int, target_id: int) -> dict:
         categorized = auto_categorize_linked_transfers(conn)
     
     return {"status": "ok", "categorized": categorized}
+
+
+# ============= AI Categorization APIs =============
+
+from app.rules.ai import ai_classify, clear_category_cache
+
+
+@app.get("/ai/status")
+def ai_status() -> dict:
+    """Check if AI categorization is configured and available."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    
+    pending_suggestions = 0
+    if api_key:
+        with get_conn() as conn:
+            result = conn.execute(
+                "SELECT COUNT(*) as cnt FROM ai_suggestions WHERE status = 'pending'"
+            ).fetchone()
+            pending_suggestions = result["cnt"] if result else 0
+    
+    return {
+        "configured": bool(api_key),
+        "model": "gemini-2.0-flash" if api_key else None,
+        "pending_suggestions": pending_suggestions,
+    }
+
+
+@app.post("/ai/categorize")
+def ai_categorize_transactions(
+    limit: int = Form(50),
+    dry_run: bool = Form(False),
+) -> dict:
+    """
+    Use AI to categorize uncategorized transactions.
+    
+    - limit: Maximum number of transactions to process (default 50)
+    - dry_run: If true, only return suggestions without updating the database
+    """
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=400, 
+            detail="AI categorization not configured. Set GEMINI_API_KEY environment variable."
+        )
+    
+    with get_conn() as conn:
+        # Get uncategorized transactions
+        transactions = conn.execute(
+            """
+            SELECT t.id, t.description_norm, t.amount, t.description_raw
+            FROM transactions t
+            WHERE t.category_id IS NULL OR t.is_uncertain = 1
+            ORDER BY t.posted_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        
+        if not transactions:
+            return {
+                "status": "ok",
+                "message": "No uncategorized transactions found",
+                "processed": 0,
+                "categorized": 0,
+                "rules_created": 0,
+            }
+        
+        categorized = 0
+        rules_created = 0
+        suggestions = []
+        
+        for tx in transactions:
+            # Call AI for each transaction
+            result = ai_classify(
+                tx["description_norm"], 
+                tx["amount"], 
+                conn if not dry_run else None,
+                transaction_id=tx["id"] if not dry_run else None,
+                allow_new_categories=True,
+            )
+            
+            if result:
+                cat_id, subcat_id = result
+                
+                # Get names for response
+                cat_row = conn.execute("SELECT name FROM categories WHERE id = ?", (cat_id,)).fetchone()
+                subcat_row = conn.execute("SELECT name FROM subcategories WHERE id = ?", (subcat_id,)).fetchone()
+                
+                suggestions.append({
+                    "transaction_id": tx["id"],
+                    "description": tx["description_raw"][:50],
+                    "amount": tx["amount"],
+                    "category": cat_row["name"] if cat_row else None,
+                    "subcategory": subcat_row["name"] if subcat_row else None,
+                })
+                
+                if not dry_run:
+                    # Update the transaction
+                    conn.execute(
+                        """
+                        UPDATE transactions
+                        SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+                        WHERE id = ?
+                        """,
+                        (cat_id, subcat_id, tx["id"]),
+                    )
+                    categorized += 1
+        
+        # Count rules and suggestions created by AI
+        suggestions_created = 0
+        if not dry_run:
+            new_rules = conn.execute(
+                "SELECT COUNT(*) as cnt FROM rules WHERE name LIKE 'AI:%'"
+            ).fetchone()
+            rules_created = new_rules["cnt"] if new_rules else 0
+            
+            pending_suggestions = conn.execute(
+                "SELECT COUNT(*) as cnt FROM ai_suggestions WHERE status = 'pending'"
+            ).fetchone()
+            suggestions_created = pending_suggestions["cnt"] if pending_suggestions else 0
+            
+            conn.commit()
+        
+    return {
+        "status": "ok",
+        "processed": len(transactions),
+        "categorized": categorized if not dry_run else len(suggestions),
+        "rules_created": rules_created,
+        "suggestions_pending": suggestions_created,
+        "suggestions": suggestions if dry_run else [],
+        "dry_run": dry_run,
+    }
+
+
+@app.post("/ai/categorize/{transaction_id}")
+def ai_categorize_single(transaction_id: int) -> dict:
+    """Use AI to categorize a single transaction."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="AI categorization not configured. Set GEMINI_API_KEY environment variable."
+        )
+    
+    with get_conn() as conn:
+        tx = conn.execute(
+            "SELECT id, description_norm, amount, description_raw FROM transactions WHERE id = ?",
+            (transaction_id,),
+        ).fetchone()
+        
+        if not tx:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        
+        result = ai_classify(
+            tx["description_norm"], 
+            tx["amount"], 
+            conn,
+            transaction_id=transaction_id,
+            allow_new_categories=True,
+        )
+        
+        if not result:
+            # Check if a suggestion was created
+            suggestion = conn.execute(
+                "SELECT * FROM ai_suggestions WHERE transaction_id = ? AND status = 'pending'",
+                (transaction_id,)
+            ).fetchone()
+            
+            if suggestion:
+                return {
+                    "status": "suggestion_created",
+                    "message": "AI suggests a new category - please review",
+                    "transaction_id": transaction_id,
+                    "suggestion_id": suggestion["id"],
+                    "suggested_category": suggestion["suggested_category"],
+                    "suggested_subcategory": suggestion["suggested_subcategory"],
+                }
+            
+            return {
+                "status": "error",
+                "message": "AI could not categorize this transaction",
+                "transaction_id": transaction_id,
+            }
+        
+        cat_id, subcat_id = result
+        
+        # Update transaction
+        conn.execute(
+            """
+            UPDATE transactions
+            SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+            WHERE id = ?
+            """,
+            (cat_id, subcat_id, transaction_id),
+        )
+        conn.commit()
+        
+        # Get names
+        cat_row = conn.execute("SELECT name FROM categories WHERE id = ?", (cat_id,)).fetchone()
+        subcat_row = conn.execute("SELECT name FROM subcategories WHERE id = ?", (subcat_id,)).fetchone()
+        
+    return {
+        "status": "ok",
+        "transaction_id": transaction_id,
+        "category": cat_row["name"] if cat_row else None,
+        "subcategory": subcat_row["name"] if subcat_row else None,
+    }
+
+
+@app.get("/ai/rules")
+def get_ai_rules() -> List[dict]:
+    """Get all rules created by AI."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT r.id, r.name, r.pattern, r.category_id, r.subcategory_id, r.priority, r.active,
+                   c.name as category_name, s.name as subcategory_name
+            FROM rules r
+            LEFT JOIN categories c ON c.id = r.category_id
+            LEFT JOIN subcategories s ON s.id = r.subcategory_id
+            WHERE r.name LIKE 'AI:%'
+            ORDER BY r.id DESC
+            """
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+@app.get("/ai/suggestions")
+def get_ai_suggestions(status: str = "pending") -> List[dict]:
+    """Get AI category suggestions pending approval."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT s.id, s.transaction_id, s.suggested_category, s.suggested_subcategory,
+                   s.existing_category_id, s.existing_subcategory_id, s.regex_pattern,
+                   s.confidence, s.status, s.created_at,
+                   t.description_raw, t.amount, t.posted_at
+            FROM ai_suggestions s
+            JOIN transactions t ON t.id = s.transaction_id
+            WHERE s.status = ?
+            ORDER BY s.created_at DESC
+            """,
+            (status,)
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+@app.post("/ai/suggestions/{suggestion_id}/approve")
+def approve_ai_suggestion(suggestion_id: int) -> dict:
+    """
+    Approve an AI suggestion - creates the category/subcategory if needed
+    and categorizes the transaction.
+    """
+    from app.rules.ai import clear_category_cache
+    
+    with get_conn() as conn:
+        # Get the suggestion
+        suggestion = conn.execute(
+            "SELECT * FROM ai_suggestions WHERE id = ?",
+            (suggestion_id,)
+        ).fetchone()
+        
+        if not suggestion:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        
+        if suggestion["status"] != "pending":
+            raise HTTPException(status_code=400, detail="Suggestion already processed")
+        
+        category_id = suggestion["existing_category_id"]
+        subcategory_id = suggestion["existing_subcategory_id"]
+        
+        # Create category if it doesn't exist
+        if not category_id:
+            cursor = conn.execute(
+                "INSERT INTO categories (name) VALUES (?)",
+                (suggestion["suggested_category"],)
+            )
+            category_id = cursor.lastrowid
+            clear_category_cache()
+        
+        # Create subcategory if it doesn't exist
+        if not subcategory_id:
+            cursor = conn.execute(
+                "INSERT INTO subcategories (category_id, name) VALUES (?, ?)",
+                (category_id, suggestion["suggested_subcategory"])
+            )
+            subcategory_id = cursor.lastrowid
+            clear_category_cache()
+        
+        # Update the transaction
+        conn.execute(
+            """
+            UPDATE transactions
+            SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+            WHERE id = ?
+            """,
+            (category_id, subcategory_id, suggestion["transaction_id"])
+        )
+        
+        # Create a rule if pattern was suggested
+        if suggestion["regex_pattern"]:
+            try:
+                import re
+                re.compile(suggestion["regex_pattern"])
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO rules (name, pattern, category_id, subcategory_id, priority, active)
+                    VALUES (?, ?, ?, ?, 55, 1)
+                    """,
+                    (
+                        f"AI: {suggestion['suggested_category']} - {suggestion['suggested_subcategory'][:20]}",
+                        suggestion["regex_pattern"],
+                        category_id,
+                        subcategory_id
+                    )
+                )
+            except:
+                pass
+        
+        # Mark suggestion as approved
+        conn.execute(
+            "UPDATE ai_suggestions SET status = 'approved', reviewed_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (suggestion_id,)
+        )
+        
+        conn.commit()
+        
+    return {
+        "status": "ok",
+        "category_id": category_id,
+        "subcategory_id": subcategory_id,
+        "category_name": suggestion["suggested_category"],
+        "subcategory_name": suggestion["suggested_subcategory"],
+    }
+
+
+@app.post("/ai/suggestions/{suggestion_id}/reject")
+def reject_ai_suggestion(suggestion_id: int) -> dict:
+    """Reject an AI suggestion."""
+    with get_conn() as conn:
+        suggestion = conn.execute(
+            "SELECT id, status FROM ai_suggestions WHERE id = ?",
+            (suggestion_id,)
+        ).fetchone()
+        
+        if not suggestion:
+            raise HTTPException(status_code=404, detail="Suggestion not found")
+        
+        if suggestion["status"] != "pending":
+            raise HTTPException(status_code=400, detail="Suggestion already processed")
+        
+        conn.execute(
+            "UPDATE ai_suggestions SET status = 'rejected', reviewed_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (suggestion_id,)
+        )
+        conn.commit()
+        
+    return {"status": "ok", "suggestion_id": suggestion_id}
+
+
+@app.post("/ai/suggestions/approve-all")
+def approve_all_suggestions() -> dict:
+    """Approve all pending AI suggestions."""
+    from app.rules.ai import clear_category_cache
+    
+    with get_conn() as conn:
+        suggestions = conn.execute(
+            "SELECT id FROM ai_suggestions WHERE status = 'pending'"
+        ).fetchall()
+        
+        approved_count = 0
+        for s in suggestions:
+            try:
+                # Get full suggestion
+                suggestion = conn.execute(
+                    "SELECT * FROM ai_suggestions WHERE id = ?",
+                    (s["id"],)
+                ).fetchone()
+                
+                category_id = suggestion["existing_category_id"]
+                subcategory_id = suggestion["existing_subcategory_id"]
+                
+                # Create category if needed
+                if not category_id:
+                    existing = conn.execute(
+                        "SELECT id FROM categories WHERE LOWER(name) = LOWER(?)",
+                        (suggestion["suggested_category"],)
+                    ).fetchone()
+                    if existing:
+                        category_id = existing["id"]
+                    else:
+                        cursor = conn.execute(
+                            "INSERT INTO categories (name) VALUES (?)",
+                            (suggestion["suggested_category"],)
+                        )
+                        category_id = cursor.lastrowid
+                
+                # Create subcategory if needed
+                if not subcategory_id:
+                    existing = conn.execute(
+                        "SELECT id FROM subcategories WHERE category_id = ? AND LOWER(name) = LOWER(?)",
+                        (category_id, suggestion["suggested_subcategory"])
+                    ).fetchone()
+                    if existing:
+                        subcategory_id = existing["id"]
+                    else:
+                        cursor = conn.execute(
+                            "INSERT INTO subcategories (category_id, name) VALUES (?, ?)",
+                            (category_id, suggestion["suggested_subcategory"])
+                        )
+                        subcategory_id = cursor.lastrowid
+                
+                # Update transaction
+                conn.execute(
+                    """
+                    UPDATE transactions
+                    SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+                    WHERE id = ?
+                    """,
+                    (category_id, subcategory_id, suggestion["transaction_id"])
+                )
+                
+                # Mark approved
+                conn.execute(
+                    "UPDATE ai_suggestions SET status = 'approved', reviewed_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (s["id"],)
+                )
+                approved_count += 1
+                
+            except Exception:
+                continue
+        
+        conn.commit()
+        clear_category_cache()
+        
+    return {"status": "ok", "approved_count": approved_count}

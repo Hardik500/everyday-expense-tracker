@@ -5,12 +5,12 @@ Falls back to None if no API key is configured or rate-limited.
 import json
 import os
 import re
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 
 import httpx
 
 
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
 # Cache for category/subcategory lookups to avoid repeated DB queries
 _category_cache: dict = {}
@@ -46,37 +46,57 @@ def _get_categories_json(conn) -> str:
     return json.dumps(result, indent=2)
 
 
-def _build_prompt(description: str, amount: float, categories_json: str) -> str:
+def _build_prompt(description: str, amount: float, categories_json: str, allow_new: bool = True) -> str:
     """Build the prompt for Gemini."""
+    new_category_instruction = """
+5. If none of the existing categories fit well, you MAY suggest a NEW category/subcategory
+   - Set "is_new_category": true and/or "is_new_subcategory": true
+   - Make the new names clear, concise, and consistent with existing naming style
+""" if allow_new else ""
+
     return f"""You are a financial transaction categorizer for Indian bank/credit card statements.
 
-Given a transaction description and amount, categorize it into one of the available categories and subcategories.
+Given a transaction description and amount, categorize it into the most appropriate category and subcategory.
 
 IMPORTANT RULES:
-1. Return ONLY valid JSON with "category" and "subcategory" fields matching EXACTLY the names provided
-2. Also suggest a "regex_pattern" that could be used to identify similar transactions in the future
-3. If you cannot confidently categorize, return {{"category": "Miscellaneous", "subcategory": "Uncategorized", "regex_pattern": null}}
-4. The regex should be simple and capture the key merchant/vendor name or transaction type
+1. Return ONLY valid JSON
+2. PREFER using existing categories/subcategories when they fit reasonably well
+3. Suggest a "regex_pattern" that could identify similar transactions in the future
+4. The regex should be simple and capture the key merchant/vendor name{new_category_instruction}
 
 Available Categories and Subcategories:
 {categories_json}
 
 Transaction to categorize:
 - Description: {description}
-- Amount: ₹{abs(amount):.2f} ({'debit' if amount < 0 else 'credit'})
+- Amount: ₹{abs(amount):.2f} ({'debit/expense' if amount < 0 else 'credit/income'})
 
-Respond with ONLY a JSON object like:
-{{"category": "Food & Dining", "subcategory": "Swiggy & Zomato", "regex_pattern": "SWIGGY|BUNDL\\\\s*TECH"}}"""
+Respond with ONLY a JSON object:
+{{
+  "category": "Category Name",
+  "subcategory": "Subcategory Name", 
+  "regex_pattern": "PATTERN",
+  "is_new_category": false,
+  "is_new_subcategory": false,
+  "confidence": "high"
+}}
+
+Set confidence to "high", "medium", or "low" based on how certain you are."""
 
 
 def ai_classify(
     description_norm: str,
     amount: float,
     conn=None,
+    transaction_id: Optional[int] = None,
+    allow_new_categories: bool = True,
 ) -> Optional[Tuple[int, int]]:
     """
     Use Google Gemini to classify a transaction.
     Returns (category_id, subcategory_id) tuple or None if classification fails.
+    
+    If AI suggests a new category/subcategory and allow_new_categories=True,
+    creates a suggestion record for user approval.
     
     Also creates a rule from the AI's suggestion to avoid future API calls.
     """
@@ -85,12 +105,11 @@ def ai_classify(
         return None
     
     if not conn:
-        # If no connection provided, we can't look up categories
         return None
     
     try:
         categories_json = _get_categories_json(conn)
-        prompt = _build_prompt(description_norm, amount, categories_json)
+        prompt = _build_prompt(description_norm, amount, categories_json, allow_new=allow_new_categories)
         
         response = httpx.post(
             f"{GEMINI_API_URL}?key={api_key}",
@@ -121,32 +140,63 @@ def ai_classify(
         category_name = result.get("category")
         subcategory_name = result.get("subcategory")
         regex_pattern = result.get("regex_pattern")
+        is_new_category = result.get("is_new_category", False)
+        is_new_subcategory = result.get("is_new_subcategory", False)
+        confidence = result.get("confidence", "medium")
         
         if not category_name or not subcategory_name:
             return None
         
-        # Look up IDs
+        # Look up category
         category = conn.execute(
-            "SELECT id FROM categories WHERE name = ?",
+            "SELECT id FROM categories WHERE LOWER(name) = LOWER(?)",
             (category_name,)
         ).fetchone()
         
+        # If category doesn't exist and AI suggested new one
         if not category:
-            return None
+            if is_new_category and allow_new_categories and transaction_id:
+                # Create a suggestion for user approval
+                _create_suggestion(
+                    conn, transaction_id, category_name, subcategory_name,
+                    None, None, regex_pattern, confidence
+                )
+                return None  # Don't categorize yet, wait for approval
+            else:
+                # Fall back to Miscellaneous
+                category = conn.execute(
+                    "SELECT id FROM categories WHERE name = 'Miscellaneous'"
+                ).fetchone()
+                if not category:
+                    return None
         
+        # Look up subcategory
         subcategory = conn.execute(
-            "SELECT id FROM subcategories WHERE category_id = ? AND name = ?",
+            "SELECT id FROM subcategories WHERE category_id = ? AND LOWER(name) = LOWER(?)",
             (category["id"], subcategory_name)
         ).fetchone()
         
         if not subcategory:
-            # Try to find any subcategory in this category
-            subcategory = conn.execute(
-                "SELECT id FROM subcategories WHERE category_id = ? LIMIT 1",
-                (category["id"],)
-            ).fetchone()
-            if not subcategory:
-                return None
+            if is_new_subcategory and allow_new_categories and transaction_id:
+                # Create a suggestion for new subcategory
+                _create_suggestion(
+                    conn, transaction_id, category_name, subcategory_name,
+                    category["id"], None, regex_pattern, confidence
+                )
+                return None  # Don't categorize yet, wait for approval
+            else:
+                # Try to find first subcategory in this category, or use "Other"
+                subcategory = conn.execute(
+                    "SELECT id FROM subcategories WHERE category_id = ? AND name LIKE '%Other%' LIMIT 1",
+                    (category["id"],)
+                ).fetchone()
+                if not subcategory:
+                    subcategory = conn.execute(
+                        "SELECT id FROM subcategories WHERE category_id = ? LIMIT 1",
+                        (category["id"],)
+                    ).fetchone()
+                if not subcategory:
+                    return None
         
         # Create a rule from the AI's suggestion to avoid future API calls
         if regex_pattern and regex_pattern != "null":
@@ -157,13 +207,48 @@ def ai_classify(
                 category["id"],
                 subcategory["id"],
                 category_name,
-                subcategory_name,
+                subcategory_name if not is_new_subcategory else subcategory_name,
             )
         
         return (category["id"], subcategory["id"])
         
-    except Exception:
+    except Exception as e:
         return None
+
+
+def _create_suggestion(
+    conn,
+    transaction_id: int,
+    category_name: str,
+    subcategory_name: str,
+    existing_category_id: Optional[int],
+    existing_subcategory_id: Optional[int],
+    regex_pattern: Optional[str],
+    confidence: str,
+) -> None:
+    """Create an AI suggestion record for user approval."""
+    try:
+        # Check if suggestion already exists for this transaction
+        existing = conn.execute(
+            "SELECT id FROM ai_suggestions WHERE transaction_id = ? AND status = 'pending'",
+            (transaction_id,)
+        ).fetchone()
+        
+        if existing:
+            return
+        
+        conn.execute(
+            """
+            INSERT INTO ai_suggestions (
+                transaction_id, suggested_category, suggested_subcategory,
+                existing_category_id, existing_subcategory_id, regex_pattern, confidence
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (transaction_id, category_name, subcategory_name,
+             existing_category_id, existing_subcategory_id, regex_pattern, confidence),
+        )
+    except Exception:
+        pass
 
 
 def _create_rule_from_ai(

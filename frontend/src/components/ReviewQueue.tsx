@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Category, Subcategory, Transaction } from "../App";
+import AISuggestions from "./AISuggestions";
 
 type Props = {
   apiBase: string;
@@ -13,6 +14,11 @@ type SimilarInfo = {
   count: number;
   pattern: string;
   ids: number[];
+};
+
+type AIStatus = {
+  configured: boolean;
+  model: string | null;
 };
 
 const formatCurrency = (amount: number) => {
@@ -50,6 +56,20 @@ function ReviewQueue({
   const [similarInfo, setSimilarInfo] = useState<Record<number, SimilarInfo>>({});
   const [applyToSimilar, setApplyToSimilar] = useState<Record<number, boolean>>({});
   const [createRule, setCreateRule] = useState<Record<number, boolean>>({});
+  
+  // AI categorization
+  const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiProgress, setAiProgress] = useState<{ processed: number; total: number } | null>(null);
+  const [aiProcessingTx, setAiProcessingTx] = useState<Record<number, boolean>>({});
+
+  // Check AI status on mount
+  useEffect(() => {
+    fetch(`${apiBase}/ai/status`)
+      .then((res) => res.json())
+      .then(setAiStatus)
+      .catch(() => setAiStatus({ configured: false, model: null }));
+  }, [apiBase]);
 
   useEffect(() => {
     fetch(`${apiBase}/transactions?uncertain=true`)
@@ -146,6 +166,61 @@ function ReviewQueue({
     onUpdated();
   };
 
+  // AI categorize all uncategorized transactions
+  const aiCategorizeAll = async () => {
+    if (!aiStatus?.configured) return;
+    
+    setAiLoading(true);
+    setAiProgress({ processed: 0, total: transactions.length });
+    
+    try {
+      const formData = new FormData();
+      formData.append("limit", Math.min(transactions.length, 100).toString());
+      formData.append("dry_run", "false");
+      
+      const res = await fetch(`${apiBase}/ai/categorize`, {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setAiProgress({ processed: data.categorized || 0, total: data.processed || 0 });
+        
+        // Show success briefly, then refresh
+        setTimeout(() => {
+          setAiProgress(null);
+          onUpdated();
+        }, 1500);
+      }
+    } catch (err) {
+      console.error("AI categorization failed:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // AI categorize single transaction
+  const aiCategorizeSingle = async (txId: number) => {
+    if (!aiStatus?.configured) return;
+    
+    setAiProcessingTx((prev) => ({ ...prev, [txId]: true }));
+    
+    try {
+      const res = await fetch(`${apiBase}/ai/categorize/${txId}`, {
+        method: "POST",
+      });
+      
+      if (res.ok) {
+        onUpdated();
+      }
+    } catch (err) {
+      console.error("AI categorization failed:", err);
+    } finally {
+      setAiProcessingTx((prev) => ({ ...prev, [txId]: false }));
+    }
+  };
+
   const pagedTransactions = transactions.slice(page * pageSize, (page + 1) * pageSize);
   const totalPages = Math.ceil(transactions.length / pageSize);
 
@@ -165,9 +240,12 @@ function ReviewQueue({
 
   return (
     <div style={{ display: "grid", gap: "1rem" }}>
+      {/* AI Category Suggestions */}
+      <AISuggestions apiBase={apiBase} onUpdated={onUpdated} />
+      
       {/* Progress indicator */}
       <div className="card" style={{ padding: "1rem 1.25rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
             <div
               style={{
@@ -194,10 +272,60 @@ function ReviewQueue({
               </div>
             </div>
           </div>
-          <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-            Page {page + 1} of {totalPages}
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            {/* AI Categorize Button */}
+            {aiStatus?.configured && (
+              <button
+                onClick={aiCategorizeAll}
+                disabled={aiLoading}
+                className="primary"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  background: "linear-gradient(135deg, #8b5cf6, #6366f1)",
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+                {aiLoading ? (
+                  aiProgress ? `Processing ${aiProgress.processed}/${aiProgress.total}...` : "Starting..."
+                ) : (
+                  `AI Categorize All`
+                )}
+              </button>
+            )}
+            {!aiStatus?.configured && aiStatus !== null && (
+              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", padding: "0.5rem 0.75rem", background: "var(--bg-input)", borderRadius: "var(--radius-md)" }}>
+                💡 Set GEMINI_API_KEY to enable AI
+              </div>
+            )}
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+              Page {page + 1} of {totalPages}
+            </div>
           </div>
         </div>
+        
+        {/* AI Progress Bar */}
+        {aiProgress && (
+          <div style={{ marginTop: "1rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.375rem" }}>
+              <span>AI categorizing transactions...</span>
+              <span>{aiProgress.processed} of {aiProgress.total} categorized</span>
+            </div>
+            <div style={{ height: 4, background: "var(--bg-input)", borderRadius: 2, overflow: "hidden" }}>
+              <div 
+                style={{ 
+                  height: "100%", 
+                  width: `${(aiProgress.processed / Math.max(aiProgress.total, 1)) * 100}%`,
+                  background: "linear-gradient(90deg, #8b5cf6, #6366f1)",
+                  transition: "width 0.3s ease",
+                }} 
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Transaction cards */}
@@ -358,6 +486,35 @@ function ReviewQueue({
                   >
                     Skip
                   </button>
+                  {aiStatus?.configured && (
+                    <button
+                      onClick={() => aiCategorizeSingle(tx.id)}
+                      disabled={aiProcessingTx[tx.id]}
+                      title="Categorize with AI"
+                      style={{ 
+                        flex: 0,
+                        padding: "0.5rem 0.75rem",
+                        background: "linear-gradient(135deg, #8b5cf6, #6366f1)",
+                        border: "none",
+                        borderRadius: "var(--radius-md)",
+                        color: "white",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {aiProcessingTx[tx.id] ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ animation: "spin 1s linear infinite" }}>
+                          <circle cx="12" cy="12" r="10" strokeWidth={2} strokeDasharray="31.4" strokeDashoffset="10" />
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                        </svg>
+                      )}
+                    </button>
+                  )}
                   <button
                     className="primary"
                     onClick={() => submit(tx.id)}
