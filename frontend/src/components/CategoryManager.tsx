@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Category, Subcategory } from "../App";
 
 type Props = {
@@ -18,20 +19,20 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
   const [categories, setCategories] = useState<CategoryWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // Add category modal
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  
+
   // Add subcategory modal
   const [addingSubcategoryTo, setAddingSubcategoryTo] = useState<number | null>(null);
   const [newSubcategoryName, setNewSubcategoryName] = useState("");
-  
+
   // Edit modal
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editingSubcategory, setEditingSubcategory] = useState<Subcategory | null>(null);
   const [editName, setEditName] = useState("");
-  
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -40,7 +41,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
     try {
       const res = await fetch(`${apiBase}/categories`);
       const data = await res.json();
-      
+
       // Group subcategories by category
       const cats: CategoryWithStats[] = (data.categories || []).map((cat: Category) => ({
         ...cat,
@@ -49,7 +50,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
         ),
         expanded: false,
       }));
-      
+
       setCategories(cats);
     } catch (err) {
       setCategories([]);
@@ -79,24 +80,24 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
       setError("Category name is required");
       return;
     }
-    
+
     setSaving(true);
     setError("");
-    
+
     try {
       const formData = new FormData();
       formData.append("name", newCategoryName.trim());
-      
+
       const res = await fetch(`${apiBase}/categories`, {
         method: "POST",
         body: formData,
       });
-      
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.detail || "Failed to create category");
       }
-      
+
       setNewCategoryName("");
       setShowAddCategory(false);
       fetchCategories();
@@ -112,25 +113,25 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
       setError("Subcategory name is required");
       return;
     }
-    
+
     setSaving(true);
     setError("");
-    
+
     try {
       const formData = new FormData();
       formData.append("category_id", addingSubcategoryTo.toString());
       formData.append("name", newSubcategoryName.trim());
-      
+
       const res = await fetch(`${apiBase}/subcategories`, {
         method: "POST",
         body: formData,
       });
-      
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.detail || "Failed to create subcategory");
       }
-      
+
       setNewSubcategoryName("");
       setAddingSubcategoryTo(null);
       fetchCategories();
@@ -143,24 +144,24 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
 
   const handleEditCategory = async () => {
     if (!editName.trim() || !editingCategory) return;
-    
+
     setSaving(true);
     setError("");
-    
+
     try {
       const formData = new FormData();
       formData.append("name", editName.trim());
-      
+
       const res = await fetch(`${apiBase}/categories/${editingCategory.id}`, {
         method: "PUT",
         body: formData,
       });
-      
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.detail || "Failed to update");
       }
-      
+
       setEditingCategory(null);
       setEditName("");
       fetchCategories();
@@ -173,24 +174,24 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
 
   const handleEditSubcategory = async () => {
     if (!editName.trim() || !editingSubcategory) return;
-    
+
     setSaving(true);
     setError("");
-    
+
     try {
       const formData = new FormData();
       formData.append("name", editName.trim());
-      
+
       const res = await fetch(`${apiBase}/subcategories/${editingSubcategory.id}`, {
         method: "PUT",
         body: formData,
       });
-      
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.detail || "Failed to update");
       }
-      
+
       setEditingSubcategory(null);
       setEditName("");
       fetchCategories();
@@ -205,17 +206,17 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
     if (!confirm(`Delete category "${cat.name}" and all its subcategories?\n\nThis cannot be undone.`)) {
       return;
     }
-    
+
     try {
       const res = await fetch(`${apiBase}/categories/${cat.id}`, {
         method: "DELETE",
       });
-      
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.detail || "Failed to delete");
       }
-      
+
       fetchCategories();
       onRefresh();
     } catch (err) {
@@ -227,17 +228,17 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
     if (!confirm(`Delete subcategory "${sub.name}"?\n\nThis cannot be undone.`)) {
       return;
     }
-    
+
     try {
       const res = await fetch(`${apiBase}/subcategories/${sub.id}`, {
         method: "DELETE",
       });
-      
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.detail || "Failed to delete");
       }
-      
+
       fetchCategories();
       onRefresh();
     } catch (err) {
@@ -278,12 +279,12 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
               }}
             />
           </div>
-          
+
           {/* Stats */}
           <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             {categories.length} categories • {totalSubcategories} subcategories
           </div>
-          
+
           {/* Add button */}
           <button
             onClick={() => setShowAddCategory(true)}
@@ -339,7 +340,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-                
+
                 {/* Category name */}
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>
@@ -349,7 +350,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                     {cat.subcategories.length} subcategories
                   </div>
                 </div>
-                
+
                 {/* Actions */}
                 <div
                   style={{ display: "flex", gap: "0.5rem" }}
@@ -415,7 +416,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                   </button>
                 </div>
               </div>
-              
+
               {/* Subcategories */}
               {cat.expanded && cat.subcategories.length > 0 && (
                 <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
@@ -482,7 +483,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                   ))}
                 </div>
               )}
-              
+
               {cat.expanded && cat.subcategories.length === 0 && (
                 <div
                   style={{
@@ -502,7 +503,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
       </div>
 
       {/* Add Category Modal */}
-      {showAddCategory && (
+      {showAddCategory && createPortal(
         <div
           style={{
             position: "fixed",
@@ -525,7 +526,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                 ✕
               </button>
             </div>
-            
+
             <div style={{ display: "grid", gap: "1rem" }}>
               <div>
                 <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
@@ -548,13 +549,13 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                   onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
                 />
               </div>
-              
+
               {error && (
                 <div style={{ padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "var(--radius-md)", color: "#ef4444", fontSize: "0.875rem" }}>
                   {error}
                 </div>
               )}
-              
+
               <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
                 <button
                   onClick={() => setShowAddCategory(false)}
@@ -572,11 +573,12 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Add Subcategory Modal */}
-      {addingSubcategoryTo && (
+      {addingSubcategoryTo && createPortal(
         <div
           style={{
             position: "fixed",
@@ -599,14 +601,14 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                 ✕
               </button>
             </div>
-            
+
             <div style={{ display: "grid", gap: "1rem" }}>
               <div style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
                 Adding to: <strong style={{ color: "var(--text-primary)" }}>
                   {categories.find((c) => c.id === addingSubcategoryTo)?.name}
                 </strong>
               </div>
-              
+
               <div>
                 <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
                   Subcategory Name
@@ -628,13 +630,13 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                   onKeyDown={(e) => e.key === "Enter" && handleAddSubcategory()}
                 />
               </div>
-              
+
               {error && (
                 <div style={{ padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "var(--radius-md)", color: "#ef4444", fontSize: "0.875rem" }}>
                   {error}
                 </div>
               )}
-              
+
               <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
                 <button
                   onClick={() => setAddingSubcategoryTo(null)}
@@ -652,11 +654,12 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Edit Category Modal */}
-      {editingCategory && (
+      {editingCategory && createPortal(
         <div
           style={{
             position: "fixed",
@@ -679,7 +682,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                 ✕
               </button>
             </div>
-            
+
             <div style={{ display: "grid", gap: "1rem" }}>
               <div>
                 <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
@@ -701,13 +704,13 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                   onKeyDown={(e) => e.key === "Enter" && handleEditCategory()}
                 />
               </div>
-              
+
               {error && (
                 <div style={{ padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "var(--radius-md)", color: "#ef4444", fontSize: "0.875rem" }}>
                   {error}
                 </div>
               )}
-              
+
               <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
                 <button
                   onClick={() => setEditingCategory(null)}
@@ -725,11 +728,12 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Edit Subcategory Modal */}
-      {editingSubcategory && (
+      {editingSubcategory && createPortal(
         <div
           style={{
             position: "fixed",
@@ -752,7 +756,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                 ✕
               </button>
             </div>
-            
+
             <div style={{ display: "grid", gap: "1rem" }}>
               <div>
                 <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
@@ -774,13 +778,13 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                   onKeyDown={(e) => e.key === "Enter" && handleEditSubcategory()}
                 />
               </div>
-              
+
               {error && (
                 <div style={{ padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "var(--radius-md)", color: "#ef4444", fontSize: "0.875rem" }}>
                   {error}
                 </div>
               )}
-              
+
               <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
                 <button
                   onClick={() => setEditingSubcategory(null)}
@@ -798,7 +802,8 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
