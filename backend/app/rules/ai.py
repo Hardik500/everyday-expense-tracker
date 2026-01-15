@@ -58,11 +58,20 @@ def _build_prompt(description: str, amount: float, categories_json: str, allow_n
 
 Given a transaction description and amount, categorize it into the most appropriate category and subcategory.
 
+IMPORTANT CONTEXT FOR INDIAN BANKING:
+- "ACH C-" prefix means an incoming credit via ACH (could be dividend, salary, refund, etc.)
+- "ACH D-" prefix means an outgoing debit via ACH
+- Company names followed by account numbers often indicate DIVIDENDS from stock investments
+- "NEFT", "RTGS", "IMPS", "UPI" are transfer methods
+- "POS" means point-of-sale card transaction
+- Amounts that are CREDITS (+ve) from company names are usually dividends or refunds
+
 IMPORTANT RULES:
 1. Return ONLY valid JSON
 2. PREFER using existing categories/subcategories when they fit reasonably well
 3. Suggest a "regex_pattern" that could identify similar transactions in the future
-4. The regex should be simple and capture the key merchant/vendor name{new_category_instruction}
+4. The regex should be simple and capture the key merchant/vendor name
+5. For credits from companies (especially with account numbers), consider "Income > Dividend"{new_category_instruction}
 
 Available Categories and Subcategories:
 {categories_json}
