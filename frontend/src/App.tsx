@@ -242,7 +242,6 @@ function App() {
           marginLeft: 72,
           flex: 1,
           padding: "2rem 2.5rem",
-          maxWidth: 1400,
         }}
       >
         {/* Header */}
