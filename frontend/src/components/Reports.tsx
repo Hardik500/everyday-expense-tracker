@@ -91,8 +91,11 @@ function Reports({ apiBase, refreshKey, onRefresh }: Props) {
   // True income (excludes investment returns and transfer receipts)
   const totalIncome = incomeItems.reduce((sum, item) => sum + item.total, 0);
 
-  // Net balance = income minus actual spending (excludes asset movements like investments)
-  const netBalance = totalIncome - totalSpend;
+  // Cash Flow = true change in account (all income minus all outflows)
+  const cashFlow = items.reduce((sum, item) => sum + item.total, 0);
+
+  // Savings Rate = percentage of income not spent on expenses
+  const savingsRate = totalIncome > 0 ? ((totalIncome - totalSpend) / totalIncome) * 100 : 0;
 
   // Total invested/transferred
   const totalInvested = Math.abs(
@@ -130,7 +133,7 @@ function Reports({ apiBase, refreshKey, onRefresh }: Props) {
     <div style={{ display: "grid", gap: "1.5rem" }}>
       {/* Summary Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1rem" }}>
-        {/* Net Balance */}
+        {/* Cash Flow (true account change) */}
         <div className="card" style={{ padding: "1.25rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
             <div
@@ -138,21 +141,53 @@ function Reports({ apiBase, refreshKey, onRefresh }: Props) {
                 width: 40,
                 height: 40,
                 borderRadius: 10,
-                background: netBalance >= 0 ? "var(--accent-glow)" : "rgba(239, 68, 68, 0.15)",
+                background: cashFlow >= 0 ? "var(--accent-glow)" : "rgba(239, 68, 68, 0.15)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: netBalance >= 0 ? "var(--accent)" : "#ef4444",
+                color: cashFlow >= 0 ? "var(--accent)" : "#ef4444",
               }}
             >
               <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Net Balance</span>
+            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Cash Flow</span>
           </div>
-          <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: netBalance >= 0 ? "var(--accent)" : "#ef4444" }}>
-            {formatFullCurrency(netBalance)}
+          <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: cashFlow >= 0 ? "var(--accent)" : "#ef4444" }}>
+            {formatFullCurrency(cashFlow)}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+            {cashFlow < 0 ? "Used savings for investments" : "Added to savings"}
+          </div>
+        </div>
+
+        {/* Savings Rate */}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: "rgba(16, 185, 129, 0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#10b981",
+              }}
+            >
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Savings Rate</span>
+          </div>
+          <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: "#10b981" }}>
+            {savingsRate.toFixed(0)}%
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+            Income not spent on expenses
           </div>
         </div>
 
