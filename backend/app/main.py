@@ -564,7 +564,7 @@ def update_transaction(
 
 
 @app.get("/transactions/{transaction_id}/similar")
-def find_similar_transactions(transaction_id: int) -> dict:
+def find_similar_transactions(transaction_id: int, pattern: Optional[str] = None) -> dict:
     """Find transactions with similar descriptions."""
     import re
     
@@ -576,16 +576,27 @@ def find_similar_transactions(transaction_id: int) -> dict:
         if not tx:
             raise HTTPException(status_code=404, detail="Transaction not found")
         
-        desc = tx["description_norm"]
-        
-        # Extract key words (first 2-3 significant words)
-        words = [w for w in desc.split() if len(w) > 2 and not w.isdigit()][:3]
-        if not words:
-            return {"similar": [], "pattern": "", "count": 0}
-        
-        # Build a search pattern
-        pattern = "%".join(words[:2]) if len(words) >= 2 else words[0]
-        search_pattern = f"%{pattern}%"
+        search_pattern = ""
+        display_pattern = ""
+
+        if pattern:
+            # Use provided pattern
+            # If pattern doesn't contain %, assume it's a "contains" search and wrap it
+            display_pattern = pattern
+            if "%" not in pattern and "_" not in pattern:
+                 search_pattern = f"%{pattern}%"
+            else:
+                 search_pattern = pattern
+        else:
+            # Extract key words (first 2-3 significant words)
+            desc = tx["description_norm"]
+            words = [w for w in desc.split() if len(w) > 2 and not w.isdigit()][:3]
+            if not words:
+                return {"similar": [], "pattern": "", "count": 0}
+            
+            # Build a search pattern
+            display_pattern = "%".join(words[:2]) if len(words) >= 2 else words[0]
+            search_pattern = f"%{display_pattern}%"
         
         similar = conn.execute(
             """
@@ -600,7 +611,7 @@ def find_similar_transactions(transaction_id: int) -> dict:
         
         return {
             "similar": [dict(row) for row in similar],
-            "pattern": pattern,
+            "pattern": display_pattern,
             "count": len(similar),
         }
 

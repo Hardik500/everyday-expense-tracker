@@ -16,6 +16,19 @@ def _load_rules(conn):
     ).fetchall()
 
 
+def _sql_like_to_regex(pattern: str) -> str:
+    """Convert SQL LIKE pattern to Regex."""
+    parts = []
+    for char in pattern:
+        if char == "%":
+            parts.append(".*")
+        elif char == "_":
+            parts.append(".")
+        else:
+            parts.append(re.escape(char))
+    return "^" + "".join(parts) + "$"
+
+
 def _match_rule(rule, description_norm: str, amount: float, account_type: Optional[str]) -> bool:
     if rule["account_type"] and account_type and rule["account_type"] != account_type:
         return False
@@ -26,7 +39,9 @@ def _match_rule(rule, description_norm: str, amount: float, account_type: Option
     if rule["max_amount"] is not None and amount > rule["max_amount"]:
         return False
     try:
-        return re.search(rule["pattern"], description_norm, re.IGNORECASE) is not None
+        # Convert SQL LIKE pattern (used in DB) to Regex (used in Python)
+        regex = _sql_like_to_regex(rule["pattern"])
+        return re.search(regex, description_norm, re.IGNORECASE) is not None
     except re.error:
         return False
 

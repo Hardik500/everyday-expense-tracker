@@ -662,7 +662,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                     <button
                       className="secondary"
                       style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
-                      onClick={() => setSelectedSimilarIds(new Set(similarTxs.map((t) => t.id)))}
+                      onClick={() => setSelectedSimilarIds(new Set<number>(similarTxs.map((t) => t.id)))}
                     >
                       Select All
                     </button>
@@ -816,23 +816,69 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
               <div style={{ marginTop: "0.75rem" }}>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
-                  Pattern (editable)
+                  Pattern (use % for wildcard)
                 </div>
-                <input
-                  type="text"
-                  value={similarPattern}
-                  onChange={(e) => setSimilarPattern(e.target.value)}
-                  style={{
-                    width: "100%",
-                    fontSize: "0.875rem",
-                    padding: "0.375rem 0.625rem",
-                    fontFamily: "monospace",
-                    background: "var(--bg-secondary)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "var(--radius-sm)",
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                />
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <input
+                    type="text"
+                    value={similarPattern}
+                    onChange={(e) => setSimilarPattern(e.target.value)}
+                    style={{
+                      width: "100%",
+                      fontSize: "0.875rem",
+                      padding: "0.375rem 0.625rem",
+                      fontFamily: "monospace",
+                      background: "var(--bg-secondary)",
+                      border: "1px solid var(--border-color)",
+                      borderRadius: "var(--radius-sm)",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        setLoadingSimilar(true);
+                        fetch(`${apiBase}/transactions/${editingTx.id}/similar?pattern=${encodeURIComponent(similarPattern)}`)
+                          .then(res => res.json())
+                          .then(data => {
+                            setSimilarTxs(data.similar || []);
+                            setSelectedSimilarIds(new Set<number>(data.similar?.map((t: any) => t.id) || []));
+                          })
+                          .catch(() => setSimilarTxs([]))
+                          .finally(() => setLoadingSimilar(false));
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLoadingSimilar(true);
+                      fetch(`${apiBase}/transactions/${editingTx.id}/similar?pattern=${encodeURIComponent(similarPattern)}`)
+                        .then(res => res.json())
+                        .then(data => {
+                          setSimilarTxs(data.similar || []);
+                          setSelectedSimilarIds(new Set<number>(data.similar?.map((t: any) => t.id) || []));
+                        })
+                        .catch(() => setSimilarTxs([]))
+                        .finally(() => setLoadingSimilar(false));
+                    }}
+                    title="Refresh similar transactions based on this pattern"
+                    style={{
+                      background: "var(--bg-secondary)",
+                      border: "1px solid var(--border-color)",
+                      borderRadius: "var(--radius-sm)",
+                      cursor: "pointer",
+                      padding: "0 0.5rem",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               {createRule && (
