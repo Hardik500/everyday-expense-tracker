@@ -54,6 +54,9 @@ function ReviewQueue({
   const [page, setPage] = useState(0);
   const pageSize = 10;
 
+  const pagedTransactions = transactions.slice(page * pageSize, (page + 1) * pageSize);
+  const totalPages = Math.ceil(transactions.length / pageSize);
+
   // Similar transactions tracking
   const [similarInfo, setSimilarInfo] = useState<Record<number, SimilarInfo>>({});
   const [applyToSimilar, setApplyToSimilar] = useState<Record<number, boolean>>({});
@@ -79,13 +82,18 @@ function ReviewQueue({
       .then((res) => res.json())
       .then((data) => {
         setTransactions(data);
-        // Fetch similar transactions for each
-        data.forEach((tx: Transaction) => {
-          fetchSimilar(tx.id);
-        });
       })
       .catch(() => setTransactions([]));
   }, [apiBase, refreshKey]);
+
+  // Fetch similar transactions only for visible items
+  useEffect(() => {
+    pagedTransactions.forEach((tx: Transaction) => {
+      if (!similarInfo[tx.id]) {
+        fetchSimilar(tx.id);
+      }
+    });
+  }, [pagedTransactions]);
 
   const fetchSimilar = async (txId: number) => {
     try {
@@ -175,47 +183,80 @@ function ReviewQueue({
     if (!aiStatus?.configured) return;
 
     setAiLoading(true);
-    setAiProgress({ processed: 0, total: transactions.length });
+    setAiProgress({ processed: 0, total: 0 }); // Will be updated by start event
 
     try {
       const formData = new FormData();
-      formData.append("limit", Math.min(transactions.length, 100).toString());
+      formData.append("limit", "10"); // Smaller batch size as requested
       formData.append("dry_run", "false");
 
-      const res = await fetch(`${apiBase}/ai/categorize`, {
+      const response = await fetch(`${apiBase}/ai/categorize`, {
         method: "POST",
         body: formData,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setAiProgress({ processed: data.categorized || 0, total: data.processed || 0 });
+      if (!response.ok) throw new Error("Batch categorization failed");
 
-        // Show toast with results
-        if (data.categorized > 0) {
-          addToast({
-            type: "success",
-            title: `Categorized ${data.categorized} transactions`,
-            message: data.rules_created > 0
-              ? `Created ${data.rules_created} new rules for future matching`
-              : undefined,
-            duration: 5000,
-          });
-        } else {
-          addToast({
-            type: "info",
-            title: "No transactions categorized",
-            message: "AI couldn't determine categories for these transactions",
-            duration: 4000,
-          });
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("Response body is not readable");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          try {
+            const event = JSON.parse(line);
+
+            if (event.type === "start") {
+              setAiProgress({ processed: 0, total: event.total });
+            } else if (event.type === "progress") {
+              setAiProgress((prev) => ({
+                processed: event.categorized,
+                total: prev?.total || event.current
+              }));
+            } else if (event.type === "complete") {
+              const stats = event.stats;
+              // Show toast with results
+              if (stats.categorized > 0) {
+                addToast({
+                  type: "success",
+                  title: `Categorized ${stats.categorized} transactions`,
+                  message: stats.rules_created > 0
+                    ? `Created ${stats.rules_created} new rules`
+                    : undefined,
+                  duration: 5000,
+                });
+              } else {
+                addToast({
+                  type: "info",
+                  title: "No transactions categorized",
+                  message: "AI couldn't determine categories",
+                  duration: 4000,
+                });
+              }
+
+              // Refresh after brief delay
+              setTimeout(() => {
+                setAiProgress(null);
+                onUpdated();
+              }, 1000);
+            }
+          } catch (e) {
+            console.error("Error parsing stream:", e);
+          }
         }
-
-        // Refresh after brief delay
-        setTimeout(() => {
-          setAiProgress(null);
-          onUpdated();
-        }, 1000);
       }
+
     } catch (err) {
       console.error("AI categorization failed:", err);
       addToast({
@@ -224,7 +265,6 @@ function ReviewQueue({
         message: "Please try again later",
         duration: 4000,
       });
-    } finally {
       setAiLoading(false);
     }
   };
@@ -294,8 +334,7 @@ function ReviewQueue({
     }
   };
 
-  const pagedTransactions = transactions.slice(page * pageSize, (page + 1) * pageSize);
-  const totalPages = Math.ceil(transactions.length / pageSize);
+
 
   if (transactions.length === 0) {
     return (

@@ -1448,16 +1448,17 @@ def ai_status() -> dict:
     }
 
 
+from fastapi.responses import StreamingResponse
+import json
+
 @app.post("/ai/categorize")
 def ai_categorize_transactions(
-    limit: int = Form(50),
+    limit: int = Form(10),
     dry_run: bool = Form(False),
-) -> dict:
+) -> StreamingResponse:
     """
     Use AI to categorize uncategorized transactions.
-    
-    - limit: Maximum number of transactions to process (default 50)
-    - dry_run: If true, only return suggestions without updating the database
+    Returns a stream of NDJSON events.
     """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -1466,93 +1467,126 @@ def ai_categorize_transactions(
             detail="AI categorization not configured. Set GEMINI_API_KEY environment variable."
         )
     
-    with get_conn() as conn:
-        # Get uncategorized transactions
-        transactions = conn.execute(
-            """
-            SELECT t.id, t.description_norm, t.amount, t.description_raw
-            FROM transactions t
-            WHERE t.category_id IS NULL OR t.is_uncertain = 1
-            ORDER BY t.posted_at DESC
-            LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
-        
-        if not transactions:
-            return {
-                "status": "ok",
-                "message": "No uncategorized transactions found",
-                "processed": 0,
-                "categorized": 0,
-                "rules_created": 0,
-            }
-        
-        categorized = 0
-        rules_created = 0
-        suggestions = []
-        
-        for tx in transactions:
-            # Call AI for each transaction
-            result = ai_classify(
-                tx["description_norm"], 
-                tx["amount"], 
-                conn if not dry_run else None,
-                transaction_id=tx["id"] if not dry_run else None,
-                allow_new_categories=True,
-            )
+    def generate():
+        with get_conn() as conn:
+            # Get uncategorized transactions
+            transactions = conn.execute(
+                """
+                SELECT t.id, t.description_norm, t.amount, t.description_raw
+                FROM transactions t
+                WHERE t.category_id IS NULL OR t.is_uncertain = 1
+                ORDER BY t.posted_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
             
-            if result:
-                cat_id, subcat_id = result
-                
-                # Get names for response
-                cat_row = conn.execute("SELECT name FROM categories WHERE id = ?", (cat_id,)).fetchone()
-                subcat_row = conn.execute("SELECT name FROM subcategories WHERE id = ?", (subcat_id,)).fetchone()
-                
-                suggestions.append({
-                    "transaction_id": tx["id"],
-                    "description": tx["description_raw"][:50],
-                    "amount": tx["amount"],
-                    "category": cat_row["name"] if cat_row else None,
-                    "subcategory": subcat_row["name"] if subcat_row else None,
-                })
-                
-                if not dry_run:
-                    # Update the transaction
-                    conn.execute(
-                        """
-                        UPDATE transactions
-                        SET category_id = ?, subcategory_id = ?, is_uncertain = 0
-                        WHERE id = ?
-                        """,
-                        (cat_id, subcat_id, tx["id"]),
+            if not transactions:
+                yield json.dumps({
+                    "type": "complete",
+                    "stats": {
+                        "processed": 0,
+                        "categorized": 0,
+                        "rules_created": 0
+                    }
+                }) + "\n"
+                return
+            
+            # Send start event
+            yield json.dumps({
+                "type": "start",
+                "total": len(transactions)
+            }) + "\n"
+            
+            categorized = 0
+            
+            for i, tx in enumerate(transactions):
+                # Call AI for each transaction
+                try:
+                    result = ai_classify(
+                        tx["description_norm"], 
+                        tx["amount"], 
+                        conn if not dry_run else None,
+                        transaction_id=tx["id"] if not dry_run else None,
+                        allow_new_categories=True,
                     )
-                    categorized += 1
-        
-        # Count rules and suggestions created by AI
-        suggestions_created = 0
-        if not dry_run:
-            new_rules = conn.execute(
-                "SELECT COUNT(*) as cnt FROM rules WHERE name LIKE 'AI:%'"
-            ).fetchone()
-            rules_created = new_rules["cnt"] if new_rules else 0
+                    
+                    if result:
+                        cat_id, subcat_id = result
+                        
+                        suggestion = None
+                        if dry_run:
+                            # Get names for response
+                            cat_row = conn.execute("SELECT name FROM categories WHERE id = ?", (cat_id,)).fetchone()
+                            subcat_row = conn.execute("SELECT name FROM subcategories WHERE id = ?", (subcat_id,)).fetchone()
+                            suggestion = {
+                                "transaction_id": tx["id"],
+                                "description": tx["description_raw"][:50],
+                                "amount": tx["amount"],
+                                "category": cat_row["name"] if cat_row else None,
+                                "subcategory": subcat_row["name"] if subcat_row else None,
+                            }
+                        else:
+                            # Update the transaction
+                            conn.execute(
+                                """
+                                UPDATE transactions
+                                SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+                                WHERE id = ?
+                                """,
+                                (cat_id, subcat_id, tx["id"]),
+                            )
+                            # Verify rules created periodically or at end? 
+                            # For simplicity we count at end, but we increment categorized count here
+                        
+                        categorized += 1
+                        
+                        # Send progress event
+                        yield json.dumps({
+                            "type": "progress",
+                            "current": i + 1,
+                            "categorized": categorized,
+                            "suggestion": suggestion
+                        }) + "\n"
+                    else:
+                         # Send progress event even if skipped
+                        yield json.dumps({
+                            "type": "progress",
+                            "current": i + 1,
+                            "categorized": categorized
+                        }) + "\n"
+                        
+                except Exception as e:
+                    print(f"Error processing transaction {tx['id']}: {e}")
             
-            pending_suggestions = conn.execute(
-                "SELECT COUNT(*) as cnt FROM ai_suggestions WHERE status = 'pending'"
-            ).fetchone()
-            suggestions_created = pending_suggestions["cnt"] if pending_suggestions else 0
+            # Count rules and suggestions created by AI
+            suggestions_created = 0
+            rules_created = 0
+            if not dry_run:
+                new_rules = conn.execute(
+                    "SELECT COUNT(*) as cnt FROM rules WHERE name LIKE 'AI:%'"
+                ).fetchone()
+                rules_created = new_rules["cnt"] if new_rules else 0
+                
+                pending_suggestions = conn.execute(
+                    "SELECT COUNT(*) as cnt FROM ai_suggestions WHERE status = 'pending'"
+                ).fetchone()
+                suggestions_created = pending_suggestions["cnt"] if pending_suggestions else 0
+                
+                conn.commit()
             
-            conn.commit()
-        
-    return {
-        "status": "ok",
-        "processed": len(transactions),
-        "categorized": categorized if not dry_run else len(suggestions),
-        "rules_created": rules_created,
-        "suggestions_pending": suggestions_created,
-        "suggestions": suggestions if dry_run else [],
-        "dry_run": dry_run,
-    }
+            # Send complete event
+            yield json.dumps({
+                "type": "complete",
+                "stats": {
+                    "processed": len(transactions),
+                    "categorized": categorized,
+                    "rules_created": rules_created,
+                    "suggestions_pending": suggestions_created
+                }
+            }) + "\n"
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
 
 
 @app.post("/ai/categorize/{transaction_id}")
