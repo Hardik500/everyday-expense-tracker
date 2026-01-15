@@ -100,7 +100,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
-    
+
     // Add date range params
     const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
     if (startDate) {
@@ -109,7 +109,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
     if (endDate) {
       params.append("end_date", endDate + " 23:59:59");
     }
-    
+
     if (categoryFilter) {
       params.append("category_id", categoryFilter);
     }
@@ -133,8 +133,8 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
   const filteredTransactions = searchQuery
     ? transactions.filter((tx) =>
-        tx.description_raw.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      tx.description_raw.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : transactions;
 
   const pagedTransactions = filteredTransactions.slice(
@@ -152,7 +152,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
     setCreateRule(false);
     setRuleName("");
     setSelectedSimilarIds(new Set([tx.id]));
-    
+
     // Fetch similar transactions
     setLoadingSimilar(true);
     try {
@@ -184,11 +184,11 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
   // Save changes
   const saveChanges = async () => {
     if (!editingTx || !selectedCategory) return;
-    
+
     setSaving(true);
     try {
       const txIds = Array.from(selectedSimilarIds);
-      
+
       const formData = new FormData();
       txIds.forEach((id) => formData.append("transaction_ids", id.toString()));
       formData.append("category_id", selectedCategory.toString());
@@ -200,12 +200,12 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
         formData.append("rule_pattern", similarPattern.toUpperCase());
         formData.append("rule_name", ruleName || `User: ${similarPattern}`);
       }
-      
+
       const res = await fetch(`${apiBase}/transactions/bulk-update`, {
         method: "POST",
         body: formData,
       });
-      
+
       if (res.ok) {
         closeEdit();
         onUpdated?.();
@@ -242,9 +242,9 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
               style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
             >
               {range === "7d" ? "7 Days" :
-               range === "30d" ? "30 Days" :
-               range === "90d" ? "90 Days" :
-               range === "year" ? "1 Year" : "All Time"}
+                range === "30d" ? "30 Days" :
+                  range === "90d" ? "90 Days" :
+                    range === "year" ? "1 Year" : "All Time"}
             </button>
           ))}
           <button
@@ -254,7 +254,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
           >
             Custom
           </button>
-          
+
           {dateRange === "custom" && (
             <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginLeft: "0.5rem" }}>
               <input
@@ -435,7 +435,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                     <tr
                       key={tx.id}
                       className="animate-in"
-                      style={{ 
+                      style={{
                         animationDelay: `${idx * 20}ms`,
                         cursor: "pointer",
                       }}
@@ -676,7 +676,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                   </div>
                 )}
               </div>
-              
+
               {loadingSimilar ? (
                 <div style={{ padding: "1rem", textAlign: "center", color: "var(--text-muted)" }}>
                   Finding similar transactions...
@@ -713,11 +713,11 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                         style={{ flexShrink: 0 }}
                       />
                       <div style={{ minWidth: 0, overflow: "hidden" }}>
-                        <div style={{ 
-                          fontSize: "0.8125rem", 
+                        <div style={{
+                          fontSize: "0.8125rem",
                           color: "var(--text-primary)",
-                          overflow: "hidden", 
-                          textOverflow: "ellipsis", 
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
                           fontWeight: 500,
                         }}>
@@ -727,10 +727,10 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                           {new Date(tx.posted_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                         </div>
                       </div>
-                      <div 
-                        className="mono" 
-                        style={{ 
-                          fontSize: "0.8125rem", 
+                      <div
+                        className="mono"
+                        style={{
+                          fontSize: "0.8125rem",
                           color: tx.amount < 0 ? "var(--danger)" : "var(--success)",
                           textAlign: "right",
                           whiteSpace: "nowrap",
@@ -753,7 +753,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                   No similar transactions found
                 </div>
               )}
-              
+
               <div style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
                 {selectedSimilarIds.size} transaction{selectedSimilarIds.size !== 1 ? "s" : ""} will be updated
               </div>
@@ -769,12 +769,28 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                 />
                 <div>
                   <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>Create rule for future transactions</div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                    Pattern: <code style={{ background: "var(--bg-secondary)", padding: "0.125rem 0.375rem", borderRadius: 4 }}>{similarPattern.toUpperCase()}</code>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+                    Pattern (editable)
                   </div>
+                  <input
+                    type="text"
+                    value={similarPattern}
+                    onChange={(e) => setSimilarPattern(e.target.value)}
+                    style={{
+                      width: "100%",
+                      fontSize: "0.875rem",
+                      padding: "0.375rem 0.625rem",
+                      marginTop: "0.25rem",
+                      fontFamily: "monospace",
+                      background: "var(--bg-secondary)",
+                      border: "1px solid var(--border-color)",
+                      borderRadius: "var(--radius-sm)",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
                 </div>
               </label>
-              
+
               {createRule && (
                 <div style={{ marginTop: "0.75rem" }}>
                   <input
@@ -824,7 +840,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
             fetch(`${apiBase}/transactions?${params.toString()}`)
               .then((res) => res.json())
               .then((data) => setTransactions(data))
-              .catch(() => {});
+              .catch(() => { });
           }}
         />
       )}

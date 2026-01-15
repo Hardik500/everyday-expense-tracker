@@ -187,7 +187,9 @@ function ReviewQueue({
 
     try {
       const formData = new FormData();
-      formData.append("limit", "10"); // Smaller batch size as requested
+      // With streaming, we can safely process more transactions in one go
+      // Increasing limit to 50 to cover more of the queue while keeping feedback immediate
+      formData.append("limit", Math.min(transactions.length, 50).toString());
       formData.append("dry_run", "false");
 
       const response = await fetch(`${apiBase}/ai/categorize`, {
