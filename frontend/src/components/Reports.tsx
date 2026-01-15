@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import TransferDetector from "./TransferDetector";
 
 type Props = {
   apiBase: string;
   refreshKey: number;
+  onRefresh?: () => void;
 };
 
 type ReportItem = {
@@ -53,7 +55,7 @@ const formatFullCurrency = (amount: number) => {
   }).format(amount);
 };
 
-function Reports({ apiBase, refreshKey }: Props) {
+function Reports({ apiBase, refreshKey, onRefresh }: Props) {
   const [items, setItems] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -468,6 +470,13 @@ function Reports({ apiBase, refreshKey }: Props) {
           </div>
         </div>
       )}
+
+      {/* Transfer Detection */}
+      <TransferDetector
+        apiBase={apiBase}
+        refreshKey={refreshKey}
+        onRefresh={onRefresh || (() => {})}
+      />
     </div>
   );
 }

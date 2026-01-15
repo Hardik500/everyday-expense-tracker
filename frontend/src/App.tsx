@@ -4,6 +4,8 @@ import Transactions from "./components/Transactions";
 import ReviewQueue from "./components/ReviewQueue";
 import Reports from "./components/Reports";
 import Analytics from "./components/Analytics";
+import AccountManager from "./components/AccountManager";
+import RulesManager from "./components/RulesManager";
 
 const API_BASE = "http://localhost:8000";
 
@@ -31,7 +33,7 @@ export type Transaction = {
   is_uncertain: boolean;
 };
 
-type Tab = "dashboard" | "analytics" | "upload" | "review" | "transactions";
+type Tab = "dashboard" | "analytics" | "accounts" | "rules" | "upload" | "review" | "transactions";
 
 const NavIcon = ({ active, children }: { active: boolean; children: React.ReactNode }) => (
   <div
@@ -94,6 +96,24 @@ function App() {
       icon: (
         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
+    },
+    {
+      id: "accounts",
+      label: "Accounts",
+      icon: (
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+      ),
+    },
+    {
+      id: "rules",
+      label: "Rules",
+      icon: (
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
         </svg>
       ),
     },
@@ -220,6 +240,8 @@ function App() {
           <h1 style={{ marginBottom: 4 }}>
             {activeTab === "dashboard" && "Dashboard"}
             {activeTab === "analytics" && "Analytics"}
+            {activeTab === "accounts" && "Accounts"}
+            {activeTab === "rules" && "Categorization Rules"}
             {activeTab === "upload" && "Import Statement"}
             {activeTab === "review" && "Review Transactions"}
             {activeTab === "transactions" && "Transaction History"}
@@ -227,6 +249,8 @@ function App() {
           <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
             {activeTab === "dashboard" && "Your financial overview at a glance"}
             {activeTab === "analytics" && "Visualize your income and expenses over time"}
+            {activeTab === "accounts" && "Manage your bank accounts, credit cards, and cash wallets"}
+            {activeTab === "rules" && "Manage rules for automatic transaction categorization"}
             {activeTab === "upload" && "Upload bank statements, credit card bills, or cash records"}
             {activeTab === "review" && `${reviewCount} transactions need your attention`}
             {activeTab === "transactions" && "View and filter all your transactions"}
@@ -236,10 +260,30 @@ function App() {
         {/* Tab content */}
         <div className="animate-in">
           {activeTab === "dashboard" && (
-            <Reports apiBase={API_BASE} refreshKey={refreshKey} />
+            <Reports
+              apiBase={API_BASE}
+              refreshKey={refreshKey}
+              onRefresh={() => setRefreshKey((k) => k + 1)}
+            />
           )}
           {activeTab === "analytics" && (
             <Analytics apiBase={API_BASE} refreshKey={refreshKey} />
+          )}
+          {activeTab === "accounts" && (
+            <AccountManager
+              apiBase={API_BASE}
+              refreshKey={refreshKey}
+              onRefresh={() => setRefreshKey((k) => k + 1)}
+            />
+          )}
+          {activeTab === "rules" && (
+            <RulesManager
+              apiBase={API_BASE}
+              categories={categories}
+              subcategories={subcategories}
+              refreshKey={refreshKey}
+              onRefresh={() => setRefreshKey((k) => k + 1)}
+            />
           )}
           {activeTab === "upload" && (
             <Upload

@@ -365,6 +365,36 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
               {formatCurrency(totalAmount)}
             </div>
           </div>
+
+          {/* Export Button */}
+          <button
+            onClick={() => {
+              const params = new URLSearchParams();
+              const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
+              if (startDate) params.append("start_date", startDate);
+              if (endDate) params.append("end_date", endDate + " 23:59:59");
+              if (categoryFilter) params.append("category_id", categoryFilter);
+              window.open(`${apiBase}/transactions/export?${params.toString()}`, "_blank");
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.5rem 1rem",
+              background: "var(--bg-input)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-md)",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              fontSize: "0.8125rem",
+            }}
+            title="Export to CSV"
+          >
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Export
+          </button>
         </div>
       </div>
 

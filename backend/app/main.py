@@ -152,13 +152,67 @@ def list_rules() -> List[dict]:
     with get_conn() as conn:
         rows = conn.execute(
             """
-            SELECT id, name, pattern, category_id, subcategory_id, min_amount,
-                   max_amount, priority, account_type, merchant_contains, active
-            FROM rules
-            ORDER BY priority DESC, name
+            SELECT r.id, r.name, r.pattern, r.category_id, r.subcategory_id, r.min_amount,
+                   r.max_amount, r.priority, r.account_type, r.merchant_contains, r.active,
+                   c.name as category_name, s.name as subcategory_name
+            FROM rules r
+            LEFT JOIN categories c ON c.id = r.category_id
+            LEFT JOIN subcategories s ON s.id = r.subcategory_id
+            ORDER BY r.priority DESC, r.name
             """
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+@app.put("/rules/{rule_id}")
+def update_rule(rule_id: int, payload: schemas.RuleCreate) -> dict:
+    with get_conn() as conn:
+        existing = conn.execute("SELECT id FROM rules WHERE id = ?", (rule_id,)).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Rule not found")
+        conn.execute(
+            """
+            UPDATE rules SET
+                name = ?, pattern = ?, category_id = ?, subcategory_id = ?,
+                min_amount = ?, max_amount = ?, priority = ?, account_type = ?,
+                merchant_contains = ?
+            WHERE id = ?
+            """,
+            (
+                payload.name,
+                payload.pattern,
+                payload.category_id,
+                payload.subcategory_id,
+                payload.min_amount,
+                payload.max_amount,
+                payload.priority,
+                payload.account_type,
+                payload.merchant_contains,
+                rule_id,
+            ),
+        )
+        conn.commit()
+    return {"status": "ok", "rule_id": rule_id}
+
+
+@app.delete("/rules/{rule_id}")
+def delete_rule(rule_id: int) -> dict:
+    with get_conn() as conn:
+        conn.execute("DELETE FROM rules WHERE id = ?", (rule_id,))
+        conn.commit()
+    return {"deleted": True, "rule_id": rule_id}
+
+
+@app.patch("/rules/{rule_id}/toggle")
+def toggle_rule(rule_id: int) -> dict:
+    with get_conn() as conn:
+        existing = conn.execute("SELECT active FROM rules WHERE id = ?", (rule_id,)).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Rule not found")
+        new_active = 0 if existing["active"] else 1
+        conn.execute("UPDATE rules SET active = ? WHERE id = ?", (new_active, rule_id))
+        conn.commit()
+    return {"rule_id": rule_id, "active": bool(new_active)}
 
 
 @app.post("/ingest")
@@ -241,6 +295,69 @@ def list_transactions(
     with get_conn() as conn:
         rows = conn.execute(query, params).fetchall()
     return [schemas.Transaction(**dict(row)) for row in rows]
+
+
+from fastapi.responses import StreamingResponse
+import csv
+import io
+
+
+@app.get("/transactions/export")
+def export_transactions(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    category_id: Optional[int] = None,
+) -> StreamingResponse:
+    """Export transactions as CSV."""
+    clauses = []
+    params: List[object] = []
+
+    if start_date:
+        clauses.append("t.posted_at >= ?")
+        params.append(start_date)
+    if end_date:
+        clauses.append("t.posted_at <= ?")
+        params.append(end_date)
+    if category_id:
+        clauses.append("t.category_id = ?")
+        params.append(category_id)
+
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    query = f"""
+        SELECT t.id, a.name as account_name, t.posted_at, t.amount, t.currency,
+               t.description_raw, t.description_norm, c.name as category, s.name as subcategory
+        FROM transactions t
+        LEFT JOIN accounts a ON a.id = t.account_id
+        LEFT JOIN categories c ON c.id = t.category_id
+        LEFT JOIN subcategories s ON s.id = t.subcategory_id
+        {where}
+        ORDER BY t.posted_at DESC, t.id DESC
+    """
+
+    with get_conn() as conn:
+        rows = conn.execute(query, params).fetchall()
+
+    # Generate CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "Account", "Description", "Amount", "Currency", "Category", "Subcategory"])
+    for row in rows:
+        writer.writerow([
+            row["posted_at"][:10],
+            row["account_name"] or "",
+            row["description_raw"],
+            row["amount"],
+            row["currency"],
+            row["category"] or "",
+            row["subcategory"] or "",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=transactions.csv"}
+    )
 
 
 @app.patch("/transactions/{transaction_id}")
@@ -963,3 +1080,97 @@ def get_unlinked_payments() -> dict:
         "bank_payments": [dict(row) for row in bank_payments],
         "cc_receipts": [dict(row) for row in cc_receipts],
     }
+
+
+from app.linking import find_potential_transfers, auto_categorize_linked_transfers
+
+
+@app.get("/transfers/potential")
+def get_potential_transfers(days_window: int = 7) -> dict:
+    """
+    Find potential internal transfers that aren't already linked.
+    Returns pairs of transactions that may be transfers between accounts.
+    """
+    with get_conn() as conn:
+        potential = find_potential_transfers(conn, days_window)
+    return {"potential_transfers": potential, "count": len(potential)}
+
+
+@app.post("/transfers/auto-link")
+def auto_link_transfers() -> dict:
+    """
+    Automatically link high-confidence transfers and categorize them.
+    Returns count of transactions linked.
+    """
+    with get_conn() as conn:
+        # Find potential transfers with high confidence
+        potential = find_potential_transfers(conn, days_window=5)
+        
+        linked_count = 0
+        for pair in potential:
+            if pair["confidence"] >= 80:  # Only auto-link high confidence
+                source_id = pair["source"]["id"]
+                target_id = pair["target"]["id"]
+                
+                # Check if not already linked
+                existing = conn.execute(
+                    """
+                    SELECT id FROM transaction_links 
+                    WHERE (source_transaction_id = ? AND target_transaction_id = ?)
+                       OR (source_transaction_id = ? AND target_transaction_id = ?)
+                    """,
+                    (source_id, target_id, target_id, source_id)
+                ).fetchone()
+                
+                if not existing:
+                    conn.execute(
+                        """
+                        INSERT INTO transaction_links 
+                        (source_transaction_id, target_transaction_id, link_type)
+                        VALUES (?, ?, 'internal_transfer')
+                        """,
+                        (source_id, target_id)
+                    )
+                    linked_count += 1
+        
+        conn.commit()
+        
+        # Categorize all linked transactions as Transfers
+        categorized = auto_categorize_linked_transfers(conn)
+    
+    return {
+        "linked": linked_count,
+        "categorized": categorized,
+        "status": "ok"
+    }
+
+
+@app.post("/transfers/link")
+def link_transfer(source_id: int, target_id: int) -> dict:
+    """Manually link two transactions as an internal transfer."""
+    with get_conn() as conn:
+        # Verify both transactions exist
+        source = conn.execute("SELECT id FROM transactions WHERE id = ?", (source_id,)).fetchone()
+        target = conn.execute("SELECT id FROM transactions WHERE id = ?", (target_id,)).fetchone()
+        
+        if not source or not target:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        
+        # Create link
+        try:
+            conn.execute(
+                """
+                INSERT INTO transaction_links 
+                (source_transaction_id, target_transaction_id, link_type)
+                VALUES (?, ?, 'internal_transfer')
+                """,
+                (source_id, target_id)
+            )
+            conn.commit()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Link already exists")
+        
+        # Categorize as Transfers
+        categorized = auto_categorize_linked_transfers(conn)
+    
+    return {"status": "ok", "categorized": categorized}
