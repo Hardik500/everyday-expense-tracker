@@ -429,6 +429,7 @@ def ingest_statement(
 from app.search import perform_ai_search
 
 @app.post("/transactions/search")
+# Trigger reload (v3)
 def search_transactions_ai(payload: schemas.SearchRequest) -> dict:
     """
     Natural language search for transactions using AI.
@@ -456,28 +457,30 @@ def list_transactions(
     params: List[object] = []
 
     if start_date:
-        clauses.append("posted_at >= ?")
+        clauses.append("t.posted_at >= ?")
         params.append(start_date)
     if end_date:
-        clauses.append("posted_at <= ?")
+        clauses.append("t.posted_at <= ?")
         params.append(end_date)
     if category_id:
-        clauses.append("category_id = ?")
+        clauses.append("t.category_id = ?")
         params.append(category_id)
     if subcategory_id:
-        clauses.append("subcategory_id = ?")
+        clauses.append("t.subcategory_id = ?")
         params.append(subcategory_id)
     if uncertain is not None:
-        clauses.append("is_uncertain = ?")
+        clauses.append("t.is_uncertain = ?")
         params.append(1 if uncertain else 0)
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     query = f"""
-        SELECT id, account_id, posted_at, amount, currency, description_raw,
-               description_norm, category_id, subcategory_id, is_uncertain
-        FROM transactions
+        SELECT t.id, t.account_id, t.posted_at, t.amount, t.currency, t.description_raw,
+               t.description_norm, t.category_id, t.subcategory_id, t.is_uncertain,
+               a.name as account_name
+        FROM transactions t
+        LEFT JOIN accounts a ON a.id = t.account_id
         {where}
-        ORDER BY posted_at DESC, id DESC
+        ORDER BY t.posted_at DESC, t.id DESC
         LIMIT 5000
     """
     with get_conn() as conn:

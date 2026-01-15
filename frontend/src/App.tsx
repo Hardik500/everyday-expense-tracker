@@ -32,6 +32,7 @@ export type Transaction = {
   category_id?: number | null;
   subcategory_id?: number | null;
   is_uncertain: boolean;
+  account_name?: string;
 };
 
 type Tab = "dashboard" | "analytics" | "accounts" | "categories" | "rules" | "upload" | "review" | "transactions";

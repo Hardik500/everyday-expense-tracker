@@ -71,8 +71,11 @@ Logic Rules:
 2. "over 500" -> min_amount = 500
 3. "zomato" -> description = "zomato"
 4. "HDFC" -> might be account name "HDFC Credit Card" -> account = "HDFC Credit Card"
-5. If a word matches a Category name exactly, prefer category field over description.
-6. If "expenses" -> only debits (amount < 0). If "income" -> only credits (amount > 0). You can imply this by min_amount/max_amount or we handle it later. For now, assume signed amounts are handled by DB query logic (expenses are negative). But user says "100-150Rs", they imply absolute magnitude. The backend handles this.
+5. If a word matches a Category name exactly, prefer category field. However, unique phrases like "lounge fees" should map to description unless they match a subcategory exactly.
+6. STRICT RULE: "lounge" or "lounge access" or "lounge fees" must NEVER be categorized as "Financial Services". If it's a lounge fee, use Description="lounge" and Category="Travel" (only if "Travel" exists), or just Description="lounge" (safest).
+7. Do not infer Category="Financial Services" from "fees" alone. Match as description "fees".
+8. For "lounge fees", "bank charges", etc., return ONLY the core keyword in description (e.g. "lounge", "bank"). Avoid generic suffixes like "fees", "charges", "paid" in the description filter to ensure broader matching (e.g. matching "PPLoungeFee").
+9. Avoid restricting to a specific Subcategory if the user's query is broad (e.g. "any kind of..."). Prefer description + broad Category to avoid hiding uncategorized transactions.
 
 Return ONLY the JSON. No markdown formatting.
 """

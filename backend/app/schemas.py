@@ -39,6 +39,7 @@ class Transaction(BaseModel):
     category_id: Optional[int]
     subcategory_id: Optional[int]
     is_uncertain: bool
+    account_name: Optional[str] = None
 
 
 class TransactionUpdate(BaseModel):

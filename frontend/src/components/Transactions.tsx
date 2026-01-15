@@ -98,7 +98,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
     const p = getParams();
     if (p.get("start") || p.get("end")) return "custom";
     if (p.get("range")) return p.get("range") as DateRange;
-    return "30d";
+    return "all";
   });
   const [customStartDate, setCustomStartDate] = useState(() => getParams().get("start") || "");
   const [customEndDate, setCustomEndDate] = useState(() => getParams().get("end") || "");
@@ -227,6 +227,9 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
           if (filters.end_date) setCustomEndDate(filters.end_date);
           delete remainingFilters.start_date;
           delete remainingFilters.end_date;
+        } else {
+          // Default to All Time if AI didn't specify a date to avoid hiding historical matches
+          setDateRange("all");
         }
 
         // 2. Category
@@ -616,6 +619,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                 <thead>
                   <tr>
                     <th style={{ width: 90 }}>Date</th>
+                    <th style={{ width: 140 }}>Account</th>
                     <th>Description</th>
                     <th style={{ width: 140 }}>Category</th>
                     <th style={{ width: 120, textAlign: "right" }}>Amount</th>
@@ -640,6 +644,21 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                         </div>
                         <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                           {new Date(tx.posted_at).getFullYear()}
+                        </div>
+                      </td>
+                      <td>
+                        <div
+                          style={{
+                            maxWidth: 140,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            fontSize: "0.85rem",
+                            color: "var(--text-secondary)",
+                          }}
+                          title={tx.account_name || "Unknown"}
+                        >
+                          {tx.account_name || "Unknown"}
                         </div>
                       </td>
                       <td>
