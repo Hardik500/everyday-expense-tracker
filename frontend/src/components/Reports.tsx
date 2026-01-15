@@ -14,6 +14,14 @@ type ReportItem = {
   total: number;
 };
 
+type AccountData = {
+  account_id: number;
+  account_name: string;
+  total_spent: number;
+  categories: { category_id: number | null; category_name: string | null; total: number }[];
+  monthly: { month: string; total: number }[];
+};
+
 const categoryColors: Record<string, string> = {
   Food: "#f59e0b",
   Transport: "#3b82f6",
@@ -58,8 +66,10 @@ const formatFullCurrency = (amount: number) => {
 
 function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
   const [items, setItems] = useState<ReportItem[]>([]);
+  const [accountData, setAccountData] = useState<AccountData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>(""); // "" = all time, "YYYY-MM" = specific month
+  const [expandedCard, setExpandedCard] = useState<number | null>(null);
 
   // Generate last 12 months for dropdown
   const getMonthOptions = () => {
@@ -76,24 +86,31 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
 
   useEffect(() => {
     setLoading(true);
-    let url = `${apiBase}/reports/summary`;
+    let summaryUrl = `${apiBase}/reports/summary`;
+    let accountUrl = `${apiBase}/reports/by-account`;
 
     if (selectedMonth) {
       const [year, month] = selectedMonth.split("-");
       const startDate = `${year}-${month}-01`;
       const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
       const endDate = `${year}-${month}-${lastDay}`;
-      url += `?start_date=${startDate}&end_date=${endDate}`;
+      const dateParams = `?start_date=${startDate}&end_date=${endDate}`;
+      summaryUrl += dateParams;
+      accountUrl += dateParams;
     }
 
-    fetch(url)
-      .then((res) => res.json())
-      .then((data) => {
-        setItems(data.items || []);
+    Promise.all([
+      fetch(summaryUrl).then((res) => res.json()),
+      fetch(accountUrl).then((res) => res.json()),
+    ])
+      .then(([summaryData, accountDataRes]) => {
+        setItems(summaryData.items || []);
+        setAccountData(accountDataRes.accounts || []);
         setLoading(false);
       })
       .catch(() => {
         setItems([]);
+        setAccountData([]);
         setLoading(false);
       });
   }, [apiBase, refreshKey, selectedMonth]);
@@ -575,6 +592,169 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
         refreshKey={refreshKey}
         onRefresh={onRefresh || (() => { })}
       />
+
+      {/* Spending by Card - Credit Card Bifurcation */}
+      {accountData.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <h2>Spending by Card</h2>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+              Click to see monthly breakdown
+            </span>
+          </div>
+          <div style={{ display: "grid", gap: "1rem" }}>
+            {accountData.map((account) => (
+              <div key={account.account_id}>
+                {/* Card Header Row */}
+                <div
+                  onClick={() => setExpandedCard(expandedCard === account.account_id ? null : account.account_id)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                    padding: "1rem",
+                    background: "var(--bg-input)",
+                    borderRadius: expandedCard === account.account_id ? "var(--radius-md) var(--radius-md) 0 0" : "var(--radius-md)",
+                    cursor: "pointer",
+                    transition: "all var(--transition-fast)",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-input)")}
+                >
+                  {/* Card Icon */}
+                  <div
+                    style={{
+                      width: 40,
+                      height: 28,
+                      borderRadius: 4,
+                      background: account.account_name.includes("HDFC") ? "#004c8f" :
+                        account.account_name.includes("ICICI") ? "#f7941d" :
+                          account.account_name.includes("SBI") ? "#22409a" :
+                            "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <svg width="20" height="14" fill="none" stroke="white" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                  </div>
+
+                  {/* Card Name */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: "0.9375rem" }}>
+                      {account.account_name}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+                      {account.categories.slice(0, 3).map(c => c.category_name || "Other").join(", ")}
+                    </div>
+                  </div>
+
+                  {/* Total */}
+                  <div
+                    className="mono"
+                    style={{
+                      fontWeight: 600,
+                      color: "#ef4444",
+                      fontSize: "1rem",
+                    }}
+                  >
+                    {formatCurrency(account.total_spent)}
+                  </div>
+
+                  {/* Expand Icon */}
+                  <svg
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="var(--text-muted)"
+                    viewBox="0 0 24 24"
+                    style={{
+                      transition: "transform 0.2s",
+                      transform: expandedCard === account.account_id ? "rotate(180deg)" : "rotate(0deg)",
+                    }}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+
+                {/* Expanded Details */}
+                {expandedCard === account.account_id && (
+                  <div
+                    style={{
+                      background: "var(--bg-secondary)",
+                      borderRadius: "0 0 var(--radius-md) var(--radius-md)",
+                      border: "1px solid var(--border-color)",
+                      borderTop: "none",
+                    }}
+                  >
+                    {/* Category Breakdown */}
+                    <div style={{ padding: "1rem", borderBottom: "1px solid var(--border-color)" }}>
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.5rem", fontWeight: 500 }}>
+                        TOP CATEGORIES
+                      </div>
+                      <div style={{ display: "grid", gap: "0.5rem" }}>
+                        {account.categories.map((cat, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              fontSize: "0.875rem",
+                            }}
+                          >
+                            <span style={{ color: "var(--text-secondary)" }}>
+                              {cat.category_name || "Uncategorized"}
+                            </span>
+                            <span className="mono" style={{ color: "var(--text-primary)" }}>
+                              {formatCurrency(cat.total)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Monthly Bills */}
+                    <div style={{ padding: "1rem" }}>
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.5rem", fontWeight: 500 }}>
+                        MONTHLY BILLS
+                      </div>
+                      <div style={{ display: "grid", gap: "0.5rem" }}>
+                        {account.monthly.map((m, idx) => {
+                          const [year, month] = m.month.split("-");
+                          const monthLabel = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString("en-IN", {
+                            month: "short",
+                            year: "numeric",
+                          });
+                          return (
+                            <div
+                              key={idx}
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                fontSize: "0.875rem",
+                              }}
+                            >
+                              <span style={{ color: "var(--text-secondary)" }}>{monthLabel}</span>
+                              <span className="mono" style={{ color: "#ef4444" }}>
+                                {formatCurrency(m.total)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

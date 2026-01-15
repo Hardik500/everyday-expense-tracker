@@ -684,6 +684,87 @@ def report_summary(start_date: Optional[str] = None, end_date: Optional[str] = N
     return {"items": [dict(row) for row in rows]}
 
 
+@app.get("/reports/by-account")
+def report_by_account(start_date: Optional[str] = None, end_date: Optional[str] = None) -> dict:
+    """Get spending breakdown by account (credit card), with category breakdown and monthly totals."""
+    clauses = ["l.id IS NULL", "t.amount < 0"]  # Only expenses
+    params: List[object] = []
+    if start_date:
+        clauses.append("t.posted_at >= ?")
+        params.append(start_date)
+    if end_date:
+        clauses.append("t.posted_at <= ?")
+        params.append(end_date)
+    where = f"WHERE {' AND '.join(clauses)}"
+    
+    with get_conn() as conn:
+        # Get only credit card accounts with their spending totals
+        accounts_query = f"""
+            SELECT 
+                a.id as account_id,
+                a.name as account_name,
+                SUM(ABS(t.amount)) as total_spent
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            LEFT JOIN transaction_links l
+              ON (l.source_transaction_id = t.id OR l.target_transaction_id = t.id)
+             AND l.link_type = 'card_payment'
+            {where} AND a.type = 'card'
+            GROUP BY a.id, a.name
+            ORDER BY total_spent DESC
+        """
+        accounts = conn.execute(accounts_query, params).fetchall()
+        
+        result = []
+        for account in accounts:
+            account_id = account["account_id"]
+            
+            # Get category breakdown for this account
+            cat_params = params + [account_id]
+            categories_query = f"""
+                SELECT 
+                    c.id as category_id,
+                    c.name as category_name,
+                    SUM(ABS(t.amount)) as total
+                FROM transactions t
+                LEFT JOIN categories c ON c.id = t.category_id
+                LEFT JOIN transaction_links l
+                  ON (l.source_transaction_id = t.id OR l.target_transaction_id = t.id)
+                 AND l.link_type = 'card_payment'
+                {where} AND t.account_id = ?
+                GROUP BY c.id, c.name
+                ORDER BY total DESC
+                LIMIT 5
+            """
+            categories = conn.execute(categories_query, cat_params).fetchall()
+            
+            # Get monthly breakdown for this account
+            monthly_query = f"""
+                SELECT 
+                    substr(t.posted_at, 1, 7) as month,
+                    SUM(ABS(t.amount)) as total
+                FROM transactions t
+                LEFT JOIN transaction_links l
+                  ON (l.source_transaction_id = t.id OR l.target_transaction_id = t.id)
+                 AND l.link_type = 'card_payment'
+                {where} AND t.account_id = ?
+                GROUP BY substr(t.posted_at, 1, 7)
+                ORDER BY month DESC
+                LIMIT 12
+            """
+            monthly = conn.execute(monthly_query, cat_params).fetchall()
+            
+            result.append({
+                "account_id": account_id,
+                "account_name": account["account_name"],
+                "total_spent": account["total_spent"],
+                "categories": [dict(row) for row in categories],
+                "monthly": [dict(row) for row in monthly],
+            })
+    
+    return {"accounts": result}
+
+
 @app.get("/reports/timeseries")
 def report_timeseries(
     start_date: Optional[str] = None,
