@@ -71,7 +71,12 @@ function Reports({ apiBase, refreshKey }: Props) {
       });
   }, [apiBase, refreshKey]);
 
-  const totalSpend = items.reduce((sum, item) => sum + Math.abs(item.total), 0);
+  // Net balance (can be negative)
+  const netBalance = items.reduce((sum, item) => sum + item.total, 0);
+  // Total spending (only negative items, shown as positive)
+  const totalSpend = Math.abs(items.filter((i) => i.total < 0).reduce((sum, item) => sum + item.total, 0));
+  // Total income (only positive items)
+  const totalIncome = items.filter((i) => i.total > 0).reduce((sum, item) => sum + item.total, 0);
   const categorizedItems = items.filter((i) => i.category_name);
   const uncategorized = items.find((i) => !i.category_name);
 
@@ -103,7 +108,59 @@ function Reports({ apiBase, refreshKey }: Props) {
     <div style={{ display: "grid", gap: "1.5rem" }}>
       {/* Summary Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1rem" }}>
-        {/* Total Spend */}
+        {/* Net Balance */}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: netBalance >= 0 ? "var(--accent-glow)" : "rgba(239, 68, 68, 0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: netBalance >= 0 ? "var(--accent)" : "#ef4444",
+              }}
+            >
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Net Balance</span>
+          </div>
+          <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: netBalance >= 0 ? "var(--accent)" : "#ef4444" }}>
+            {formatFullCurrency(netBalance)}
+          </div>
+        </div>
+
+        {/* Total Spending */}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: "rgba(239, 68, 68, 0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#ef4444",
+              }}
+            >
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Total Spent</span>
+          </div>
+          <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: "#ef4444" }}>
+            {formatCurrency(totalSpend)}
+          </div>
+        </div>
+
+        {/* Total Income */}
         <div className="card" style={{ padding: "1.25rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
             <div
@@ -119,13 +176,13 @@ function Reports({ apiBase, refreshKey }: Props) {
               }}
             >
               <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
             </div>
-            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Total Balance</span>
+            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Total Income</span>
           </div>
-          <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: "var(--text-primary)" }}>
-            {formatFullCurrency(totalSpend)}
+          <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: "var(--accent)" }}>
+            {formatCurrency(totalIncome)}
           </div>
         </div>
 

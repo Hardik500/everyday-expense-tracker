@@ -61,8 +61,12 @@ def parse_amount(value: Union[str, float, int, None]) -> float:
         is_negative = True
         text = text[1:].strip()
     
-    # Remove currency symbols and whitespace
-    text = re.sub(r"[₹$€£¥Rs\.INR\s]", "", text, flags=re.IGNORECASE)
+    # Remove currency prefixes (Rs., INR, ₹, etc.) - these are word patterns, not individual chars
+    text = re.sub(r"^(Rs\.?|INR|₹|\$|€|£|¥)\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s*(Rs\.?|INR|₹|\$|€|£|¥)$", "", text, flags=re.IGNORECASE)
+    
+    # Remove any remaining currency symbols (but NOT periods which are decimal separators)
+    text = re.sub(r"[₹$€£¥]", "", text)
     
     # Handle "Dr" (debit) and "Cr" (credit) suffixes common in Indian statements
     if text.upper().endswith("DR"):
@@ -75,8 +79,10 @@ def parse_amount(value: Union[str, float, int, None]) -> float:
     # Remove all commas (handles both 1,000.39 and 1,00,000.39 formats)
     text = text.replace(",", "")
     
+    # Remove any whitespace
+    text = text.strip()
+    
     # Handle case where there's no decimal point
-    # Some statements use only integers
     try:
         amount = float(text)
         return -amount if is_negative else amount
