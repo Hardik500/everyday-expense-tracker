@@ -149,10 +149,18 @@ def perform_ai_search(query: str) -> Dict[str, Any]:
         if filters.get("category"):
             clauses.append("c.name LIKE ?")
             params.append(f"%{filters['category']}%")
+            # Resolve ID for frontend
+            cat_row = conn.execute("SELECT id FROM categories WHERE name LIKE ?", (f"%{filters['category']}%",)).fetchone()
+            if cat_row:
+                filters["category_id"] = cat_row["id"]
             
         if filters.get("subcategory"):
             clauses.append("s.name LIKE ?")
             params.append(f"%{filters['subcategory']}%")
+            # Resolve ID for frontend
+            sub_row = conn.execute("SELECT id FROM subcategories WHERE name LIKE ?", (f"%{filters['subcategory']}%",)).fetchone()
+            if sub_row:
+                filters["subcategory_id"] = sub_row["id"]
             
         if filters.get("description"):
             term = filters["description"]

@@ -161,8 +161,38 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
         body: JSON.stringify({ query: searchQuery }),
       });
       const data = await res.json();
+
+      // Update data
       setTransactions(data.results || []);
-      setAIFilters(data.filters);
+
+      // Map standard filters to UI state
+      const filters = data.filters || {};
+      const remainingFilters: any = { ...filters };
+
+      // 1. Date Range
+      if (filters.start_date || filters.end_date) {
+        setDateRange("custom");
+        if (filters.start_date) setCustomStartDate(filters.start_date);
+        if (filters.end_date) setCustomEndDate(filters.end_date);
+        delete remainingFilters.start_date;
+        delete remainingFilters.end_date;
+      }
+
+      // 2. Category
+      if (filters.category_id) {
+        setCategoryFilter(filters.category_id.toString());
+        delete remainingFilters.category_id;
+        delete remainingFilters.category; // remove name too
+      }
+
+      // 3. Subcategory
+      if (filters.subcategory_id) {
+        setSubcategoryFilter(filters.subcategory_id.toString());
+        delete remainingFilters.subcategory_id;
+        delete remainingFilters.subcategory;
+      }
+
+      setAIFilters(Object.keys(remainingFilters).length > 0 ? remainingFilters : null);
       setIsAIMode(true);
       setPage(0);
     } catch (e) {
@@ -423,28 +453,59 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
       </div>
 
       {/* AI Filters Display */}
-      {isAIMode && aiFilters && (
+      {isAIMode && (
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center", marginTop: "-1rem", paddingLeft: "0.5rem" }}>
-          <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
-            ✨ AI Filter:
-          </span>
-          {Object.entries(aiFilters).map(([key, value]) => {
+          {/* Clear Button - Prominent if in AI mode */}
+          <button
+            className="text-btn"
+            onClick={() => {
+              setIsAIMode(false);
+              setAIFilters(null);
+              setSearchQuery("");
+              // Optional: Reset other filters? Maybe not, user might want to keep the context.
+              // But usually clearing search means reset.
+              setCategoryFilter("");
+              setDateRange("30d");
+            }}
+            style={{
+              fontSize: "0.75rem",
+              color: "var(--accent)",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              background: "var(--bg-input)",
+              padding: "4px 8px",
+              borderRadius: "var(--radius-sm)"
+            }}
+          >
+            ← Clear AI Search
+          </button>
+
+          {aiFilters && Object.entries(aiFilters).map(([key, value]) => {
             if (!value) return null;
+            // Beautify keys
+            const label = key.replace(/_/g, " ").replace("amount", "");
             return (
-              <span key={key} className="badge" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-color)", color: "var(--text-primary)", fontWeight: 500 }}>
-                {key.replace("_", " ")}: {String(value)}
+              <span key={key} className="badge" style={{
+                background: "var(--bg-secondary)",
+                border: "1px solid var(--border-color)",
+                color: "var(--text-primary)",
+                fontWeight: 500,
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "4px 8px"
+              }}>
+                <span style={{ color: "var(--text-muted)", textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.5px" }}>
+                  {label}
+                </span>
+                {String(value)}
               </span>
             );
           })}
-          <button
-            className="text-btn"
-            onClick={() => { setIsAIMode(false); setAIFilters(null); setSearchQuery(""); }}
-            style={{ fontSize: "0.75rem", color: "var(--accent)", marginLeft: "0.5rem" }}
-          >
-            Clear AI Results
-          </button>
         </div>
       )}
+
 
       {/* Transactions Table */}
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -626,56 +687,60 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
       </div>
 
       {/* Edit Modal */}
-      {editingTx && (
-        <EditTransactionModal
-          transaction={editingTx}
-          isOpen={!!editingTx}
-          onClose={closeEdit}
-          onSave={async () => {
-            onUpdated?.();
-            const params = new URLSearchParams();
-            const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
-            if (startDate) params.append("start_date", startDate);
-            if (endDate) params.append("end_date", endDate + " 23:59:59");
-            if (categoryFilter) params.append("category_id", categoryFilter);
-            fetch(`${apiBase}/transactions?${params.toString()}`)
-              .then((res) => res.json())
-              .then((data) => setTransactions(data))
-              .catch(() => { });
-          }}
-          categories={categories}
-          subcategories={subcategories}
-          apiBase={apiBase}
-        />
-      )}
+      {
+        editingTx && (
+          <EditTransactionModal
+            transaction={editingTx}
+            isOpen={!!editingTx}
+            onClose={closeEdit}
+            onSave={async () => {
+              onUpdated?.();
+              const params = new URLSearchParams();
+              const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
+              if (startDate) params.append("start_date", startDate);
+              if (endDate) params.append("end_date", endDate + " 23:59:59");
+              if (categoryFilter) params.append("category_id", categoryFilter);
+              fetch(`${apiBase}/transactions?${params.toString()}`)
+                .then((res) => res.json())
+                .then((data) => setTransactions(data))
+                .catch(() => { });
+            }}
+            categories={categories}
+            subcategories={subcategories}
+            apiBase={apiBase}
+          />
+        )
+      }
 
       {/* Link Transaction Modal */}
-      {linkingTx && (
-        <LinkTransactionModal
-          apiBase={apiBase}
-          transaction={{
-            id: linkingTx.id,
-            amount: linkingTx.amount,
-            description_raw: linkingTx.description_raw,
-            posted_at: linkingTx.posted_at,
-          }}
-          onClose={() => setLinkingTx(null)}
-          onLinked={() => {
-            setLinkingTx(null);
-            onUpdated?.();
-            // Refresh transactions with current filters
-            const params = new URLSearchParams();
-            const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
-            if (startDate) params.append("start_date", startDate);
-            if (endDate) params.append("end_date", endDate + " 23:59:59");
-            if (categoryFilter) params.append("category_id", categoryFilter);
-            fetch(`${apiBase}/transactions?${params.toString()}`)
-              .then((res) => res.json())
-              .then((data) => setTransactions(data))
-              .catch(() => { });
-          }}
-        />
-      )}
+      {
+        linkingTx && (
+          <LinkTransactionModal
+            apiBase={apiBase}
+            transaction={{
+              id: linkingTx.id,
+              amount: linkingTx.amount,
+              description_raw: linkingTx.description_raw,
+              posted_at: linkingTx.posted_at,
+            }}
+            onClose={() => setLinkingTx(null)}
+            onLinked={() => {
+              setLinkingTx(null);
+              onUpdated?.();
+              // Refresh transactions with current filters
+              const params = new URLSearchParams();
+              const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
+              if (startDate) params.append("start_date", startDate);
+              if (endDate) params.append("end_date", endDate + " 23:59:59");
+              if (categoryFilter) params.append("category_id", categoryFilter);
+              fetch(`${apiBase}/transactions?${params.toString()}`)
+                .then((res) => res.json())
+                .then((data) => setTransactions(data))
+                .catch(() => { });
+            }}
+          />
+        )
+      }
 
       <style>{`
         @keyframes slideUp {
@@ -689,7 +754,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
           }
         }
       `}</style>
-    </div>
+    </div >
   );
 }
 
