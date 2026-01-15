@@ -15,12 +15,21 @@ PROFILE_DEFINITIONS: Dict[str, Dict[str, str]] = {
         "credit": "credit",
     },
     
-    # HDFC Bank statement format
+    # HDFC Bank statement format (XLS)
     "hdfc": {
         "date": "Date",
         "description": "Narration",
         "debit": "Withdrawal Amt.",
         "credit": "Deposit Amt.",
+        "balance": "Closing Balance",
+    },
+    
+    # HDFC Bank statement format (TXT/CSV delimited export)
+    "hdfc_txt": {
+        "date": "Date",
+        "description": "Narration",
+        "debit": "Debit Amount",
+        "credit": "Credit Amount",
         "balance": "Closing Balance",
     },
     
@@ -95,8 +104,8 @@ PROFILE_DEFINITIONS: Dict[str, Dict[str, str]] = {
 COLUMN_ALIASES = {
     "date": ["date", "txn date", "transaction date", "posting date", "tran date", "value date"],
     "description": ["description", "narration", "particulars", "transaction details", "remarks", "transaction remarks", "transaction description"],
-    "debit": ["debit", "withdrawal", "withdrawal amt", "withdrawal amt.", "withdrawal amount", "dr", "debit amount"],
-    "credit": ["credit", "deposit", "deposit amt", "deposit amt.", "deposit amount", "cr", "credit amount"],
+    "debit": ["debit", "debit amount", "withdrawal", "withdrawal amt", "withdrawal amt.", "withdrawal amount", "dr"],
+    "credit": ["credit", "credit amount", "deposit", "deposit amt", "deposit amt.", "deposit amount", "cr"],
     "amount": ["amount", "transaction amount", "amount (in rs.)", "amount(inr)"],
     "balance": ["balance", "closing balance", "running balance", "available balance"],
 }

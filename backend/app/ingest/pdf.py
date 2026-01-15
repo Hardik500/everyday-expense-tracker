@@ -1,16 +1,17 @@
 import io
 import re
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 import pdfplumber
 
 from app.ingest.normalize import compute_hash, normalize_description, parse_amount, parse_date
 
 
-# Date patterns for different formats
-DATE_PATTERN = re.compile(r"(\d{2}[/-]\d{2}[/-]\d{2,4})")
-# Credit card statement pattern: DATE| TIME DESCRIPTION [+/-] [points] [C] AMOUNT [l]
-CC_LINE_PATTERN = re.compile(r"(\d{2}/\d{2}/\d{4})\|?\s*(\d{2}:\d{2})?\s+(.+?)\s+[C₹]?\s*([0-9,]+\.\d{2})\s*[lL]?$")
+# Date patterns
+DATE_PATTERN = re.compile(r"(\d{2}/\d{2}/\d{4})")
+
+# Pattern for amounts: handles 1,234.56 or 1234.56 with optional Cr/CR suffix
+AMOUNT_PATTERN = re.compile(r"([0-9,]+\.\d{2})\s*(Cr|CR)?$")
 
 
 def _detect_pdf_type(pdf) -> str:
@@ -25,75 +26,208 @@ def _detect_pdf_type(pdf) -> str:
     if "credit card" in text_lower or "card statement" in text_lower:
         return "credit_card"
     
-    # Bank statement indicators
-    if "savings" in text_lower or "withdrawalamt" in text_lower or "depositamt" in text_lower or "closingbalance" in text_lower:
+    # Bank statement indicators (HDFC bank statement specific)
+    if ("accountbranch" in text_lower.replace(" ", "") or 
+        "withdrawalamt" in text_lower.replace(" ", "") or 
+        "depositamt" in text_lower.replace(" ", "")):
         return "bank"
     
-    # If date|time format found, likely credit card
-    if "|" in first_page_text:
+    # If has transaction-like lines with dates, assume credit card
+    if DATE_PATTERN.search(first_page_text):
         return "credit_card"
     
     return "unknown"
 
 
-def _parse_credit_card_line(line: str) -> Optional[Tuple[str, str, float]]:
-    """Parse a credit card PDF line to extract date, description, and amount."""
-    # Skip header and summary lines
-    skip_patterns = ["TRANSACTIONS", "DOMESTIC", "INTERNATIONAL", "DATE", "DESCRIPTION", 
-                     "REWARDS", "AMOUNT", "TOTAL", "PAYMENT", "BALANCE", "DUE", "LIMIT"]
-    line_upper = line.upper()
-    if any(pattern in line_upper for pattern in skip_patterns):
-        if "AUTOPAY" not in line_upper and "PAYMENT" not in line_upper:
-            return None
+def _detect_card_type(pdf) -> str:
+    """Detect which bank's credit card statement this is."""
+    first_page_text = ""
+    for page in pdf.pages[:2]:
+        first_page_text += (page.extract_text() or "") + "\n"
     
-    # Try specific credit card format: DATE| TIME DESCRIPTION C AMOUNT l
-    match = CC_LINE_PATTERN.match(line.strip())
-    if match:
-        date_str = match.group(1)
-        description = match.group(3).strip()
-        amount_str = match.group(4)
-        amount = parse_amount(amount_str)
-        if amount > 0:
-            return date_str, description, amount
+    text_lower = first_page_text.lower()
     
-    # Fallback: Generic parsing
+    if "icici" in text_lower or "amazon" in text_lower.replace(" ", ""):
+        return "icici"
+    if "sbi card" in text_lower or "sbicard" in text_lower.replace(" ", ""):
+        return "sbi"
+    if "hdfc" in text_lower:
+        return "hdfc"
+    
+    return "generic"
+
+
+def _parse_hdfc_line(line: str) -> Optional[Tuple[str, str, float, bool]]:
+    """
+    Parse HDFC credit card line.
+    Format: DATE TIME DESCRIPTION [POINTS] AMOUNT [Cr]
+    Example: 12/03/2025 20:58:42 CALIFORNIA BURRITO BANGALORE 4 293.00
+    Example: 19/03/2025 10:34:29 TELE TRANSFER CREDIT (Ref# ...) 1,02,613.00Cr
+    Returns: (date_str, description, amount, is_credit)
+    """
+    # Must start with date
     date_match = DATE_PATTERN.search(line)
     if not date_match:
         return None
     
+    # Skip non-transaction lines
+    skip_keywords = ["statement date", "payment due", "credit limit", "available", 
+                     "address", "email", "name:", "hsn code", "gstin", 
+                     "personal details", "please write", "average daily",
+                     "fresh purchases"]
+    if any(kw in line.lower() for kw in skip_keywords):
+        return None
+    
+    # Find amount at end
+    amount_match = AMOUNT_PATTERN.search(line)
+    if not amount_match:
+        return None
+    
     date_str = date_match.group(1)
-    tokens = line.split()
-    if len(tokens) < 3:
+    amount = parse_amount(amount_match.group(1))
+    is_credit = amount_match.group(2) is not None  # Has Cr/CR suffix
+    
+    if amount <= 0:
         return None
     
-    # Look for amount pattern (number with comma/decimal)
-    amount = 0.0
-    amount_token = ""
+    # Extract description: everything between date/time and amount
+    # Remove date
+    desc = line[date_match.end():].strip()
+    # Remove time if present (HH:MM:SS)
+    desc = re.sub(r"^\d{2}:\d{2}(:\d{2})?\s*", "", desc)
+    # Remove amount portion
+    desc = re.sub(r"[0-9,]+\.\d{2}\s*(Cr|CR)?$", "", desc).strip()
+    # Remove trailing points number if present (single digit or small number at end)
+    desc = re.sub(r"\s+\d{1,3}$", "", desc).strip()
     
-    # Search from the end for a valid amount
-    for i in range(len(tokens) - 1, -1, -1):
-        token = tokens[i]
-        # Skip trailing markers like 'l', 'L', 'C'
-        if token in ('l', 'L', 'C', '+', '-'):
-            continue
-        potential_amount = parse_amount(token)
-        if potential_amount > 0:
-            amount = potential_amount
-            amount_token = token
-            break
-    
-    if amount == 0.0:
+    if not desc or len(desc) < 3:
         return None
     
-    # Build description from remaining tokens
-    description = line.replace(date_str, "").replace(amount_token, "")
-    description = re.sub(r"\|?\s*\d{2}:\d{2}", "", description)  # Remove time
-    description = description.strip()
-    
-    if not description:
+    # Skip if description is just numbers (likely a parsing error)
+    if re.match(r'^[\d,.\s]+$', desc):
         return None
     
-    return date_str, description, amount
+    return date_str, desc, amount, is_credit
+
+
+def _parse_icici_line(line: str) -> Optional[Tuple[str, str, float, bool]]:
+    """
+    Parse ICICI/Amazon credit card line.
+    Format: DATE REF_NUM DESCRIPTION [POINTS] AMOUNT [CR]
+    Example: 06/04/2025 11049594561 IND*AMAZON HTTP://WWW.AM IN 29 599.00
+    Example: 13/04/2025 11082771581 BBPS Payment received 0 9,720.00 CR
+    Returns: (date_str, description, amount, is_credit)
+    """
+    # Must start with date
+    date_match = DATE_PATTERN.search(line)
+    if not date_match:
+        return None
+    
+    # Skip headers and summary lines
+    skip_keywords = ["statement date", "payment due", "total amount", "minimum amount",
+                     "credit limit", "credit summary"]
+    if any(kw in line.lower() for kw in skip_keywords):
+        return None
+    
+    # Find amount - look for number pattern at end
+    # ICICI format: AMOUNT [CR] or just AMOUNT
+    amount_match = re.search(r"([0-9,]+\.\d{2})\s*(CR)?$", line, re.IGNORECASE)
+    if not amount_match:
+        return None
+    
+    date_str = date_match.group(1)
+    amount = parse_amount(amount_match.group(1))
+    is_credit = amount_match.group(2) is not None
+    
+    if amount <= 0:
+        return None
+    
+    # Extract description
+    desc = line[date_match.end():].strip()
+    # Remove reference number (11 digit number at start)
+    desc = re.sub(r"^\d{10,12}\s*", "", desc)
+    # Remove amount at end
+    desc = re.sub(r"[0-9,]+\.\d{2}\s*(CR)?$", "", desc, flags=re.IGNORECASE).strip()
+    # Remove trailing points/percentage
+    desc = re.sub(r"\s+[-\d]+%?\s*$", "", desc).strip()
+    desc = re.sub(r"\s+\d{1,3}$", "", desc).strip()
+    
+    if not desc or len(desc) < 3:
+        return None
+    
+    return date_str, desc, amount, is_credit
+
+
+def _parse_sbi_line(line: str) -> Optional[Tuple[str, str, float, bool]]:
+    """
+    Parse SBI credit card line.
+    Format: DD Mon YY DESCRIPTION AMOUNT D/C
+    Example: 06 Oct 25 BISTRO GURGAON IND 148.00 D
+    Example: 03 Dec 25 CARD CASHBACK CREDIT 32.00 C
+    Returns: (date_str, description, amount, is_credit)
+    """
+    # SBI uses format like "06 Oct 25" - DD Mon YY
+    sbi_date_pattern = re.compile(r"(\d{2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{2})", re.IGNORECASE)
+    date_match = sbi_date_pattern.search(line)
+    if not date_match:
+        return None
+    
+    # Skip headers and non-transaction lines
+    skip_keywords = ["statement", "amount due", "credit limit", "available", "gstin", 
+                     "period:", "date transaction", "for this"]
+    if any(kw in line.lower() for kw in skip_keywords):
+        return None
+    
+    # Find amount at end with D/C suffix: AMOUNT D or AMOUNT C
+    # Pattern: number followed by D or C at end
+    amount_match = re.search(r"([0-9,]+\.\d{2})\s*([DC])\s*$", line, re.IGNORECASE)
+    if not amount_match:
+        return None
+    
+    date_str = date_match.group(1)
+    amount = parse_amount(amount_match.group(1))
+    is_credit = amount_match.group(2).upper() == 'C'
+    
+    if amount <= 0:
+        return None
+    
+    # Extract description: everything between date and amount
+    desc = line[date_match.end():].strip()
+    # Remove amount and D/C marker
+    desc = re.sub(r"[0-9,]+\.\d{2}\s*[DC]\s*$", "", desc, flags=re.IGNORECASE).strip()
+    
+    if not desc or len(desc) < 3:
+        return None
+    
+    # Convert SBI date format to standard
+    # "06 Oct 25" -> "06/10/2025"
+    try:
+        from dateutil import parser as date_parser
+        parsed_date = date_parser.parse(date_str, dayfirst=True)
+        date_str = parsed_date.strftime("%d/%m/%Y")
+    except:
+        pass
+    
+    return date_str, desc, amount, is_credit
+
+
+def _parse_credit_card_line(line: str, card_type: str) -> Optional[Tuple[str, str, float, bool]]:
+    """Parse a credit card PDF line based on card type."""
+    if card_type == "hdfc":
+        return _parse_hdfc_line(line)
+    elif card_type == "icici":
+        return _parse_icici_line(line)
+    elif card_type == "sbi":
+        return _parse_sbi_line(line)
+    else:
+        # Try all parsers
+        result = _parse_hdfc_line(line)
+        if result:
+            return result
+        result = _parse_icici_line(line)
+        if result:
+            return result
+        return _parse_sbi_line(line)
 
 
 def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes) -> Tuple[int, int]:
@@ -108,19 +242,23 @@ def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes) -> Tupl
             print(f"Skipping bank statement PDF (use XLS format for bank statements)")
             return 0, 0
         
-        if pdf_type not in ("credit_card",):
-            print(f"Unknown PDF type: {pdf_type}, attempting credit card parsing")
+        card_type = _detect_card_type(pdf)
+        print(f"Detected card type: {card_type}")
         
         seen_hashes = set()
         
         for page in pdf.pages:
             text = page.extract_text() or ""
             for line in text.splitlines():
-                parsed = _parse_credit_card_line(line)
+                line = line.strip()
+                if not line:
+                    continue
+                
+                parsed = _parse_credit_card_line(line, card_type)
                 if not parsed:
                     continue
                 
-                date_str, description_raw, amount = parsed
+                date_str, description_raw, amount, is_credit = parsed
                 posted_at = parse_date(date_str)
                 if not posted_at:
                     skipped += 1
@@ -128,13 +266,13 @@ def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes) -> Tupl
                 
                 description_norm = normalize_description(description_raw)
                 
-                # Credit card expenses are typically positive in statement but should be negative (expense)
-                # Skip if amount looks like a credit/payment (contains "AUTOPAY", "PAYMENT", "THANK YOU")
-                is_payment = any(kw in description_norm.upper() for kw in ["AUTOPAY", "PAYMENT", "THANK YOU", "REFUND", "REVERSAL"])
-                if is_payment:
-                    amount = amount  # Keep positive (it's a credit to the card)
+                # Determine sign:
+                # - Credits (payments, refunds) should be positive
+                # - Debits (purchases) should be negative
+                if is_credit:
+                    amount = abs(amount)  # Credit to card (payment received, refund)
                 else:
-                    amount = -abs(amount)  # Make negative for expenses
+                    amount = -abs(amount)  # Debit (expense)
                 
                 tx_hash = compute_hash(account_id, posted_at, amount, description_norm)
                 
@@ -163,7 +301,8 @@ def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes) -> Tupl
                         ),
                     )
                     inserted += 1
-                except Exception:
+                except Exception as e:
                     skipped += 1
     
+    print(f"PDF import: {inserted} inserted, {skipped} skipped")
     return inserted, skipped

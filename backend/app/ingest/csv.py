@@ -11,13 +11,21 @@ def _get_amount(row: dict, mapping: dict) -> float:
     if mapping.get("amount") and row.get(mapping["amount"]):
         return parse_amount(row[mapping["amount"]])
     
-    debit = row.get(mapping.get("debit", "")) if mapping.get("debit") else None
-    credit = row.get(mapping.get("credit", "")) if mapping.get("credit") else None
+    debit_col = mapping.get("debit", "")
+    credit_col = mapping.get("credit", "")
     
-    if debit and str(debit).strip():
-        return -abs(parse_amount(debit))
-    if credit and str(credit).strip():
-        return abs(parse_amount(credit))
+    debit_val = row.get(debit_col, "") if debit_col else ""
+    credit_val = row.get(credit_col, "") if credit_col else ""
+    
+    # Parse both amounts
+    debit_amount = parse_amount(debit_val) if debit_val and str(debit_val).strip() else 0.0
+    credit_amount = parse_amount(credit_val) if credit_val and str(credit_val).strip() else 0.0
+    
+    # Return the non-zero amount (debit as negative, credit as positive)
+    if debit_amount > 0:
+        return -abs(debit_amount)
+    if credit_amount > 0:
+        return abs(credit_amount)
     return 0.0
 
 
@@ -30,10 +38,29 @@ def ingest_csv(
 ) -> Tuple[int, int]:
     mapping = resolve_profile(profile)
     decoded = payload.decode("utf-8", errors="ignore")
-    reader = csv.DictReader(io.StringIO(decoded))
+    
+    # Skip empty lines at the beginning and strip whitespace from content
+    lines = decoded.splitlines()
+    cleaned_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped:  # Skip empty lines
+            cleaned_lines.append(stripped)
+    
+    if not cleaned_lines:
+        return 0, 0
+    
+    # Clean up column names - strip whitespace
+    reader = csv.DictReader(io.StringIO('\n'.join(cleaned_lines)))
+    # Create mapping with stripped keys
+    fieldnames = reader.fieldnames or []
+    clean_fieldnames = [f.strip() for f in fieldnames]
+    
     inserted = 0
     skipped = 0
     for row in reader:
+        # Strip keys in the row
+        row = {k.strip(): v for k, v in row.items() if k}
         if not row:
             continue
         posted_at = parse_date(row.get(mapping["date"], ""))
