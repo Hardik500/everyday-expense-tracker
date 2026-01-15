@@ -9,6 +9,7 @@ type Props = {
   categories: Category[];
   subcategories: Subcategory[];
   refreshKey: number;
+  initialFilter?: { categoryId?: number; subcategoryId?: number };
   onUpdated?: () => void;
 };
 
@@ -70,13 +71,30 @@ const getDateRange = (range: DateRange, customStart?: string, customEnd?: string
   return { startDate, endDate };
 };
 
-function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdated }: Props) {
+function Transactions({ apiBase, categories, subcategories, refreshKey, initialFilter, onUpdated }: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const pageSize = 25;
+
+  // Initialize from props
+  useEffect(() => {
+    if (initialFilter?.categoryId) {
+      setCategoryFilter(initialFilter.categoryId.toString());
+      if (initialFilter.subcategoryId) {
+        setSubcategoryFilter(initialFilter.subcategoryId.toString());
+      }
+      setDateRange("all"); // Ensure they see the transactions
+    }
+  }, [initialFilter]);
+
+  // Reset subcategory when category changes
+  useEffect(() => {
+    setSubcategoryFilter("");
+  }, [categoryFilter]);
 
   // Date range state - default to 30 days
   const [dateRange, setDateRange] = useState<DateRange>("30d");
@@ -104,6 +122,9 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
     if (categoryFilter) {
       params.append("category_id", categoryFilter);
     }
+    if (subcategoryFilter) {
+      params.append("subcategory_id", subcategoryFilter);
+    }
     fetch(`${apiBase}/transactions?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
@@ -115,7 +136,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
         setTransactions([]);
         setLoading(false);
       });
-  }, [apiBase, categoryFilter, refreshKey, dateRange, customStartDate, customEndDate]);
+  }, [apiBase, categoryFilter, subcategoryFilter, refreshKey, dateRange, customStartDate, customEndDate]);
 
   // Reset page when search query changes
   useEffect(() => {
@@ -264,6 +285,25 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
             </select>
           </div>
 
+          {/* Subcategory filter */}
+          <div style={{ flex: "0 0 200px" }}>
+            <select
+              value={subcategoryFilter}
+              onChange={(e) => setSubcategoryFilter(e.target.value)}
+              style={{ width: "100%" }}
+              disabled={!categoryFilter}
+            >
+              <option value="">All subcategories</option>
+              {subcategories
+                .filter((sub) => sub.category_id === parseInt(categoryFilter))
+                .map((sub) => (
+                  <option key={sub.id} value={sub.id}>
+                    {sub.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+
           {/* Summary */}
           <div style={{ flex: "0 0 auto", textAlign: "right" }}>
             <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
@@ -295,6 +335,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
               if (startDate) params.append("start_date", startDate);
               if (endDate) params.append("end_date", endDate + " 23:59:59");
               if (categoryFilter) params.append("category_id", categoryFilter);
+              if (subcategoryFilter) params.append("subcategory_id", subcategoryFilter);
               window.open(`${apiBase}/transactions/export?${params.toString()}`, "_blank");
             }}
             style={{

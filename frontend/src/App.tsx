@@ -61,10 +61,16 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [reviewCount, setReviewCount] = useState(0);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [transactionsFilter, setTransactionsFilter] = useState<{ categoryId?: number; subcategoryId?: number } | undefined>(undefined);
 
   const handleCategorySelect = (categoryId: number) => {
     setSelectedCategoryId(categoryId);
     setActiveTab("analytics");
+  };
+
+  const handleTransactionsFilter = (filter: { categoryId?: number; subcategoryId?: number }) => {
+    setTransactionsFilter(filter);
+    setActiveTab("transactions");
   };
 
   useEffect(() => {
@@ -308,6 +314,7 @@ function App() {
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
+              onViewTransactions={handleTransactionsFilter}
             />
           )}
           {activeTab === "rules" && (
@@ -343,6 +350,7 @@ function App() {
               categories={categories}
               subcategories={subcategories}
               refreshKey={refreshKey}
+              initialFilter={transactionsFilter}
               onUpdated={() => setRefreshKey((k) => k + 1)}
             />
           )}

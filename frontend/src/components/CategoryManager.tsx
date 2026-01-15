@@ -6,6 +6,116 @@ type Props = {
   apiBase: string;
   refreshKey: number;
   onRefresh: () => void;
+  onViewTransactions?: (filter: { categoryId?: number; subcategoryId?: number }) => void;
+};
+
+// --- Custom Modal for Deletion Confirmation ---
+type DeleteModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  isDeleting: boolean;
+  error?: string | null;
+  linkedTransactionAction?: () => void;
+};
+
+const DeleteConfirmationModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  isDeleting,
+  error,
+  linkedTransactionAction,
+}: DeleteModalProps) => {
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0,0,0,0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        backdropFilter: "blur(4px)",
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="card"
+        style={{
+          width: "100%",
+          maxWidth: "400px",
+          padding: "1.5rem",
+          animation: "slideIn 0.2s ease-out",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 style={{ marginTop: 0, marginBottom: "1rem", color: "var(--text-primary)" }}>{title}</h3>
+        <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem", whiteSpace: "pre-wrap" }}>
+          {message}
+        </p>
+
+        {error && (
+          <div
+            style={{
+              padding: "0.75rem",
+              background: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid var(--danger)",
+              borderRadius: "0.5rem",
+              marginBottom: "1.5rem",
+              fontSize: "0.875rem",
+              color: "var(--danger)",
+            }}
+          >
+            {error}
+            {linkedTransactionAction && (error.includes("transaction") || error.includes("linked")) && (
+              <div style={{ marginTop: "0.5rem" }}>
+                <button
+                  onClick={linkedTransactionAction}
+                  style={{
+                    background: "var(--danger)",
+                    color: "white",
+                    border: "none",
+                    padding: "0.25rem 0.75rem",
+                    borderRadius: "0.25rem",
+                    fontSize: "0.75rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  View Transactions
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+          <button className="secondary" onClick={onClose} disabled={isDeleting}>
+            Cancel
+          </button>
+          <button
+            className="danger"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+          >
+            {isDeleting ? "Deleting..." : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
 };
 
 type CategoryWithStats = Category & {
@@ -15,7 +125,7 @@ type CategoryWithStats = Category & {
   expanded?: boolean;
 };
 
-function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
+function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }: Props) {
   const [categories, setCategories] = useState<CategoryWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -35,6 +145,17 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Delete Modal State
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteItem, setDeleteItem] = useState<{
+    type: "category" | "subcategory";
+    id: number;
+    name: string;
+    categoryId?: number;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchCategories = async () => {
     setLoading(true);
@@ -202,13 +323,32 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
     setSaving(false);
   };
 
-  const handleDeleteCategory = async (cat: Category) => {
-    if (!confirm(`Delete category "${cat.name}" and all its subcategories?\n\nThis cannot be undone.`)) {
-      return;
-    }
+  const confirmDeleteCategory = (cat: Category) => {
+    setDeleteItem({ type: "category", id: cat.id, name: cat.name });
+    setDeleteError(null);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDeleteSubcategory = (sub: Subcategory) => {
+    setDeleteItem({
+      type: "subcategory",
+      id: sub.id,
+      name: sub.name,
+      categoryId: sub.category_id
+    });
+    setDeleteError(null);
+    setDeleteModalOpen(true);
+  };
+
+  const executeDelete = async () => {
+    if (!deleteItem) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
 
     try {
-      const res = await fetch(`${apiBase}/categories/${cat.id}`, {
+      const endpoint = deleteItem.type === "category" ? "categories" : "subcategories";
+      const res = await fetch(`${apiBase}/${endpoint}/${deleteItem.id}`, {
         method: "DELETE",
       });
 
@@ -217,32 +357,24 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
         throw new Error(data.detail || "Failed to delete");
       }
 
+      setDeleteModalOpen(false);
       fetchCategories();
       onRefresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete");
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const handleDeleteSubcategory = async (sub: Subcategory) => {
-    if (!confirm(`Delete subcategory "${sub.name}"?\n\nThis cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      const res = await fetch(`${apiBase}/subcategories/${sub.id}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Failed to delete");
+  const handleViewTransactions = () => {
+    if (onViewTransactions && deleteItem) {
+      if (deleteItem.type === "category") {
+        onViewTransactions({ categoryId: deleteItem.id });
+      } else if (deleteItem.type === "subcategory" && deleteItem.categoryId) {
+        onViewTransactions({ categoryId: deleteItem.categoryId, subcategoryId: deleteItem.id });
       }
-
-      fetchCategories();
-      onRefresh();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete");
+      setDeleteModalOpen(false);
     }
   };
 
@@ -400,7 +532,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                     </svg>
                   </button>
                   <button
-                    onClick={() => handleDeleteCategory(cat)}
+                    onClick={() => confirmDeleteCategory(cat)}
                     style={{
                       background: "none",
                       border: "none",
@@ -464,7 +596,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
                           </svg>
                         </button>
                         <button
-                          onClick={() => handleDeleteSubcategory(sub)}
+                          onClick={() => confirmDeleteSubcategory(sub)}
                           style={{
                             background: "none",
                             border: "none",
@@ -805,6 +937,17 @@ function CategoryManager({ apiBase, refreshKey, onRefresh }: Props) {
         </div>,
         document.body
       )}
+      {/* Use generic DeleteConfirmationModal */}
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={executeDelete}
+        title={`Delete ${deleteItem?.type === "category" ? "Category" : "Subcategory"}`}
+        message={`Are you sure you want to delete "${deleteItem?.name}"?\n\nThis cannot be undone.`}
+        isDeleting={isDeleting}
+        error={deleteError}
+        linkedTransactionAction={onViewTransactions ? handleViewTransactions : undefined}
+      />
     </div>
   );
 }

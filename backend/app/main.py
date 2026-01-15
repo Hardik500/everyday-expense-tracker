@@ -431,6 +431,7 @@ def list_transactions(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     category_id: Optional[int] = None,
+    subcategory_id: Optional[int] = None,
     uncertain: Optional[bool] = None,
 ) -> List[schemas.Transaction]:
     clauses = []
@@ -445,6 +446,9 @@ def list_transactions(
     if category_id:
         clauses.append("category_id = ?")
         params.append(category_id)
+    if subcategory_id:
+        clauses.append("subcategory_id = ?")
+        params.append(subcategory_id)
     if uncertain is not None:
         clauses.append("is_uncertain = ?")
         params.append(1 if uncertain else 0)
