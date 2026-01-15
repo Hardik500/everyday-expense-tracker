@@ -55,13 +55,43 @@ const NavIcon = ({ active, children }: { active: boolean; children: React.ReactN
 );
 
 function App() {
+  // Initialize from URL
+  const getInitialTab = (): Tab => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab") as Tab;
+    const validTabs: Tab[] = ["dashboard", "analytics", "accounts", "categories", "rules", "upload", "review", "transactions"];
+    return validTabs.includes(tab) ? tab : "dashboard";
+  };
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+  const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);
   const [reviewCount, setReviewCount] = useState(0);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [transactionsFilter, setTransactionsFilter] = useState<{ categoryId?: number; subcategoryId?: number } | undefined>(undefined);
+
+  // Sync tab to URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") !== activeTab) {
+      params.set("tab", activeTab);
+      window.history.pushState({}, "", "?" + params.toString());
+    }
+  }, [activeTab]);
+
+  // Handle back/forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab") as Tab;
+      const validTabs: Tab[] = ["dashboard", "analytics", "accounts", "categories", "rules", "upload", "review", "transactions"];
+      if (validTabs.includes(tab)) {
+        setActiveTab(tab);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const handleCategorySelect = (categoryId: number) => {
     setSelectedCategoryId(categoryId);
@@ -69,7 +99,11 @@ function App() {
   };
 
   const handleTransactionsFilter = (filter: { categoryId?: number; subcategoryId?: number }) => {
-    setTransactionsFilter(filter);
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", "transactions");
+    if (filter.categoryId) params.set("cat", filter.categoryId.toString());
+    if (filter.subcategoryId) params.set("sub", filter.subcategoryId.toString());
+    window.history.pushState({}, "", "?" + params.toString());
     setActiveTab("transactions");
   };
 
@@ -350,7 +384,6 @@ function App() {
               categories={categories}
               subcategories={subcategories}
               refreshKey={refreshKey}
-              initialFilter={transactionsFilter}
               onUpdated={() => setRefreshKey((k) => k + 1)}
             />
           )}

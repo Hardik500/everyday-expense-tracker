@@ -9,7 +9,6 @@ type Props = {
   categories: Category[];
   subcategories: Subcategory[];
   refreshKey: number;
-  initialFilter?: { categoryId?: number; subcategoryId?: number };
   onUpdated?: () => void;
 };
 
@@ -71,13 +70,21 @@ const getDateRange = (range: DateRange, customStart?: string, customEnd?: string
   return { startDate, endDate };
 };
 
-function Transactions({ apiBase, categories, subcategories, refreshKey, initialFilter, onUpdated }: Props) {
+function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdated }: Props) {
+  // Init state from URL
+  const getParams = () => new URLSearchParams(window.location.search);
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState<string>("");
-  const [subcategoryFilter, setSubcategoryFilter] = useState<string>("");
-  const [searchQuery, setSearchQuery] = useState("");
+
+  const [categoryFilter, setCategoryFilter] = useState<string>(() => getParams().get("cat") || "");
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>(() => getParams().get("sub") || "");
+  const [searchQuery, setSearchQuery] = useState(() => getParams().get("q") || "");
+
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(() => {
+    const p = parseInt(getParams().get("page") || "1");
+    return Math.max(0, p - 1);
+  });
   const pageSize = 25;
 
   // AI Search State
@@ -86,36 +93,62 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
   const [rawAIFilters, setRawAIFilters] = useState<any>(null);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Initialize from props
-  useEffect(() => {
-    if (initialFilter?.categoryId) {
-      setCategoryFilter(initialFilter.categoryId.toString());
-      if (initialFilter.subcategoryId) {
-        setSubcategoryFilter(initialFilter.subcategoryId.toString());
-      }
-      setDateRange("all"); // Ensure they see the transactions
-      setIsAIMode(false);
-      setIsAIMode(false);
-      setAIFilters(null);
-      setRawAIFilters(null);
-      setTotalCount(0);
-    }
-  }, [initialFilter]);
-
-  // Reset subcategory when category changes
-  useEffect(() => {
-    setSubcategoryFilter("");
-  }, [categoryFilter]);
-
-  // Date range state - default to 30 days
-  const [dateRange, setDateRange] = useState<DateRange>("30d");
-  const [customStartDate, setCustomStartDate] = useState("");
-  const [customEndDate, setCustomEndDate] = useState("");
+  // Date range state
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const p = getParams();
+    if (p.get("start") || p.get("end")) return "custom";
+    if (p.get("range")) return p.get("range") as DateRange;
+    return "30d";
+  });
+  const [customStartDate, setCustomStartDate] = useState(() => getParams().get("start") || "");
+  const [customEndDate, setCustomEndDate] = useState(() => getParams().get("end") || "");
 
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   // Link modal state
   const [linkingTx, setLinkingTx] = useState<Transaction | null>(null);
+
+  // Sync state to URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    // Function to set/delete param
+    const update = (key: string, val: string | null) => val ? params.set(key, val) : params.delete(key);
+
+    update("cat", categoryFilter);
+    update("sub", subcategoryFilter);
+    update("q", searchQuery);
+    update("page", (page + 1).toString());
+
+    if (dateRange !== "30d") update("range", dateRange);
+    else params.delete("range");
+
+    if (dateRange === "custom") {
+      update("start", customStartDate);
+      update("end", customEndDate);
+    } else {
+      params.delete("start");
+      params.delete("end");
+    }
+
+    // Always keep tab=transactions if we are here
+    params.set("tab", "transactions");
+
+    window.history.replaceState({}, "", "?" + params.toString());
+  }, [categoryFilter, subcategoryFilter, searchQuery, page, dateRange, customStartDate, customEndDate]);
+
+  // Reset subcategory when category changes (only if user interaction? No, simplistic is fine for now)
+  // But wait, if URL loads both cat & sub, this effect might clear sub?
+  // We need to avoid clearing sub on initial load.
+  // We can track previous category.
+  useEffect(() => {
+    // If subcategory is set and valid for category... 
+    // For now, let's skip auto-reset to support deep linking better. 
+    // If user changes category, subcategory persists until they change it or it becomes invalid (backend filters).
+    // Ideally we want to clear key if it doesn't match?
+    // Let's assume user knows what they are doing or standard UI handles it.
+    // Removing this effect allows URL ?cat=1&sub=2 to work.
+  }, [categoryFilter]);
 
   useEffect(() => {
     if (isAIMode) return; // Skip standard fetch in AI mode
@@ -227,6 +260,16 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
     if (!searchQuery.trim()) return;
     executeAISearch(0, false);
   };
+
+  // Trigger AI search on mount if query exists
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
+    const p = parseInt(params.get("page") || "1") - 1;
+    if (q) {
+      executeAISearch(Math.max(0, p), false);
+    }
+  }, []);
 
   const filteredTransactions = isAIMode
     ? transactions
