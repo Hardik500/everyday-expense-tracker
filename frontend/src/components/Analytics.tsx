@@ -20,6 +20,7 @@ import {
 type Props = {
   apiBase: string;
   refreshKey: number;
+  initialCategoryId?: number | null;
 };
 
 type TimeSeriesData = {
@@ -77,7 +78,7 @@ const formatDate = (dateStr: string) => {
   return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 };
 
-function Analytics({ apiBase, refreshKey }: Props) {
+function Analytics({ apiBase, refreshKey, initialCategoryId }: Props) {
   const [timeSeries, setTimeSeries] = useState<TimeSeriesData[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,9 +86,9 @@ function Analytics({ apiBase, refreshKey }: Props) {
   const [granularity, setGranularity] = useState<"day" | "week" | "month">("day");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  
+
   // Category drill-down state
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(initialCategoryId ?? null);
   const [categoryDetail, setCategoryDetail] = useState<CategoryDetail | null>(null);
   const [loadingCategory, setLoadingCategory] = useState(false);
   const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
@@ -135,16 +136,16 @@ function Analytics({ apiBase, refreshKey }: Props) {
     const fetchData = async () => {
       setLoading(true);
       const { startDate, endDate } = getDateParams();
-      
+
       try {
         const [tsRes, statsRes] = await Promise.all([
           fetch(`${apiBase}/reports/timeseries?start_date=${startDate}&end_date=${endDate}&granularity=${granularity}`),
           fetch(`${apiBase}/reports/stats?start_date=${startDate}&end_date=${endDate}`),
         ]);
-        
+
         const tsData = await tsRes.json();
         const statsData = await statsRes.json();
-        
+
         setTimeSeries(tsData.data || []);
         setStats(statsData);
       } catch (err) {
@@ -162,11 +163,11 @@ function Analytics({ apiBase, refreshKey }: Props) {
       setCategoryDetail(null);
       return;
     }
-    
+
     const fetchCategoryDetail = async () => {
       setLoadingCategory(true);
       const { startDate, endDate } = getDateParams();
-      
+
       try {
         const res = await fetch(
           `${apiBase}/reports/category/${selectedCategoryId}?start_date=${startDate}&end_date=${endDate}`
@@ -237,9 +238,9 @@ function Analytics({ apiBase, refreshKey }: Props) {
                 style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
               >
                 {range === "7d" ? "7 Days" :
-                 range === "30d" ? "30 Days" :
-                 range === "90d" ? "90 Days" :
-                 range === "year" ? "1 Year" : "All Time"}
+                  range === "30d" ? "30 Days" :
+                    range === "90d" ? "90 Days" :
+                      range === "year" ? "1 Year" : "All Time"}
               </button>
             ))}
             <button
@@ -250,7 +251,7 @@ function Analytics({ apiBase, refreshKey }: Props) {
               Custom
             </button>
           </div>
-          
+
           {dateRange === "custom" && (
             <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
               <input
@@ -281,7 +282,7 @@ function Analytics({ apiBase, refreshKey }: Props) {
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
-            
+
             <select
               value={granularity}
               onChange={(e) => setGranularity(e.target.value as "day" | "week" | "month")}
@@ -444,8 +445,8 @@ function Analytics({ apiBase, refreshKey }: Props) {
                   <AreaChart data={categoryDetail.timeseries} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorCategory" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
@@ -548,10 +549,10 @@ function Analytics({ apiBase, refreshKey }: Props) {
                 <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
                   Net Balance
                 </div>
-                <div className="mono" style={{ 
-                  fontSize: "1.5rem", 
-                  fontWeight: 600, 
-                  color: stats.net_balance >= 0 ? "var(--success)" : "var(--danger)" 
+                <div className="mono" style={{
+                  fontSize: "1.5rem",
+                  fontWeight: 600,
+                  color: stats.net_balance >= 0 ? "var(--success)" : "var(--danger)"
                 }}>
                   {formatFullCurrency(stats.net_balance)}
                 </div>
@@ -578,23 +579,23 @@ function Analytics({ apiBase, refreshKey }: Props) {
                   <AreaChart data={timeSeries} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                    <XAxis 
-                      dataKey="period" 
-                      stroke="var(--text-muted)" 
+                    <XAxis
+                      dataKey="period"
+                      stroke="var(--text-muted)"
                       fontSize={12}
                       tickFormatter={formatDate}
                     />
-                    <YAxis 
-                      stroke="var(--text-muted)" 
+                    <YAxis
+                      stroke="var(--text-muted)"
                       fontSize={12}
                       tickFormatter={formatCurrency}
                     />
@@ -638,14 +639,14 @@ function Analytics({ apiBase, refreshKey }: Props) {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={timeSeries} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                    <XAxis 
-                      dataKey="period" 
-                      stroke="var(--text-muted)" 
+                    <XAxis
+                      dataKey="period"
+                      stroke="var(--text-muted)"
                       fontSize={12}
                       tickFormatter={formatDate}
                     />
-                    <YAxis 
-                      stroke="var(--text-muted)" 
+                    <YAxis
+                      stroke="var(--text-muted)"
                       fontSize={12}
                       tickFormatter={formatCurrency}
                     />
@@ -700,7 +701,7 @@ function Analytics({ apiBase, refreshKey }: Props) {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                
+
                 {/* Legend list - Clickable */}
                 <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "0.75rem" }}>
                   {stats.top_categories.map((cat, index) => {

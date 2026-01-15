@@ -60,6 +60,12 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [reviewCount, setReviewCount] = useState(0);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+
+  const handleCategorySelect = (categoryId: number) => {
+    setSelectedCategoryId(categoryId);
+    setActiveTab("analytics");
+  };
 
   useEffect(() => {
     fetch(`${API_BASE}/categories`)
@@ -275,10 +281,15 @@ function App() {
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
+              onCategorySelect={handleCategorySelect}
             />
           )}
           {activeTab === "analytics" && (
-            <Analytics apiBase={API_BASE} refreshKey={refreshKey} />
+            <Analytics
+              apiBase={API_BASE}
+              refreshKey={refreshKey}
+              initialCategoryId={selectedCategoryId}
+            />
           )}
           {activeTab === "accounts" && (
             <AccountManager

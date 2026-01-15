@@ -5,6 +5,7 @@ type Props = {
   apiBase: string;
   refreshKey: number;
   onRefresh?: () => void;
+  onCategorySelect?: (categoryId: number) => void;
 };
 
 type ReportItem = {
@@ -55,13 +56,37 @@ const formatFullCurrency = (amount: number) => {
   }).format(amount);
 };
 
-function Reports({ apiBase, refreshKey, onRefresh }: Props) {
+function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
   const [items, setItems] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState<string>(""); // "" = all time, "YYYY-MM" = specific month
+
+  // Generate last 12 months for dropdown
+  const getMonthOptions = () => {
+    const months = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+      months.push({ value, label });
+    }
+    return months;
+  };
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${apiBase}/reports/summary`)
+    let url = `${apiBase}/reports/summary`;
+
+    if (selectedMonth) {
+      const [year, month] = selectedMonth.split("-");
+      const startDate = `${year}-${month}-01`;
+      const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+      const endDate = `${year}-${month}-${lastDay}`;
+      url += `?start_date=${startDate}&end_date=${endDate}`;
+    }
+
+    fetch(url)
       .then((res) => res.json())
       .then((data) => {
         setItems(data.items || []);
@@ -71,7 +96,7 @@ function Reports({ apiBase, refreshKey, onRefresh }: Props) {
         setItems([]);
         setLoading(false);
       });
-  }, [apiBase, refreshKey]);
+  }, [apiBase, refreshKey, selectedMonth]);
 
   // Categories that represent asset movements (not true spending/income)
   const assetMovementCategories = ["Transfers", "Investments"];
@@ -131,6 +156,32 @@ function Reports({ apiBase, refreshKey, onRefresh }: Props) {
 
   return (
     <div style={{ display: "grid", gap: "1.5rem" }}>
+      {/* Month Selector */}
+      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <label style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>Period:</label>
+        <select
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          style={{
+            padding: "0.5rem 1rem",
+            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--border-color)",
+            background: "var(--bg-input)",
+            color: "var(--text-primary)",
+            fontSize: "0.875rem",
+            cursor: "pointer",
+            minWidth: 180,
+          }}
+        >
+          <option value="">All Time</option>
+          {getMonthOptions().map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Summary Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1rem" }}>
         {/* Cash Flow (true account change) */}
@@ -340,9 +391,11 @@ function Reports({ apiBase, refreshKey, onRefresh }: Props) {
         <div style={{ display: "grid", gap: "0.75rem" }}>
           {spendingItems.map((item, idx) => {
             const percentage = totalSpend > 0 ? (Math.abs(item.total) / totalSpend) * 100 : 0;
+            const isClickable = item.category_id && onCategorySelect;
             return (
               <div
                 key={idx}
+                onClick={() => isClickable && onCategorySelect(item.category_id!)}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -350,8 +403,11 @@ function Reports({ apiBase, refreshKey, onRefresh }: Props) {
                   padding: "0.875rem 1rem",
                   background: "var(--bg-input)",
                   borderRadius: "var(--radius-md)",
-                  transition: "background var(--transition-fast)",
+                  transition: "all var(--transition-fast)",
+                  cursor: isClickable ? "pointer" : "default",
                 }}
+                onMouseEnter={(e) => isClickable && (e.currentTarget.style.background = "var(--bg-hover)")}
+                onMouseLeave={(e) => isClickable && (e.currentTarget.style.background = "var(--bg-input)")}
               >
                 {/* Color dot */}
                 <div
@@ -389,6 +445,13 @@ function Reports({ apiBase, refreshKey, onRefresh }: Props) {
                 >
                   {formatCurrency(Math.abs(item.total))}
                 </div>
+
+                {/* Arrow icon for clickable items */}
+                {isClickable && (
+                  <svg width="16" height="16" fill="none" stroke="var(--text-muted)" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                )}
               </div>
             );
           })}
