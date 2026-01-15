@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import type { Category, Subcategory } from "../App";
 
 type Props = {
@@ -29,6 +30,19 @@ function SubcategorySearch({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+
+  // Update dropdown position when open
+  useLayoutEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  }, [isOpen]);
 
   // Build flat list of all options - memoized
   const options: FlatOption[] = useMemo(() => {
@@ -83,9 +97,16 @@ function SubcategorySearch({
     : "";
 
   // Close on outside click
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const clickedInside = 
+        containerRef.current?.contains(target) || 
+        dropdownRef.current?.contains(target);
+      
+      if (!clickedInside) {
         setIsOpen(false);
         setSearch("");
       }
@@ -136,8 +157,75 @@ function SubcategorySearch({
     setSearch("");
   };
 
+  const dropdownContent = isOpen && (
+    <div
+      ref={dropdownRef}
+      style={{
+        position: "fixed",
+        top: dropdownPosition.top,
+        left: dropdownPosition.left,
+        width: dropdownPosition.width,
+        background: "var(--bg-card)",
+        border: "1px solid var(--border-color)",
+        borderRadius: "var(--radius-md)",
+        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.5)",
+        maxHeight: 280,
+        overflowY: "auto",
+        zIndex: 99999,
+      }}
+    >
+      {sortedOptions.length === 0 ? (
+        <div style={{ padding: "0.75rem 1rem", color: "var(--text-muted)", fontSize: "0.875rem" }}>
+          No matching categories
+        </div>
+      ) : (
+        sortedOptions.slice(0, 50).map((opt, idx) => (
+          <div
+            key={opt.subcategoryId}
+            onClick={() => handleSelect(opt)}
+            onMouseEnter={() => setHighlightedIndex(idx)}
+            style={{
+              padding: "0.625rem 1rem",
+              cursor: "pointer",
+              background: idx === highlightedIndex ? "var(--bg-hover)" : "transparent",
+              borderBottom: "1px solid var(--border-color)",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "0.75rem",
+                color: "var(--text-muted)",
+                minWidth: 100,
+              }}
+            >
+              {opt.categoryName}
+            </span>
+            <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>›</span>
+            <span
+              style={{
+                fontSize: "0.875rem",
+                color: "var(--text-primary)",
+                fontWeight: 500,
+              }}
+            >
+              {opt.subcategoryName}
+            </span>
+          </div>
+        ))
+      )}
+      {sortedOptions.length > 50 && (
+        <div style={{ padding: "0.5rem 1rem", color: "var(--text-muted)", fontSize: "0.75rem", textAlign: "center" }}>
+          +{sortedOptions.length - 50} more results...
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div ref={containerRef} style={{ position: "relative", width: "100%", zIndex: isOpen ? 100 : 1 }}>
+    <div ref={containerRef} style={{ position: "relative", width: "100%" }}>
       {/* Input field */}
       <div
         style={{
@@ -191,73 +279,8 @@ function SubcategorySearch({
         </svg>
       </div>
 
-      {/* Dropdown */}
-      {isOpen && (
-        <div
-          style={{
-            position: "absolute",
-            top: "100%",
-            left: 0,
-            right: 0,
-            marginTop: 4,
-            background: "var(--bg-card)",
-            border: "1px solid var(--border-color)",
-            borderRadius: "var(--radius-md)",
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.5)",
-            maxHeight: 280,
-            overflowY: "auto",
-            zIndex: 9999,
-          }}
-        >
-          {sortedOptions.length === 0 ? (
-            <div style={{ padding: "0.75rem 1rem", color: "var(--text-muted)", fontSize: "0.875rem" }}>
-              No matching categories
-            </div>
-          ) : (
-            sortedOptions.slice(0, 50).map((opt, idx) => (
-              <div
-                key={opt.subcategoryId}
-                onClick={() => handleSelect(opt)}
-                onMouseEnter={() => setHighlightedIndex(idx)}
-                style={{
-                  padding: "0.625rem 1rem",
-                  cursor: "pointer",
-                  background: idx === highlightedIndex ? "var(--bg-hover)" : "transparent",
-                  borderBottom: "1px solid var(--border-color)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "var(--text-muted)",
-                    minWidth: 100,
-                  }}
-                >
-                  {opt.categoryName}
-                </span>
-                <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>›</span>
-                <span
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "var(--text-primary)",
-                    fontWeight: 500,
-                  }}
-                >
-                  {opt.subcategoryName}
-                </span>
-              </div>
-            ))
-          )}
-          {sortedOptions.length > 50 && (
-            <div style={{ padding: "0.5rem 1rem", color: "var(--text-muted)", fontSize: "0.75rem", textAlign: "center" }}>
-              +{sortedOptions.length - 50} more results...
-            </div>
-          )}
-        </div>
-      )}
+      {/* Dropdown - rendered as portal to body */}
+      {isOpen && createPortal(dropdownContent, document.body)}
     </div>
   );
 }
