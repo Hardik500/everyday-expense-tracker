@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import schemas
@@ -426,6 +426,19 @@ def ingest_statement(
     }
 
 
+from app.search import perform_ai_search
+
+@app.post("/transactions/search")
+def search_transactions_ai(query: str = Body(..., embed=True)) -> dict:
+    """
+    Natural language search for transactions using AI.
+    Example: "zomato last 30 days"
+    """
+    print(f"AI Search Query: {query}")
+    return perform_ai_search(query)
+
+
+
 @app.get("/transactions", response_model=List[schemas.Transaction])
 def list_transactions(
     start_date: Optional[str] = None,
@@ -465,6 +478,9 @@ def list_transactions(
     with get_conn() as conn:
         rows = conn.execute(query, params).fetchall()
     return [schemas.Transaction(**dict(row)) for row in rows]
+
+
+
 
 
 from fastapi.responses import StreamingResponse

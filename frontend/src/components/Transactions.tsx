@@ -80,6 +80,10 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
   const [page, setPage] = useState(0);
   const pageSize = 25;
 
+  // AI Search State
+  const [isAIMode, setIsAIMode] = useState(false);
+  const [aiFilters, setAIFilters] = useState<any>(null);
+
   // Initialize from props
   useEffect(() => {
     if (initialFilter?.categoryId) {
@@ -88,6 +92,8 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
         setSubcategoryFilter(initialFilter.subcategoryId.toString());
       }
       setDateRange("all"); // Ensure they see the transactions
+      setIsAIMode(false);
+      setAIFilters(null);
     }
   }, [initialFilter]);
 
@@ -107,6 +113,8 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
   const [linkingTx, setLinkingTx] = useState<Transaction | null>(null);
 
   useEffect(() => {
+    if (isAIMode) return; // Skip standard fetch in AI mode
+
     setLoading(true);
     const params = new URLSearchParams();
 
@@ -136,18 +144,42 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
         setTransactions([]);
         setLoading(false);
       });
-  }, [apiBase, categoryFilter, subcategoryFilter, refreshKey, dateRange, customStartDate, customEndDate]);
+  }, [apiBase, categoryFilter, subcategoryFilter, refreshKey, dateRange, customStartDate, customEndDate, isAIMode]);
 
   // Reset page when search query changes
   useEffect(() => {
     setPage(0);
   }, [searchQuery]);
 
-  const filteredTransactions = searchQuery
-    ? transactions.filter((tx) =>
-      tx.description_raw.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    : transactions;
+  const handleAISearch = async () => {
+    if (!searchQuery.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${apiBase}/transactions/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: searchQuery }),
+      });
+      const data = await res.json();
+      setTransactions(data.results || []);
+      setAIFilters(data.filters);
+      setIsAIMode(true);
+      setPage(0);
+    } catch (e) {
+      console.error(e);
+      setTransactions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredTransactions = isAIMode
+    ? transactions
+    : searchQuery
+      ? transactions.filter((tx) =>
+        tx.description_raw.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      : transactions;
 
   const pagedTransactions = filteredTransactions.slice(
     page * pageSize,
@@ -239,15 +271,45 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
             </svg>
             <input
               type="text"
-              placeholder="Search transactions..."
+              placeholder={isAIMode ? "Refine AI search..." : "Search transactions... (Type & Enter for AI)"}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onInput={(e) => setSearchQuery((e.target as HTMLInputElement).value)}
-              style={{ paddingLeft: 40, paddingRight: searchQuery ? 36 : 12, width: "100%" }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAISearch();
+              }}
+              style={{ paddingLeft: 40, paddingRight: searchQuery ? 60 : 40, width: "100%" }}
             />
+
+            {/* AI Sparkle Button */}
+            {!isAIMode && searchQuery && (
+              <button
+                onClick={handleAISearch}
+                style={{
+                  position: "absolute",
+                  right: 30, // Left of clear button if present
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  padding: "4px",
+                }}
+                title="AI Smart Search"
+              >
+                ✨
+              </button>
+            )}
+
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery("")}
+                onClick={() => {
+                  setSearchQuery("");
+                  if (isAIMode) {
+                    setIsAIMode(false);
+                    setAIFilters(null);
+                  }
+                }}
                 style={{
                   position: "absolute",
                   right: 8,
@@ -359,6 +421,30 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
           </button>
         </div>
       </div>
+
+      {/* AI Filters Display */}
+      {isAIMode && aiFilters && (
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center", marginTop: "-1rem", paddingLeft: "0.5rem" }}>
+          <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+            ✨ AI Filter:
+          </span>
+          {Object.entries(aiFilters).map(([key, value]) => {
+            if (!value) return null;
+            return (
+              <span key={key} className="badge" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-color)", color: "var(--text-primary)", fontWeight: 500 }}>
+                {key.replace("_", " ")}: {String(value)}
+              </span>
+            );
+          })}
+          <button
+            className="text-btn"
+            onClick={() => { setIsAIMode(false); setAIFilters(null); setSearchQuery(""); }}
+            style={{ fontSize: "0.75rem", color: "var(--accent)", marginLeft: "0.5rem" }}
+          >
+            Clear AI Results
+          </button>
+        </div>
+      )}
 
       {/* Transactions Table */}
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
