@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Category, Subcategory, Transaction } from "../App";
 import AISuggestions from "./AISuggestions";
 import SubcategorySearch from "./SubcategorySearch";
+import { useToast } from "./Toast";
 
 type Props = {
   apiBase: string;
@@ -188,18 +189,46 @@ function ReviewQueue({
         const data = await res.json();
         setAiProgress({ processed: data.categorized || 0, total: data.processed || 0 });
         
-        // Show success briefly, then refresh
+        // Show toast with results
+        if (data.categorized > 0) {
+          addToast({
+            type: "success",
+            title: `Categorized ${data.categorized} transactions`,
+            message: data.rules_created > 0 
+              ? `Created ${data.rules_created} new rules for future matching`
+              : undefined,
+            duration: 5000,
+          });
+        } else {
+          addToast({
+            type: "info",
+            title: "No transactions categorized",
+            message: "AI couldn't determine categories for these transactions",
+            duration: 4000,
+          });
+        }
+        
+        // Refresh after brief delay
         setTimeout(() => {
           setAiProgress(null);
           onUpdated();
-        }, 1500);
+        }, 1000);
       }
     } catch (err) {
       console.error("AI categorization failed:", err);
+      addToast({
+        type: "error",
+        title: "Batch categorization failed",
+        message: "Please try again later",
+        duration: 4000,
+      });
     } finally {
       setAiLoading(false);
     }
   };
+
+  // Toast notifications
+  const { toasts, addToast, dismissToast, ToastContainer } = useToast();
 
   // AI categorize single transaction
   const aiCategorizeSingle = async (txId: number) => {
@@ -213,10 +242,51 @@ function ReviewQueue({
       });
       
       if (res.ok) {
+        const data = await res.json();
+        
+        if (data.status === "ok") {
+          const similarCount = data.similar_updated || 0;
+          addToast({
+            type: "success",
+            title: `Categorized as ${data.category}`,
+            message: similarCount > 0 
+              ? `Also updated ${similarCount} similar transaction${similarCount > 1 ? "s" : ""}`
+              : `Subcategory: ${data.subcategory}`,
+            duration: 4000,
+          });
+        } else if (data.status === "suggestion_created") {
+          addToast({
+            type: "info",
+            title: "New category suggested",
+            message: `AI suggests: ${data.suggested_category} → ${data.suggested_subcategory}`,
+            duration: 5000,
+          });
+        } else {
+          addToast({
+            type: "warning",
+            title: "Could not categorize",
+            message: data.message || "AI couldn't determine the category",
+            duration: 4000,
+          });
+        }
+        
         onUpdated();
+      } else {
+        addToast({
+          type: "error",
+          title: "Categorization failed",
+          message: "Please try again",
+          duration: 4000,
+        });
       }
     } catch (err) {
       console.error("AI categorization failed:", err);
+      addToast({
+        type: "error",
+        title: "Network error",
+        message: "Could not reach the AI service",
+        duration: 4000,
+      });
     } finally {
       setAiProcessingTx((prev) => ({ ...prev, [txId]: false }));
     }
@@ -532,6 +602,9 @@ function ReviewQueue({
           </button>
         </div>
       )}
+      
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

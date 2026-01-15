@@ -1526,7 +1526,7 @@ def ai_categorize_single(transaction_id: int) -> dict:
         
         cat_id, subcat_id = result
         
-        # Update transaction
+        # Update the original transaction
         conn.execute(
             """
             UPDATE transactions
@@ -1535,6 +1535,31 @@ def ai_categorize_single(transaction_id: int) -> dict:
             """,
             (cat_id, subcat_id, transaction_id),
         )
+        
+        # Find and update similar transactions (same normalized description pattern)
+        # Extract a pattern from the description
+        desc_norm = tx["description_norm"]
+        # Take the first significant word(s) as pattern
+        words = desc_norm.split()
+        pattern = words[0] if words else ""
+        if len(words) > 1:
+            pattern = f"{words[0]}%{words[1]}"
+        
+        similar_updated = 0
+        if pattern and len(pattern) >= 5:
+            # Update similar uncategorized transactions
+            cursor = conn.execute(
+                """
+                UPDATE transactions
+                SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+                WHERE id != ? 
+                  AND description_norm LIKE ?
+                  AND is_uncertain = 1
+                """,
+                (cat_id, subcat_id, transaction_id, f"%{pattern}%"),
+            )
+            similar_updated = cursor.rowcount
+        
         conn.commit()
         
         # Get names
@@ -1544,6 +1569,7 @@ def ai_categorize_single(transaction_id: int) -> dict:
     return {
         "status": "ok",
         "transaction_id": transaction_id,
+        "similar_updated": similar_updated,
         "category": cat_row["name"] if cat_row else None,
         "subcategory": subcat_row["name"] if subcat_row else None,
     }
