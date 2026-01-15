@@ -53,12 +53,13 @@ function ReviewQueue({
   const [saving, setSaving] = useState<Record<number, boolean>>({});
   const [page, setPage] = useState(0);
   const pageSize = 10;
-  
+
   // Similar transactions tracking
   const [similarInfo, setSimilarInfo] = useState<Record<number, SimilarInfo>>({});
   const [applyToSimilar, setApplyToSimilar] = useState<Record<number, boolean>>({});
   const [createRule, setCreateRule] = useState<Record<number, boolean>>({});
-  
+  const [editedPattern, setEditedPattern] = useState<Record<number, string>>({});
+
   // AI categorization
   const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -109,7 +110,7 @@ function ReviewQueue({
 
   const submit = async (txId: number) => {
     setSaving((prev) => ({ ...prev, [txId]: true }));
-    
+
     const catId = category[txId] ? Number(category[txId]) : null;
     const subId = subcategory[txId] ? Number(subcategory[txId]) : null;
     const similar = similarInfo[txId];
@@ -125,11 +126,12 @@ function ReviewQueue({
         formData.append("subcategory_id", subId.toString());
       }
       if (shouldCreateRule) {
+        const patternToUse = editedPattern[txId] || similar.pattern;
         formData.append("create_rule", "true");
-        formData.append("rule_pattern", similar.pattern.toUpperCase());
-        formData.append("rule_name", `Review: ${similar.pattern}`);
+        formData.append("rule_pattern", patternToUse.toUpperCase());
+        formData.append("rule_name", `Review: ${patternToUse}`);
       }
-      
+
       await fetch(`${apiBase}/transactions/bulk-update`, {
         method: "POST",
         body: formData,
@@ -147,7 +149,7 @@ function ReviewQueue({
         body: JSON.stringify(payload),
       });
     }
-    
+
     setSaving((prev) => ({ ...prev, [txId]: false }));
     onUpdated();
   };
@@ -171,30 +173,30 @@ function ReviewQueue({
   // AI categorize all uncategorized transactions
   const aiCategorizeAll = async () => {
     if (!aiStatus?.configured) return;
-    
+
     setAiLoading(true);
     setAiProgress({ processed: 0, total: transactions.length });
-    
+
     try {
       const formData = new FormData();
       formData.append("limit", Math.min(transactions.length, 100).toString());
       formData.append("dry_run", "false");
-      
+
       const res = await fetch(`${apiBase}/ai/categorize`, {
         method: "POST",
         body: formData,
       });
-      
+
       if (res.ok) {
         const data = await res.json();
         setAiProgress({ processed: data.categorized || 0, total: data.processed || 0 });
-        
+
         // Show toast with results
         if (data.categorized > 0) {
           addToast({
             type: "success",
             title: `Categorized ${data.categorized} transactions`,
-            message: data.rules_created > 0 
+            message: data.rules_created > 0
               ? `Created ${data.rules_created} new rules for future matching`
               : undefined,
             duration: 5000,
@@ -207,7 +209,7 @@ function ReviewQueue({
             duration: 4000,
           });
         }
-        
+
         // Refresh after brief delay
         setTimeout(() => {
           setAiProgress(null);
@@ -233,23 +235,23 @@ function ReviewQueue({
   // AI categorize single transaction
   const aiCategorizeSingle = async (txId: number) => {
     if (!aiStatus?.configured) return;
-    
+
     setAiProcessingTx((prev) => ({ ...prev, [txId]: true }));
-    
+
     try {
       const res = await fetch(`${apiBase}/ai/categorize/${txId}`, {
         method: "POST",
       });
-      
+
       if (res.ok) {
         const data = await res.json();
-        
+
         if (data.status === "ok") {
           const similarCount = data.similar_updated || 0;
           addToast({
             type: "success",
             title: `Categorized as ${data.category}`,
-            message: similarCount > 0 
+            message: similarCount > 0
               ? `Also updated ${similarCount} similar transaction${similarCount > 1 ? "s" : ""}`
               : `Subcategory: ${data.subcategory}`,
             duration: 4000,
@@ -269,7 +271,7 @@ function ReviewQueue({
             duration: 4000,
           });
         }
-        
+
         onUpdated();
       } else {
         addToast({
@@ -313,7 +315,7 @@ function ReviewQueue({
     <div style={{ display: "grid", gap: "1rem" }}>
       {/* AI Category Suggestions */}
       <AISuggestions apiBase={apiBase} onUpdated={onUpdated} />
-      
+
       {/* Progress indicator */}
       <div className="card" style={{ padding: "1rem 1.25rem" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
@@ -377,7 +379,7 @@ function ReviewQueue({
             </div>
           </div>
         </div>
-        
+
         {/* AI Progress Bar */}
         {aiProgress && (
           <div style={{ marginTop: "1rem" }}>
@@ -386,13 +388,13 @@ function ReviewQueue({
               <span>{aiProgress.processed} of {aiProgress.total} categorized</span>
             </div>
             <div style={{ height: 4, background: "var(--bg-input)", borderRadius: 2, overflow: "hidden" }}>
-              <div 
-                style={{ 
-                  height: "100%", 
+              <div
+                style={{
+                  height: "100%",
                   width: `${(aiProgress.processed / Math.max(aiProgress.total, 1)) * 100}%`,
                   background: "linear-gradient(90deg, #8b5cf6, #6366f1)",
                   transition: "width 0.3s ease",
-                }} 
+                }}
               />
             </div>
           </div>
@@ -404,7 +406,7 @@ function ReviewQueue({
         const similar = similarInfo[tx.id];
         const hasSimilar = similar && similar.count > 1;
         const willApplyToSimilar = applyToSimilar[tx.id] && hasSimilar;
-        
+
         return (
           <div
             key={tx.id}
@@ -469,38 +471,127 @@ function ReviewQueue({
 
                 {/* Similar transactions info */}
                 {hasSimilar && (
-                  <div 
-                    style={{ 
-                      marginTop: "1rem", 
-                      padding: "0.75rem", 
-                      background: "var(--bg-input)", 
+                  <div
+                    style={{
+                      marginTop: "1rem",
+                      padding: "1rem",
+                      background: "var(--bg-input)",
                       borderRadius: "var(--radius-md)",
                       fontSize: "0.8125rem",
                     }}
                   >
-                    <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={applyToSimilar[tx.id] || false}
-                        onChange={(e) => setApplyToSimilar((prev) => ({ ...prev, [tx.id]: e.target.checked }))}
-                      />
+                    {/* Apply to similar toggle */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "1rem",
+                      }}
+                    >
                       <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
                         Apply to {similar.count} similar transactions
                       </span>
-                    </label>
-                    <div style={{ marginLeft: "1.5rem", marginTop: "0.375rem", color: "var(--text-muted)", fontSize: "0.75rem" }}>
-                      Pattern: <code style={{ background: "var(--bg-secondary)", padding: "0.125rem 0.375rem", borderRadius: 4 }}>{similar.pattern}</code>
-                    </div>
-                    
-                    {willApplyToSimilar && (
-                      <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", marginTop: "0.5rem", marginLeft: "1.5rem" }}>
-                        <input
-                          type="checkbox"
-                          checked={createRule[tx.id] || false}
-                          onChange={(e) => setCreateRule((prev) => ({ ...prev, [tx.id]: e.target.checked }))}
+                      <button
+                        type="button"
+                        onClick={() => setApplyToSimilar((prev) => ({ ...prev, [tx.id]: !prev[tx.id] }))}
+                        style={{
+                          position: "relative",
+                          width: 44,
+                          height: 24,
+                          borderRadius: 12,
+                          border: "none",
+                          background: applyToSimilar[tx.id] ? "var(--accent)" : "var(--bg-secondary)",
+                          cursor: "pointer",
+                          transition: "background 0.2s ease",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: 2,
+                            left: applyToSimilar[tx.id] ? 22 : 2,
+                            width: 20,
+                            height: 20,
+                            borderRadius: "50%",
+                            background: "white",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                            transition: "left 0.2s ease",
+                          }}
                         />
-                        <span style={{ color: "var(--text-muted)" }}>Create rule for future transactions</span>
+                      </button>
+                    </div>
+
+                    {/* Pattern - editable */}
+                    <div style={{ marginTop: "0.75rem" }}>
+                      <label style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block", marginBottom: "0.25rem" }}>
+                        Pattern (editable)
                       </label>
+                      <input
+                        type="text"
+                        value={editedPattern[tx.id] ?? similar.pattern}
+                        onChange={(e) => setEditedPattern((prev) => ({ ...prev, [tx.id]: e.target.value }))}
+                        style={{
+                          width: "100%",
+                          padding: "0.5rem 0.75rem",
+                          borderRadius: "var(--radius-md)",
+                          border: "1px solid var(--border-color)",
+                          background: "var(--bg-secondary)",
+                          color: "var(--text-primary)",
+                          fontSize: "0.8125rem",
+                          fontFamily: "monospace",
+                        }}
+                        placeholder="Enter pattern..."
+                      />
+                    </div>
+
+                    {/* Create rule toggle */}
+                    {willApplyToSimilar && (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "1rem",
+                          marginTop: "0.75rem",
+                          paddingTop: "0.75rem",
+                          borderTop: "1px solid var(--border-color)",
+                        }}
+                      >
+                        <span style={{ color: "var(--text-muted)" }}>
+                          Create rule for future transactions
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setCreateRule((prev) => ({ ...prev, [tx.id]: !prev[tx.id] }))}
+                          style={{
+                            position: "relative",
+                            width: 44,
+                            height: 24,
+                            borderRadius: 12,
+                            border: "none",
+                            background: createRule[tx.id] ? "var(--accent)" : "var(--bg-secondary)",
+                            cursor: "pointer",
+                            transition: "background 0.2s ease",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <span
+                            style={{
+                              position: "absolute",
+                              top: 2,
+                              left: createRule[tx.id] ? 22 : 2,
+                              width: 20,
+                              height: 20,
+                              borderRadius: "50%",
+                              background: "white",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                              transition: "left 0.2s ease",
+                            }}
+                          />
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -539,7 +630,7 @@ function ReviewQueue({
                       onClick={() => aiCategorizeSingle(tx.id)}
                       disabled={aiProcessingTx[tx.id]}
                       title="Categorize with AI"
-                      style={{ 
+                      style={{
                         flex: 0,
                         padding: "0.5rem 0.75rem",
                         background: "linear-gradient(135deg, #8b5cf6, #6366f1)",
@@ -569,10 +660,10 @@ function ReviewQueue({
                     disabled={!category[tx.id] || saving[tx.id]}
                     style={{ flex: 1 }}
                   >
-                    {saving[tx.id] 
-                      ? "Saving..." 
-                      : willApplyToSimilar 
-                        ? `Save ${similar?.count || 1}` 
+                    {saving[tx.id]
+                      ? "Saving..."
+                      : willApplyToSimilar
+                        ? `Save ${similar?.count || 1}`
                         : "Save"
                     }
                   </button>
@@ -602,7 +693,7 @@ function ReviewQueue({
           </button>
         </div>
       )}
-      
+
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
