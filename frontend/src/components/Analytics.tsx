@@ -124,13 +124,27 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
   const [timeSeries, setTimeSeries] = useState<TimeSeriesData[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState<DateRange>("30d");
-  const [granularity, setGranularity] = useState<"day" | "week" | "month">("day");
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
+  // Initialize from URL
+  const getParams = () => new URLSearchParams(window.location.search);
+
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const p = getParams();
+    if (p.get("start") || p.get("end")) return "custom";
+    if (p.get("range")) return p.get("range") as DateRange;
+    return "all"; // Default to All Time
+  });
+
+  const [granularity, setGranularity] = useState<"day" | "week" | "month">("month");
+
+  const [customStart, setCustomStart] = useState(() => getParams().get("start") || "");
+  const [customEnd, setCustomEnd] = useState(() => getParams().get("end") || "");
 
   // Category drill-down state
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(initialCategoryId ?? null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(() => {
+    const p = getParams();
+    if (p.get("cat")) return Number(p.get("cat"));
+    return initialCategoryId ?? null;
+  });
   const [categoryDetail, setCategoryDetail] = useState<CategoryDetail | null>(null);
   const [loadingCategory, setLoadingCategory] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -227,6 +241,37 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
 
     fetchCategoryDetail();
   }, [apiBase, selectedCategoryId, dateRange, customStart, customEnd]);
+
+  // Sync state to URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    // Preserve tab
+    if (!params.get("tab")) params.set("tab", "analytics");
+
+    params.set("range", dateRange);
+
+    if (dateRange === "custom") {
+      if (customStart) params.set("start", customStart);
+      else params.delete("start");
+      if (customEnd) params.set("end", customEnd);
+      else params.delete("end");
+    } else {
+      params.delete("start");
+      params.delete("end");
+    }
+
+    if (selectedCategoryId) {
+      params.set("cat", selectedCategoryId.toString());
+    } else {
+      params.delete("cat");
+    }
+
+    const newUrl = "?" + params.toString();
+    if (window.location.search !== newUrl) {
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, [dateRange, customStart, customEnd, selectedCategoryId]);
 
   // Auto-adjust granularity based on date range
   useEffect(() => {
