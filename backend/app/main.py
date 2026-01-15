@@ -242,6 +242,100 @@ def update_transaction(
     return {"status": "ok"}
 
 
+@app.get("/transactions/{transaction_id}/similar")
+def find_similar_transactions(transaction_id: int) -> dict:
+    """Find transactions with similar descriptions."""
+    import re
+    
+    with get_conn() as conn:
+        tx = conn.execute(
+            "SELECT description_norm FROM transactions WHERE id = ?",
+            (transaction_id,),
+        ).fetchone()
+        if not tx:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        
+        desc = tx["description_norm"]
+        
+        # Extract key words (first 2-3 significant words)
+        words = [w for w in desc.split() if len(w) > 2 and not w.isdigit()][:3]
+        if not words:
+            return {"similar": [], "pattern": "", "count": 0}
+        
+        # Build a search pattern
+        pattern = "%".join(words[:2]) if len(words) >= 2 else words[0]
+        search_pattern = f"%{pattern}%"
+        
+        similar = conn.execute(
+            """
+            SELECT id, description_norm, amount, posted_at, category_id, subcategory_id
+            FROM transactions
+            WHERE description_norm LIKE ?
+            ORDER BY posted_at DESC
+            LIMIT 100
+            """,
+            (search_pattern,),
+        ).fetchall()
+        
+        return {
+            "similar": [dict(row) for row in similar],
+            "pattern": pattern,
+            "count": len(similar),
+        }
+
+
+@app.post("/transactions/bulk-update")
+def bulk_update_transactions(
+    transaction_ids: List[int] = Form(...),
+    category_id: int = Form(...),
+    subcategory_id: Optional[int] = Form(None),
+    create_rule: bool = Form(False),
+    rule_pattern: Optional[str] = Form(None),
+    rule_name: Optional[str] = Form(None),
+) -> dict:
+    """Bulk update multiple transactions and optionally create a rule."""
+    with get_conn() as conn:
+        # Update all specified transactions
+        placeholders = ",".join("?" * len(transaction_ids))
+        conn.execute(
+            f"""
+            UPDATE transactions
+            SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+            WHERE id IN ({placeholders})
+            """,
+            [category_id, subcategory_id] + transaction_ids,
+        )
+        
+        updated_count = conn.execute("SELECT changes()").fetchone()[0]
+        
+        # Optionally create a rule for future transactions
+        rule_id = None
+        if create_rule and rule_pattern:
+            # Check if rule already exists
+            existing = conn.execute(
+                "SELECT id FROM rules WHERE pattern = ?",
+                (rule_pattern,),
+            ).fetchone()
+            
+            if not existing:
+                cursor = conn.execute(
+                    """
+                    INSERT INTO rules (name, pattern, category_id, subcategory_id, priority, active)
+                    VALUES (?, ?, ?, ?, 70, 1)
+                    """,
+                    (rule_name or f"User rule: {rule_pattern[:30]}", rule_pattern, category_id, subcategory_id),
+                )
+                rule_id = cursor.lastrowid
+        
+        conn.commit()
+        
+    return {
+        "status": "ok",
+        "updated_count": updated_count,
+        "rule_id": rule_id,
+    }
+
+
 @app.get("/reports/summary")
 def report_summary(start_date: Optional[str] = None, end_date: Optional[str] = None) -> dict:
     clauses = ["l.id IS NULL"]

@@ -71,13 +71,30 @@ function Reports({ apiBase, refreshKey }: Props) {
       });
   }, [apiBase, refreshKey]);
 
-  // Net balance (can be negative)
+  // Separate transfers from actual spending/income
+  const transferCategories = ["Transfers"];
+  const actualItems = items.filter((i) => !transferCategories.includes(i.category_name || ""));
+  const transferItems = items.filter((i) => transferCategories.includes(i.category_name || ""));
+
+  // Net balance (can be negative) - includes everything
   const netBalance = items.reduce((sum, item) => sum + item.total, 0);
-  // Total spending (only negative items, shown as positive)
-  const totalSpend = Math.abs(items.filter((i) => i.total < 0).reduce((sum, item) => sum + item.total, 0));
-  // Total income (only positive items)
-  const totalIncome = items.filter((i) => i.total > 0).reduce((sum, item) => sum + item.total, 0);
-  const categorizedItems = items.filter((i) => i.category_name);
+  
+  // Total spending (only negative items, excluding transfers)
+  const totalSpend = Math.abs(
+    actualItems.filter((i) => i.total < 0).reduce((sum, item) => sum + item.total, 0)
+  );
+  
+  // Total income (only positive items, excluding transfers)
+  const totalIncome = actualItems
+    .filter((i) => i.total > 0)
+    .reduce((sum, item) => sum + item.total, 0);
+
+  // Transfer totals
+  const transferTotal = Math.abs(
+    transferItems.reduce((sum, item) => sum + Math.abs(item.total), 0)
+  );
+
+  const categorizedItems = actualItems.filter((i) => i.category_name);
   const uncategorized = items.find((i) => !i.category_name);
 
   if (loading) {
@@ -277,9 +294,9 @@ function Reports({ apiBase, refreshKey }: Props) {
           )}
         </div>
 
-        {/* Category list */}
+        {/* Category list - only actual spending (excludes transfers) */}
         <div style={{ display: "grid", gap: "0.75rem" }}>
-          {items.map((item, idx) => {
+          {actualItems.filter(i => i.total < 0).map((item, idx) => {
             const percentage = totalSpend > 0 ? (Math.abs(item.total) / totalSpend) * 100 : 0;
             return (
               <div
@@ -335,6 +352,119 @@ function Reports({ apiBase, refreshKey }: Props) {
           })}
         </div>
       </div>
+
+      {/* Income Breakdown */}
+      {actualItems.filter((i) => i.total > 0).length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <h2>Income Sources</h2>
+          </div>
+          <div style={{ display: "grid", gap: "0.75rem" }}>
+            {actualItems
+              .filter((i) => i.total > 0)
+              .map((item, idx) => {
+                const percentage = totalIncome > 0 ? (item.total / totalIncome) * 100 : 0;
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "1rem",
+                      padding: "0.875rem 1rem",
+                      background: "var(--bg-input)",
+                      borderRadius: "var(--radius-md)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        background: "var(--accent)",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 500, color: "var(--text-primary)", fontSize: "0.875rem" }}>
+                        {item.category_name || "Other Income"}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", width: 50, textAlign: "right" }}>
+                      {percentage.toFixed(1)}%
+                    </div>
+                    <div
+                      className="mono"
+                      style={{
+                        fontWeight: 500,
+                        color: "var(--accent)",
+                        width: 100,
+                        textAlign: "right",
+                        fontSize: "0.875rem",
+                      }}
+                    >
+                      {formatCurrency(item.total)}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* Transfers (excluded from spending/income) */}
+      {transferItems.length > 0 && (
+        <div className="card" style={{ opacity: 0.7 }}>
+          <div className="card-header">
+            <h2>Internal Transfers</h2>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+              (Not counted in spending/income)
+            </span>
+          </div>
+          <div style={{ display: "grid", gap: "0.75rem" }}>
+            {transferItems.map((item, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "1rem",
+                  padding: "0.875rem 1rem",
+                  background: "var(--bg-input)",
+                  borderRadius: "var(--radius-md)",
+                }}
+              >
+                <div
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: "#64748b",
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 500, color: "var(--text-muted)", fontSize: "0.875rem" }}>
+                    {item.category_name}
+                  </div>
+                </div>
+                <div
+                  className="mono"
+                  style={{
+                    fontWeight: 500,
+                    color: "var(--text-muted)",
+                    width: 100,
+                    textAlign: "right",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  {formatCurrency(Math.abs(item.total))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

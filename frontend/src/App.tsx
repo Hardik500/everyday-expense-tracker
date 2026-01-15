@@ -248,7 +248,9 @@ function App() {
             <Transactions
               apiBase={API_BASE}
               categories={categories}
+              subcategories={subcategories}
               refreshKey={refreshKey}
+              onUpdated={() => setRefreshKey((k) => k + 1)}
             />
           )}
         </div>
