@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Category, Subcategory } from "../App";
+import SubcategorySearch from "./SubcategorySearch";
 
 type Props = {
   apiBase: string;
@@ -422,59 +423,21 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
               </div>
 
               {/* Category & Subcategory */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div>
-                  <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
-                    Category
-                  </label>
-                  <select
-                    value={editingRule.category_id || ""}
-                    onChange={(e) => setEditingRule({
-                      ...editingRule,
-                      category_id: e.target.value ? Number(e.target.value) : null,
-                      subcategory_id: null,
-                    })}
-                    style={{
-                      width: "100%",
-                      padding: "0.75rem 1rem",
-                      borderRadius: "var(--radius-md)",
-                      border: "1px solid var(--border-subtle)",
-                      background: "var(--bg-input)",
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    <option value="">Select category</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
-                    Subcategory
-                  </label>
-                  <select
-                    value={editingRule.subcategory_id || ""}
-                    onChange={(e) => setEditingRule({
-                      ...editingRule,
-                      subcategory_id: e.target.value ? Number(e.target.value) : null,
-                    })}
-                    disabled={!editingRule.category_id}
-                    style={{
-                      width: "100%",
-                      padding: "0.75rem 1rem",
-                      borderRadius: "var(--radius-md)",
-                      border: "1px solid var(--border-subtle)",
-                      background: "var(--bg-input)",
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    <option value="">Select subcategory</option>
-                    {getSubcats(editingRule.category_id).map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                  Category
+                </label>
+                <SubcategorySearch
+                  categories={categories}
+                  subcategories={subcategories}
+                  value={editingRule.subcategory_id ? String(editingRule.subcategory_id) : ""}
+                  onChange={(subId, catId) => setEditingRule({
+                    ...editingRule,
+                    category_id: catId ? Number(catId) : null,
+                    subcategory_id: subId ? Number(subId) : null,
+                  })}
+                  placeholder="Search categories..."
+                />
               </div>
 
               {/* Priority */}

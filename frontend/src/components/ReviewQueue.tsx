@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Category, Subcategory, Transaction } from "../App";
 import AISuggestions from "./AISuggestions";
+import SubcategorySearch from "./SubcategorySearch";
 
 type Props = {
   apiBase: string;
@@ -435,45 +436,22 @@ function ReviewQueue({
                 )}
               </div>
 
-              {/* Category selectors */}
-              <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: "0.75rem", minWidth: 200 }}>
+              {/* Category selector - single searchable dropdown */}
+              <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: "0.75rem", minWidth: 240 }}>
                 <div>
                   <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.375rem" }}>
                     Category
                   </label>
-                  <select
-                    value={category[tx.id] || ""}
-                    onChange={(e) => setCategory((prev) => ({ ...prev, [tx.id]: e.target.value }))}
-                    style={{ width: "100%" }}
-                  >
-                    <option value="">Select category</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.375rem" }}>
-                    Subcategory
-                  </label>
-                  <select
+                  <SubcategorySearch
+                    categories={categories}
+                    subcategories={subcategories}
                     value={subcategory[tx.id] || ""}
-                    onChange={(e) => setSubcategory((prev) => ({ ...prev, [tx.id]: e.target.value }))}
-                    disabled={!category[tx.id]}
-                    style={{ width: "100%", opacity: category[tx.id] ? 1 : 0.5 }}
-                  >
-                    <option value="">Select subcategory</option>
-                    {subcategories
-                      .filter((sub) => String(sub.category_id) === category[tx.id])
-                      .map((sub) => (
-                        <option key={sub.id} value={sub.id}>
-                          {sub.name}
-                        </option>
-                      ))}
-                  </select>
+                    onChange={(subId, catId) => {
+                      setSubcategory((prev) => ({ ...prev, [tx.id]: subId }));
+                      setCategory((prev) => ({ ...prev, [tx.id]: catId }));
+                    }}
+                    placeholder="Search categories..."
+                  />
                 </div>
 
                 {/* Actions */}

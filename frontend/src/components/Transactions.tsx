@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Category, Subcategory, Transaction } from "../App";
 import LinkTransactionModal from "./LinkTransactionModal";
+import SubcategorySearch from "./SubcategorySearch";
 
 type Props = {
   apiBase: string;
@@ -634,41 +635,20 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
             </div>
 
             {/* Category Selection */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
-              <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                  Category
-                </label>
-                <select
-                  value={selectedCategory || ""}
-                  onChange={(e) => {
-                    setSelectedCategory(e.target.value ? Number(e.target.value) : null);
-                    setSelectedSubcategory(null);
-                  }}
-                  style={{ width: "100%" }}
-                >
-                  <option value="">Select category</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                  Subcategory
-                </label>
-                <select
-                  value={selectedSubcategory || ""}
-                  onChange={(e) => setSelectedSubcategory(e.target.value ? Number(e.target.value) : null)}
-                  style={{ width: "100%" }}
-                  disabled={!selectedCategory}
-                >
-                  <option value="">Select subcategory</option>
-                  {availableSubcategories.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                Category
+              </label>
+              <SubcategorySearch
+                categories={categories}
+                subcategories={subcategories}
+                value={selectedSubcategory ? String(selectedSubcategory) : ""}
+                onChange={(subId, catId) => {
+                  setSelectedSubcategory(subId ? Number(subId) : null);
+                  setSelectedCategory(catId ? Number(catId) : null);
+                }}
+                placeholder="Search categories..."
+              />
             </div>
 
             {/* Similar Transactions */}
