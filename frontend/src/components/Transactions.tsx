@@ -433,7 +433,11 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
           {/* Summary */}
           <div style={{ flex: "0 0 auto", textAlign: "right" }}>
             <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-              {searchQuery ? (
+              {isAIMode ? (
+                <span>
+                  Found <strong>{totalCount}</strong> transactions
+                </span>
+              ) : searchQuery ? (
                 <span>
                   <strong>{filteredTransactions.length}</strong> of {transactions.length} transactions
                 </span>
@@ -696,8 +700,8 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, initialF
               >
                 <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
                   Showing {page * pageSize + 1}–
-                  {Math.min((page + 1) * pageSize, filteredTransactions.length)} of{" "}
-                  {filteredTransactions.length}
+                  {Math.min((page + 1) * pageSize, isAIMode ? totalCount : filteredTransactions.length)} of{" "}
+                  {isAIMode ? totalCount : filteredTransactions.length}
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button
