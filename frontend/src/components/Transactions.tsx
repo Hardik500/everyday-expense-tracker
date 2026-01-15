@@ -669,6 +669,24 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                     <button
                       className="secondary"
                       style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
+                      onClick={() => {
+                        // SQL LIKE to Regex conversion
+                        // Escape regex special chars except % and _
+                        const escaped = similarPattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+                        // Convert % to .* and _ to .
+                        const regexStr = "^" + escaped.replace(/%/g, ".*").replace(/_/g, ".") + "$";
+                        const regex = new RegExp(regexStr, "i");
+
+                        const matching = similarTxs.filter(t => regex.test(t.description_norm));
+                        setSelectedSimilarIds(new Set(matching.map(t => t.id)));
+                      }}
+                      title="Select transactions matching the current pattern"
+                    >
+                      Select Matching
+                    </button>
+                    <button
+                      className="secondary"
+                      style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
                       onClick={() => setSelectedSimilarIds(new Set([editingTx.id]))}
                     >
                       Select None
@@ -761,35 +779,61 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
             {/* Create Rule Option */}
             <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "var(--bg-input)", borderRadius: "var(--radius-md)" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={createRule}
-                  onChange={(e) => setCreateRule(e.target.checked)}
-                />
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
                 <div>
                   <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>Create rule for future transactions</div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                    Pattern (editable)
-                  </div>
-                  <input
-                    type="text"
-                    value={similarPattern}
-                    onChange={(e) => setSimilarPattern(e.target.value)}
-                    style={{
-                      width: "100%",
-                      fontSize: "0.875rem",
-                      padding: "0.375rem 0.625rem",
-                      marginTop: "0.25rem",
-                      fontFamily: "monospace",
-                      background: "var(--bg-secondary)",
-                      border: "1px solid var(--border-color)",
-                      borderRadius: "var(--radius-sm)",
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
                 </div>
-              </label>
+                <button
+                  type="button"
+                  onClick={() => setCreateRule(!createRule)}
+                  style={{
+                    position: "relative",
+                    width: 44,
+                    height: 24,
+                    borderRadius: 12,
+                    border: "none",
+                    background: createRule ? "var(--accent)" : "var(--bg-secondary)",
+                    cursor: "pointer",
+                    transition: "background 0.2s ease",
+                    flexShrink: 0,
+                  }}
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 2,
+                      left: createRule ? 22 : 2,
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      background: "white",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                      transition: "left 0.2s ease",
+                    }}
+                  />
+                </button>
+              </div>
+
+              <div style={{ marginTop: "0.75rem" }}>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
+                  Pattern (editable)
+                </div>
+                <input
+                  type="text"
+                  value={similarPattern}
+                  onChange={(e) => setSimilarPattern(e.target.value)}
+                  style={{
+                    width: "100%",
+                    fontSize: "0.875rem",
+                    padding: "0.375rem 0.625rem",
+                    fontFamily: "monospace",
+                    background: "var(--bg-secondary)",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "var(--radius-sm)",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
 
               {createRule && (
                 <div style={{ marginTop: "0.75rem" }}>
