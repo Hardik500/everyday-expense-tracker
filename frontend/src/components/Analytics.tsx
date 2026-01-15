@@ -16,11 +16,20 @@ import {
   LineChart,
   Line,
 } from "recharts";
+import type { Category, Subcategory, Transaction as BaseTransaction } from "../App";
+import EditTransactionModal from "./EditTransactionModal";
+
+type Transaction = BaseTransaction & {
+  subcategory_name?: string | null;
+};
 
 type Props = {
   apiBase: string;
   refreshKey: number;
   initialCategoryId?: number | null;
+  categories?: Category[];
+  subcategories?: Subcategory[];
+  onRefresh?: () => void;
 };
 
 type TimeSeriesData = {
@@ -48,7 +57,7 @@ type CategoryDetail = {
   average: number;
   subcategories: { id: number; name: string; total: number; count: number }[];
   timeseries: { period: string; amount: number; count: number }[];
-  transactions: { id: number; posted_at: string; description_raw: string; amount: number; subcategory_name: string | null }[];
+  transactions: Transaction[];
 };
 
 type DateRange = "7d" | "30d" | "90d" | "year" | "all" | "custom";
@@ -78,7 +87,40 @@ const formatDate = (dateStr: string) => {
   return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 };
 
-function Analytics({ apiBase, refreshKey, initialCategoryId }: Props) {
+const TransactionRow = ({ tx, onClick }: { tx: Transaction; onClick: (tx: Transaction) => void }) => {
+  return (
+    <tr
+      onClick={() => onClick(tx)}
+      style={{
+        cursor: "pointer",
+        transition: "background-color 0.2s",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+    >
+      <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+        {formatDate(tx.posted_at)}
+      </td>
+      <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {tx.description_raw}
+      </td>
+      <td style={{ padding: "0.75rem 1rem" }}>
+        {tx.subcategory_name ? (
+          <span className="badge" style={{ fontSize: "0.75rem" }}>{tx.subcategory_name}</span>
+        ) : (
+          <span style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>—</span>
+        )}
+      </td>
+      <td style={{ padding: "0.75rem 1rem", textAlign: "right" }}>
+        <span className="mono" style={{ color: "var(--danger)", fontWeight: 500 }}>
+          -{formatCurrency(tx.amount)}
+        </span>
+      </td>
+    </tr>
+  );
+};
+
+function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], subcategories = [], onRefresh }: Props) {
   const [timeSeries, setTimeSeries] = useState<TimeSeriesData[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,7 +133,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId }: Props) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(initialCategoryId ?? null);
   const [categoryDetail, setCategoryDetail] = useState<CategoryDetail | null>(null);
   const [loadingCategory, setLoadingCategory] = useState(false);
-  const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   const getDateParams = () => {
     const now = new Date();
@@ -123,13 +165,15 @@ function Analytics({ apiBase, refreshKey, initialCategoryId }: Props) {
     return { startDate, endDate };
   };
 
-  // Fetch categories
+  // Fetch categories - REMOVED, using props
+  /*
   useEffect(() => {
     fetch(`${apiBase}/categories`)
       .then((res) => res.json())
       .then((data) => setCategories(data.categories || []))
       .catch(() => setCategories([]));
   }, [apiBase]);
+  */
 
   // Fetch main data
   useEffect(() => {
@@ -493,26 +537,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId }: Props) {
                   </thead>
                   <tbody>
                     {categoryDetail.transactions.map((tx) => (
-                      <tr key={tx.id}>
-                        <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
-                          {formatDate(tx.posted_at)}
-                        </td>
-                        <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {tx.description_raw}
-                        </td>
-                        <td style={{ padding: "0.75rem 1rem" }}>
-                          {tx.subcategory_name ? (
-                            <span className="badge" style={{ fontSize: "0.75rem" }}>{tx.subcategory_name}</span>
-                          ) : (
-                            <span style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>—</span>
-                          )}
-                        </td>
-                        <td style={{ padding: "0.75rem 1rem", textAlign: "right" }}>
-                          <span className="mono" style={{ color: "var(--danger)", fontWeight: 500 }}>
-                            -{formatCurrency(tx.amount)}
-                          </span>
-                        </td>
-                      </tr>
+                      <TransactionRow key={tx.id} tx={tx} onClick={setEditingTx} />
                     ))}
                   </tbody>
                 </table>
@@ -779,6 +804,21 @@ function Analytics({ apiBase, refreshKey, initialCategoryId }: Props) {
             <div className="loading">Loading category details...</div>
           </div>
         </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingTx && (
+        <EditTransactionModal
+          transaction={editingTx}
+          isOpen={!!editingTx}
+          onClose={() => setEditingTx(null)}
+          onSave={() => {
+            if (onRefresh) onRefresh();
+          }}
+          categories={categories}
+          subcategories={subcategories}
+          apiBase={apiBase}
+        />
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Category, Subcategory, Transaction } from "../App";
 import LinkTransactionModal from "./LinkTransactionModal";
+import EditTransactionModal from "./EditTransactionModal";
 import SubcategorySearch from "./SubcategorySearch";
 
 type Props = {
@@ -82,17 +83,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
 
-  // Edit modal state
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<number | null>(null);
-  const [similarTxs, setSimilarTxs] = useState<SimilarTransaction[]>([]);
-  const [similarPattern, setSimilarPattern] = useState("");
-  const [selectedSimilarIds, setSelectedSimilarIds] = useState<Set<number>>(new Set());
-  const [createRule, setCreateRule] = useState(false);
-  const [ruleName, setRuleName] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [loadingSimilar, setLoadingSimilar] = useState(false);
 
   // Link modal state
   const [linkingTx, setLinkingTx] = useState<Transaction | null>(null);
@@ -145,89 +136,18 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
   const totalAmount = filteredTransactions.reduce((sum, tx) => sum + tx.amount, 0);
 
   // Open edit modal
-  const openEdit = async (tx: Transaction) => {
+  const openEdit = (tx: Transaction) => {
     setEditingTx(tx);
-    setSelectedCategory(tx.category_id || null);
-    setSelectedSubcategory(tx.subcategory_id || null);
-    setCreateRule(false);
-    setRuleName("");
-    setSelectedSimilarIds(new Set([tx.id]));
-
-    // Fetch similar transactions
-    setLoadingSimilar(true);
-    try {
-      const res = await fetch(`${apiBase}/transactions/${tx.id}/similar`);
-      const data = await res.json();
-      setSimilarTxs(data.similar || []);
-      setSimilarPattern(data.pattern || "");
-      // Pre-select all similar with same or no category
-      const preselected = new Set(
-        data.similar
-          .filter((s: SimilarTransaction) => !s.category_id || s.category_id === tx.category_id)
-          .map((s: SimilarTransaction) => s.id)
-      );
-      setSelectedSimilarIds(preselected);
-    } catch {
-      setSimilarTxs([]);
-      setSimilarPattern("");
-    }
-    setLoadingSimilar(false);
   };
 
   // Close modal
   const closeEdit = () => {
     setEditingTx(null);
-    setSimilarTxs([]);
-    setSelectedSimilarIds(new Set());
   };
 
-  // Save changes
-  const saveChanges = async () => {
-    if (!editingTx || !selectedCategory) return;
 
-    setSaving(true);
-    try {
-      const txIds = Array.from(selectedSimilarIds);
 
-      const formData = new FormData();
-      txIds.forEach((id) => formData.append("transaction_ids", id.toString()));
-      formData.append("category_id", selectedCategory.toString());
-      if (selectedSubcategory) {
-        formData.append("subcategory_id", selectedSubcategory.toString());
-      }
-      if (createRule && similarPattern) {
-        formData.append("create_rule", "true");
-        formData.append("rule_pattern", similarPattern.toUpperCase());
-        formData.append("rule_name", ruleName || `User: ${similarPattern}`);
-      }
 
-      const res = await fetch(`${apiBase}/transactions/bulk-update`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (res.ok) {
-        closeEdit();
-        onUpdated?.();
-        // Refresh transactions with current filters
-        const params = new URLSearchParams();
-        const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
-        if (startDate) params.append("start_date", startDate);
-        if (endDate) params.append("end_date", endDate + " 23:59:59");
-        if (categoryFilter) params.append("category_id", categoryFilter);
-        const txRes = await fetch(`${apiBase}/transactions?${params.toString()}`);
-        const txData = await txRes.json();
-        setTransactions(txData);
-      }
-    } catch (err) {
-      console.error("Failed to save:", err);
-    }
-    setSaving(false);
-  };
-
-  const availableSubcategories = subcategories.filter(
-    (s) => s.category_id === selectedCategory
-  );
 
   return (
     <div style={{ display: "grid", gap: "1.5rem" }}>
@@ -580,331 +500,26 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
       {/* Edit Modal */}
       {editingTx && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
-            padding: "1rem",
+        <EditTransactionModal
+          transaction={editingTx}
+          isOpen={!!editingTx}
+          onClose={closeEdit}
+          onSave={async () => {
+            onUpdated?.();
+            const params = new URLSearchParams();
+            const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
+            if (startDate) params.append("start_date", startDate);
+            if (endDate) params.append("end_date", endDate + " 23:59:59");
+            if (categoryFilter) params.append("category_id", categoryFilter);
+            fetch(`${apiBase}/transactions?${params.toString()}`)
+              .then((res) => res.json())
+              .then((data) => setTransactions(data))
+              .catch(() => { });
           }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeEdit();
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: "100%",
-              maxWidth: 700,
-              maxHeight: "90vh",
-              overflow: "auto",
-              animation: "slideUp 0.2s ease",
-            }}
-          >
-            <div className="card-header" style={{ marginBottom: "1rem" }}>
-              <h2>Edit Transaction</h2>
-              <button
-                onClick={closeEdit}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--text-muted)",
-                  cursor: "pointer",
-                  padding: "0.5rem",
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Transaction Details */}
-            <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "var(--bg-input)", borderRadius: "var(--radius-md)" }}>
-              <div style={{ fontSize: "0.875rem", color: "var(--text-primary)", fontWeight: 500 }}>
-                {editingTx.description_raw}
-              </div>
-              <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                <span>{new Date(editingTx.posted_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</span>
-                <span className="mono" style={{ color: editingTx.amount < 0 ? "var(--danger)" : "var(--success)" }}>
-                  {editingTx.amount < 0 ? "-" : "+"}{formatCurrency(editingTx.amount)}
-                </span>
-              </div>
-            </div>
-
-            {/* Category Selection */}
-            <div style={{ marginBottom: "1.5rem" }}>
-              <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                Category
-              </label>
-              <SubcategorySearch
-                categories={categories}
-                subcategories={subcategories}
-                value={selectedSubcategory ? String(selectedSubcategory) : ""}
-                onChange={(subId, catId) => {
-                  setSelectedSubcategory(subId ? Number(subId) : null);
-                  setSelectedCategory(catId ? Number(catId) : null);
-                }}
-                placeholder="Search categories..."
-              />
-            </div>
-
-            {/* Similar Transactions */}
-            <div style={{ marginBottom: "1.5rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                <label style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                  Similar Transactions ({similarTxs.length} found)
-                </label>
-                {similarTxs.length > 1 && (
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button
-                      className="secondary"
-                      style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
-                      onClick={() => setSelectedSimilarIds(new Set<number>(similarTxs.map((t) => t.id)))}
-                    >
-                      Select All
-                    </button>
-                    <button
-                      className="secondary"
-                      style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
-                      onClick={() => {
-                        // SQL LIKE to Regex conversion
-                        // Escape regex special chars except % and _
-                        const escaped = similarPattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
-                        // Convert % to .* and _ to .
-                        const regexStr = "^" + escaped.replace(/%/g, ".*").replace(/_/g, ".") + "$";
-                        const regex = new RegExp(regexStr, "i");
-
-                        const matching = similarTxs.filter(t => regex.test(t.description_norm));
-                        setSelectedSimilarIds(new Set(matching.map(t => t.id)));
-                      }}
-                      title="Select transactions matching the current pattern"
-                    >
-                      Select Matching
-                    </button>
-                    <button
-                      className="secondary"
-                      style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
-                      onClick={() => setSelectedSimilarIds(new Set([editingTx.id]))}
-                    >
-                      Select None
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {loadingSimilar ? (
-                <div style={{ padding: "1rem", textAlign: "center", color: "var(--text-muted)" }}>
-                  Finding similar transactions...
-                </div>
-              ) : similarTxs.length > 0 ? (
-                <div style={{ maxHeight: 250, overflow: "auto", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)" }}>
-                  {similarTxs.map((tx) => (
-                    <label
-                      key={tx.id}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "auto 1fr auto auto",
-                        alignItems: "center",
-                        gap: "0.75rem",
-                        padding: "0.75rem 1rem",
-                        cursor: "pointer",
-                        borderBottom: "1px solid var(--border-color)",
-                        background: selectedSimilarIds.has(tx.id) ? "var(--accent-glow)" : "transparent",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedSimilarIds.has(tx.id)}
-                        onChange={(e) => {
-                          const newSet = new Set(selectedSimilarIds);
-                          if (e.target.checked) {
-                            newSet.add(tx.id);
-                          } else if (tx.id !== editingTx.id) {
-                            newSet.delete(tx.id);
-                          }
-                          setSelectedSimilarIds(newSet);
-                        }}
-                        disabled={tx.id === editingTx.id}
-                        style={{ flexShrink: 0 }}
-                      />
-                      <div style={{ minWidth: 0, overflow: "hidden" }}>
-                        <div style={{
-                          fontSize: "0.8125rem",
-                          color: "var(--text-primary)",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          fontWeight: 500,
-                        }}>
-                          {tx.description_norm}
-                        </div>
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                          {new Date(tx.posted_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                        </div>
-                      </div>
-                      <div
-                        className="mono"
-                        style={{
-                          fontSize: "0.8125rem",
-                          color: tx.amount < 0 ? "var(--danger)" : "var(--success)",
-                          textAlign: "right",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {tx.amount < 0 ? "-" : "+"}{formatCurrency(tx.amount)}
-                      </div>
-                      {tx.category_id ? (
-                        <span className="badge" style={{ fontSize: "0.6875rem", whiteSpace: "nowrap" }}>
-                          {categories.find((c) => c.id === tx.category_id)?.name}
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>—</span>
-                      )}
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ padding: "1rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.875rem" }}>
-                  No similar transactions found
-                </div>
-              )}
-
-              <div style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                {selectedSimilarIds.size} transaction{selectedSimilarIds.size !== 1 ? "s" : ""} will be updated
-              </div>
-            </div>
-
-            {/* Create Rule Option */}
-            <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "var(--bg-input)", borderRadius: "var(--radius-md)" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
-                <div>
-                  <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>Create rule for future transactions</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCreateRule(!createRule)}
-                  style={{
-                    position: "relative",
-                    width: 44,
-                    height: 24,
-                    borderRadius: 12,
-                    border: "none",
-                    background: createRule ? "var(--accent)" : "var(--bg-secondary)",
-                    cursor: "pointer",
-                    transition: "background 0.2s ease",
-                    flexShrink: 0,
-                  }}
-                >
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: 2,
-                      left: createRule ? 22 : 2,
-                      width: 20,
-                      height: 20,
-                      borderRadius: "50%",
-                      background: "white",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                      transition: "left 0.2s ease",
-                    }}
-                  />
-                </button>
-              </div>
-
-              <div style={{ marginTop: "0.75rem" }}>
-                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
-                  Pattern (use % for wildcard)
-                </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <input
-                    type="text"
-                    value={similarPattern}
-                    onChange={(e) => setSimilarPattern(e.target.value)}
-                    style={{
-                      width: "100%",
-                      fontSize: "0.875rem",
-                      padding: "0.375rem 0.625rem",
-                      fontFamily: "monospace",
-                      background: "var(--bg-secondary)",
-                      border: "1px solid var(--border-color)",
-                      borderRadius: "var(--radius-sm)",
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        setLoadingSimilar(true);
-                        fetch(`${apiBase}/transactions/${editingTx.id}/similar?pattern=${encodeURIComponent(similarPattern)}`)
-                          .then(res => res.json())
-                          .then(data => {
-                            setSimilarTxs(data.similar || []);
-                            setSelectedSimilarIds(new Set<number>(data.similar?.map((t: any) => t.id) || []));
-                          })
-                          .catch(() => setSimilarTxs([]))
-                          .finally(() => setLoadingSimilar(false));
-                      }
-                    }}
-                  />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLoadingSimilar(true);
-                      fetch(`${apiBase}/transactions/${editingTx.id}/similar?pattern=${encodeURIComponent(similarPattern)}`)
-                        .then(res => res.json())
-                        .then(data => {
-                          setSimilarTxs(data.similar || []);
-                          setSelectedSimilarIds(new Set<number>(data.similar?.map((t: any) => t.id) || []));
-                        })
-                        .catch(() => setSimilarTxs([]))
-                        .finally(() => setLoadingSimilar(false));
-                    }}
-                    title="Refresh similar transactions based on this pattern"
-                    style={{
-                      background: "var(--bg-secondary)",
-                      border: "1px solid var(--border-color)",
-                      borderRadius: "var(--radius-sm)",
-                      cursor: "pointer",
-                      padding: "0 0.5rem",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "var(--text-muted)",
-                    }}
-                  >
-                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {createRule && (
-                <div style={{ marginTop: "0.75rem" }}>
-                  <input
-                    type="text"
-                    placeholder="Rule name (optional)"
-                    value={ruleName}
-                    onChange={(e) => setRuleName(e.target.value)}
-                    style={{ width: "100%", fontSize: "0.875rem" }}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
-              <button className="secondary" onClick={closeEdit} disabled={saving}>
-                Cancel
-              </button>
-              <button onClick={saveChanges} disabled={!selectedCategory || saving}>
-                {saving ? "Saving..." : `Update ${selectedSimilarIds.size} Transaction${selectedSimilarIds.size !== 1 ? "s" : ""}`}
-              </button>
-            </div>
-          </div>
-        </div>
+          categories={categories}
+          subcategories={subcategories}
+          apiBase={apiBase}
+        />
       )}
 
       {/* Link Transaction Modal */}

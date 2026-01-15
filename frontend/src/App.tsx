@@ -291,6 +291,9 @@ function App() {
               apiBase={API_BASE}
               refreshKey={refreshKey}
               initialCategoryId={selectedCategoryId}
+              categories={categories}
+              subcategories={subcategories}
+              onRefresh={() => setRefreshKey((k) => k + 1)}
             />
           )}
           {activeTab === "accounts" && (
