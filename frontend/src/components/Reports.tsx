@@ -71,30 +71,33 @@ function Reports({ apiBase, refreshKey }: Props) {
       });
   }, [apiBase, refreshKey]);
 
-  // Separate transfers from actual spending/income
-  const transferCategories = ["Transfers"];
-  const actualItems = items.filter((i) => !transferCategories.includes(i.category_name || ""));
-  const transferItems = items.filter((i) => transferCategories.includes(i.category_name || ""));
+  // Categories that represent asset movements (not true spending/income)
+  const assetMovementCategories = ["Transfers", "Investments"];
+  
+  // Separate items into spending, asset movements, and income
+  const spendingItems = items.filter(
+    (i) => i.total < 0 && !assetMovementCategories.includes(i.category_name || "")
+  );
+  const assetItems = items.filter((i) => assetMovementCategories.includes(i.category_name || ""));
+  const incomeItems = items.filter(
+    (i) => i.total > 0 && !assetMovementCategories.includes(i.category_name || "")
+  );
 
-  // Net balance (can be negative) - includes everything
+  // Net balance = total of all transactions
   const netBalance = items.reduce((sum, item) => sum + item.total, 0);
   
-  // Total spending (only negative items, excluding transfers)
-  const totalSpend = Math.abs(
-    actualItems.filter((i) => i.total < 0).reduce((sum, item) => sum + item.total, 0)
-  );
+  // True spending (excludes investments and transfers)
+  const totalSpend = Math.abs(spendingItems.reduce((sum, item) => sum + item.total, 0));
   
-  // Total income (only positive items, excluding transfers)
-  const totalIncome = actualItems
-    .filter((i) => i.total > 0)
-    .reduce((sum, item) => sum + item.total, 0);
+  // True income (excludes investment returns and transfer receipts)
+  const totalIncome = incomeItems.reduce((sum, item) => sum + item.total, 0);
 
-  // Transfer totals
-  const transferTotal = Math.abs(
-    transferItems.reduce((sum, item) => sum + Math.abs(item.total), 0)
+  // Total invested/transferred
+  const totalInvested = Math.abs(
+    assetItems.filter(i => i.total < 0).reduce((sum, item) => sum + item.total, 0)
   );
 
-  const categorizedItems = actualItems.filter((i) => i.category_name);
+  const categorizedSpending = spendingItems.filter((i) => i.category_name);
   const uncategorized = items.find((i) => !i.category_name);
 
   if (loading) {
@@ -203,31 +206,33 @@ function Reports({ apiBase, refreshKey }: Props) {
           </div>
         </div>
 
-        {/* Categories */}
-        <div className="card" style={{ padding: "1.25rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                background: "rgba(139, 92, 246, 0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#8b5cf6",
-              }}
-            >
-              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
-              </svg>
+        {/* Investments */}
+        {totalInvested > 0 && (
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: "rgba(139, 92, 246, 0.15)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#8b5cf6",
+                }}
+              >
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div>
+              <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Invested</span>
             </div>
-            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Categories</span>
+            <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: "#8b5cf6" }}>
+              {formatCurrency(totalInvested)}
+            </div>
           </div>
-          <div style={{ fontSize: "1.75rem", fontWeight: 600, color: "var(--text-primary)" }}>
-            {categorizedItems.length}
-          </div>
-        </div>
+        )}
 
         {/* Uncategorized */}
         {uncategorized && (
@@ -266,7 +271,7 @@ function Reports({ apiBase, refreshKey }: Props) {
 
         {/* Visual bar chart */}
         <div style={{ marginBottom: "1.5rem" }}>
-          {categorizedItems.length > 0 && (
+          {spendingItems.length > 0 && (
             <div
               style={{
                 display: "flex",
@@ -276,8 +281,8 @@ function Reports({ apiBase, refreshKey }: Props) {
                 background: "var(--bg-input)",
               }}
             >
-              {categorizedItems.map((item, idx) => {
-                const percentage = (Math.abs(item.total) / totalSpend) * 100;
+              {spendingItems.map((item, idx) => {
+                const percentage = totalSpend > 0 ? (Math.abs(item.total) / totalSpend) * 100 : 0;
                 return (
                   <div
                     key={idx}
@@ -294,9 +299,9 @@ function Reports({ apiBase, refreshKey }: Props) {
           )}
         </div>
 
-        {/* Category list - only actual spending (excludes transfers) */}
+        {/* Category list - only true spending (excludes transfers and investments) */}
         <div style={{ display: "grid", gap: "0.75rem" }}>
-          {actualItems.filter(i => i.total < 0).map((item, idx) => {
+          {spendingItems.map((item, idx) => {
             const percentage = totalSpend > 0 ? (Math.abs(item.total) / totalSpend) * 100 : 0;
             return (
               <div
@@ -354,15 +359,13 @@ function Reports({ apiBase, refreshKey }: Props) {
       </div>
 
       {/* Income Breakdown */}
-      {actualItems.filter((i) => i.total > 0).length > 0 && (
+      {incomeItems.length > 0 && (
         <div className="card">
           <div className="card-header">
             <h2>Income Sources</h2>
           </div>
           <div style={{ display: "grid", gap: "0.75rem" }}>
-            {actualItems
-              .filter((i) => i.total > 0)
-              .map((item, idx) => {
+            {incomeItems.map((item, idx) => {
                 const percentage = totalIncome > 0 ? (item.total / totalIncome) * 100 : 0;
                 return (
                   <div
@@ -412,17 +415,17 @@ function Reports({ apiBase, refreshKey }: Props) {
         </div>
       )}
 
-      {/* Transfers (excluded from spending/income) */}
-      {transferItems.length > 0 && (
-        <div className="card" style={{ opacity: 0.7 }}>
+      {/* Asset Movements (Investments & Transfers - not counted as spending) */}
+      {assetItems.length > 0 && (
+        <div className="card" style={{ opacity: 0.85 }}>
           <div className="card-header">
-            <h2>Internal Transfers</h2>
+            <h2>Asset Movements</h2>
             <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-              (Not counted in spending/income)
+              Investments & transfers (not counted in spending)
             </span>
           </div>
           <div style={{ display: "grid", gap: "0.75rem" }}>
-            {transferItems.map((item, idx) => (
+            {assetItems.map((item, idx) => (
               <div
                 key={idx}
                 style={{
@@ -439,12 +442,12 @@ function Reports({ apiBase, refreshKey }: Props) {
                     width: 10,
                     height: 10,
                     borderRadius: "50%",
-                    background: "#64748b",
+                    background: item.category_name === "Investments" ? "#8b5cf6" : "#64748b",
                     flexShrink: 0,
                   }}
                 />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 500, color: "var(--text-muted)", fontSize: "0.875rem" }}>
+                  <div style={{ fontWeight: 500, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
                     {item.category_name}
                   </div>
                 </div>
@@ -452,7 +455,7 @@ function Reports({ apiBase, refreshKey }: Props) {
                   className="mono"
                   style={{
                     fontWeight: 500,
-                    color: "var(--text-muted)",
+                    color: item.total < 0 ? "#8b5cf6" : "var(--accent)",
                     width: 100,
                     textAlign: "right",
                     fontSize: "0.875rem",

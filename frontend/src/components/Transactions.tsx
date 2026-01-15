@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Category, Subcategory, Transaction } from "../App";
+import LinkTransactionModal from "./LinkTransactionModal";
 
 type Props = {
   apiBase: string;
@@ -34,6 +35,39 @@ const formatDate = (dateStr: string) => {
   });
 };
 
+type DateRange = "7d" | "30d" | "90d" | "year" | "all" | "custom";
+
+const getDateRange = (range: DateRange, customStart?: string, customEnd?: string) => {
+  const now = new Date();
+  let startDate = "";
+  let endDate = now.toISOString().split("T")[0];
+
+  switch (range) {
+    case "7d":
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      break;
+    case "30d":
+      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      break;
+    case "90d":
+      startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      break;
+    case "year":
+      startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      break;
+    case "all":
+      startDate = "";
+      endDate = "";
+      break;
+    case "custom":
+      startDate = customStart || "";
+      endDate = customEnd || endDate;
+      break;
+  }
+
+  return { startDate, endDate };
+};
+
 function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdated }: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>("");
@@ -41,6 +75,11 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const pageSize = 25;
+
+  // Date range state - default to 30 days
+  const [dateRange, setDateRange] = useState<DateRange>("30d");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
 
   // Edit modal state
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -54,9 +93,22 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
   const [saving, setSaving] = useState(false);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
 
+  // Link modal state
+  const [linkingTx, setLinkingTx] = useState<Transaction | null>(null);
+
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
+    
+    // Add date range params
+    const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
+    if (startDate) {
+      params.append("start_date", startDate);
+    }
+    if (endDate) {
+      params.append("end_date", endDate + " 23:59:59");
+    }
+    
     if (categoryFilter) {
       params.append("category_id", categoryFilter);
     }
@@ -71,7 +123,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
         setTransactions([]);
         setLoading(false);
       });
-  }, [apiBase, categoryFilter, refreshKey]);
+  }, [apiBase, categoryFilter, refreshKey, dateRange, customStartDate, customEndDate]);
 
   // Reset page when search query changes
   useEffect(() => {
@@ -156,8 +208,11 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       if (res.ok) {
         closeEdit();
         onUpdated?.();
-        // Refresh transactions
+        // Refresh transactions with current filters
         const params = new URLSearchParams();
+        const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
+        if (startDate) params.append("start_date", startDate);
+        if (endDate) params.append("end_date", endDate + " 23:59:59");
         if (categoryFilter) params.append("category_id", categoryFilter);
         const txRes = await fetch(`${apiBase}/transactions?${params.toString()}`);
         const txData = await txRes.json();
@@ -175,7 +230,51 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
   return (
     <div style={{ display: "grid", gap: "1.5rem" }}>
-      {/* Filters */}
+      {/* Date Range Filter */}
+      <div className="card" style={{ padding: "1rem 1.25rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+          {(["7d", "30d", "90d", "year", "all"] as DateRange[]).map((range) => (
+            <button
+              key={range}
+              className={dateRange === range ? "primary" : "secondary"}
+              onClick={() => setDateRange(range)}
+              style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
+            >
+              {range === "7d" ? "7 Days" :
+               range === "30d" ? "30 Days" :
+               range === "90d" ? "90 Days" :
+               range === "year" ? "1 Year" : "All Time"}
+            </button>
+          ))}
+          <button
+            className={dateRange === "custom" ? "primary" : "secondary"}
+            onClick={() => setDateRange("custom")}
+            style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
+          >
+            Custom
+          </button>
+          
+          {dateRange === "custom" && (
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginLeft: "0.5rem" }}>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                style={{ padding: "0.5rem", fontSize: "0.8125rem" }}
+              />
+              <span style={{ color: "var(--text-muted)" }}>to</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                style={{ padding: "0.5rem", fontSize: "0.8125rem" }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Search & Category Filters */}
       <div className="card" style={{ padding: "1rem 1.25rem" }}>
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
           {/* Search */}
@@ -297,6 +396,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                     <th>Description</th>
                     <th style={{ width: 140 }}>Category</th>
                     <th style={{ width: 120, textAlign: "right" }}>Amount</th>
+                    <th style={{ width: 50 }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -367,6 +467,39 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                           {tx.amount < 0 ? "-" : "+"}
                           {formatCurrency(tx.amount)}
                         </span>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLinkingTx(tx);
+                          }}
+                          title="Link to CC payment"
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "var(--text-muted)",
+                            cursor: "pointer",
+                            padding: "0.375rem",
+                            borderRadius: "var(--radius-sm)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "all var(--transition-fast)",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "var(--bg-input)";
+                            e.currentTarget.style.color = "var(--accent)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "transparent";
+                            e.currentTarget.style.color = "var(--text-muted)";
+                          }}
+                        >
+                          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                          </svg>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -656,6 +789,34 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
             </div>
           </div>
         </div>
+      )}
+
+      {/* Link Transaction Modal */}
+      {linkingTx && (
+        <LinkTransactionModal
+          apiBase={apiBase}
+          transaction={{
+            id: linkingTx.id,
+            amount: linkingTx.amount,
+            description_raw: linkingTx.description_raw,
+            posted_at: linkingTx.posted_at,
+          }}
+          onClose={() => setLinkingTx(null)}
+          onLinked={() => {
+            setLinkingTx(null);
+            onUpdated?.();
+            // Refresh transactions with current filters
+            const params = new URLSearchParams();
+            const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
+            if (startDate) params.append("start_date", startDate);
+            if (endDate) params.append("end_date", endDate + " 23:59:59");
+            if (categoryFilter) params.append("category_id", categoryFilter);
+            fetch(`${apiBase}/transactions?${params.toString()}`)
+              .then((res) => res.json())
+              .then((data) => setTransactions(data))
+              .catch(() => {});
+          }}
+        />
       )}
 
       <style>{`

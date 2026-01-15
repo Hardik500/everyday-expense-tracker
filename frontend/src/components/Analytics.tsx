@@ -1,0 +1,783 @@
+import { useEffect, useState } from "react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+} from "recharts";
+
+type Props = {
+  apiBase: string;
+  refreshKey: number;
+};
+
+type TimeSeriesData = {
+  period: string;
+  expenses: number;
+  income: number;
+  transaction_count: number;
+};
+
+type StatsData = {
+  total_expenses: number;
+  total_income: number;
+  net_balance: number;
+  transaction_count: number;
+  avg_expense: number;
+  top_categories: { name: string; total: number; id?: number }[];
+  data_min_date: string | null;
+  data_max_date: string | null;
+};
+
+type CategoryDetail = {
+  category: { id: number; name: string };
+  total: number;
+  count: number;
+  average: number;
+  subcategories: { id: number; name: string; total: number; count: number }[];
+  timeseries: { period: string; amount: number; count: number }[];
+  transactions: { id: number; posted_at: string; description_raw: string; amount: number; subcategory_name: string | null }[];
+};
+
+type DateRange = "7d" | "30d" | "90d" | "year" | "all" | "custom";
+
+const COLORS = [
+  "#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6",
+  "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1"
+];
+
+const formatCurrency = (value: number) => {
+  if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`;
+  if (value >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
+  if (value >= 1000) return `₹${(value / 1000).toFixed(0)}K`;
+  return `₹${value.toFixed(0)}`;
+};
+
+const formatFullCurrency = (value: number) => {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+};
+
+function Analytics({ apiBase, refreshKey }: Props) {
+  const [timeSeries, setTimeSeries] = useState<TimeSeriesData[]>([]);
+  const [stats, setStats] = useState<StatsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [dateRange, setDateRange] = useState<DateRange>("30d");
+  const [granularity, setGranularity] = useState<"day" | "week" | "month">("day");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  
+  // Category drill-down state
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [categoryDetail, setCategoryDetail] = useState<CategoryDetail | null>(null);
+  const [loadingCategory, setLoadingCategory] = useState(false);
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
+
+  const getDateParams = () => {
+    const now = new Date();
+    let startDate = "";
+    let endDate = now.toISOString().split("T")[0];
+
+    switch (dateRange) {
+      case "7d":
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        break;
+      case "30d":
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        break;
+      case "90d":
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        break;
+      case "year":
+        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        break;
+      case "all":
+        startDate = "2000-01-01";
+        break;
+      case "custom":
+        startDate = customStart;
+        endDate = customEnd || endDate;
+        break;
+    }
+
+    return { startDate, endDate };
+  };
+
+  // Fetch categories
+  useEffect(() => {
+    fetch(`${apiBase}/categories`)
+      .then((res) => res.json())
+      .then((data) => setCategories(data.categories || []))
+      .catch(() => setCategories([]));
+  }, [apiBase]);
+
+  // Fetch main data
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const { startDate, endDate } = getDateParams();
+      
+      try {
+        const [tsRes, statsRes] = await Promise.all([
+          fetch(`${apiBase}/reports/timeseries?start_date=${startDate}&end_date=${endDate}&granularity=${granularity}`),
+          fetch(`${apiBase}/reports/stats?start_date=${startDate}&end_date=${endDate}`),
+        ]);
+        
+        const tsData = await tsRes.json();
+        const statsData = await statsRes.json();
+        
+        setTimeSeries(tsData.data || []);
+        setStats(statsData);
+      } catch (err) {
+        console.error("Failed to fetch analytics:", err);
+      }
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [apiBase, refreshKey, dateRange, granularity, customStart, customEnd]);
+
+  // Fetch category detail when selected
+  useEffect(() => {
+    if (!selectedCategoryId) {
+      setCategoryDetail(null);
+      return;
+    }
+    
+    const fetchCategoryDetail = async () => {
+      setLoadingCategory(true);
+      const { startDate, endDate } = getDateParams();
+      
+      try {
+        const res = await fetch(
+          `${apiBase}/reports/category/${selectedCategoryId}?start_date=${startDate}&end_date=${endDate}`
+        );
+        const data = await res.json();
+        setCategoryDetail(data);
+      } catch (err) {
+        console.error("Failed to fetch category detail:", err);
+        setCategoryDetail(null);
+      }
+      setLoadingCategory(false);
+    };
+
+    fetchCategoryDetail();
+  }, [apiBase, selectedCategoryId, dateRange, customStart, customEnd]);
+
+  // Auto-adjust granularity based on date range
+  useEffect(() => {
+    if (dateRange === "7d") setGranularity("day");
+    else if (dateRange === "30d") setGranularity("day");
+    else if (dateRange === "90d") setGranularity("week");
+    else if (dateRange === "year" || dateRange === "all") setGranularity("month");
+  }, [dateRange]);
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border-color)",
+          borderRadius: "var(--radius-md)",
+          padding: "0.75rem 1rem",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+        }}>
+          <p style={{ fontWeight: 500, marginBottom: "0.5rem", color: "var(--text-primary)" }}>
+            {formatDate(label)}
+          </p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} style={{ color: entry.color, fontSize: "0.875rem", margin: "0.25rem 0" }}>
+              {entry.name}: {formatFullCurrency(entry.value)}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  if (loading && !stats) {
+    return (
+      <div className="card" style={{ padding: "3rem", textAlign: "center" }}>
+        <div className="loading" style={{ color: "var(--text-muted)" }}>Loading analytics...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "grid", gap: "1.5rem" }}>
+      {/* Date Range Selector */}
+      <div className="card" style={{ padding: "1rem 1.25rem" }}>
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            {(["7d", "30d", "90d", "year", "all"] as DateRange[]).map((range) => (
+              <button
+                key={range}
+                className={dateRange === range ? "primary" : "secondary"}
+                onClick={() => setDateRange(range)}
+                style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
+              >
+                {range === "7d" ? "7 Days" :
+                 range === "30d" ? "30 Days" :
+                 range === "90d" ? "90 Days" :
+                 range === "year" ? "1 Year" : "All Time"}
+              </button>
+            ))}
+            <button
+              className={dateRange === "custom" ? "primary" : "secondary"}
+              onClick={() => setDateRange("custom")}
+              style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
+            >
+              Custom
+            </button>
+          </div>
+          
+          {dateRange === "custom" && (
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                style={{ padding: "0.5rem", fontSize: "0.8125rem" }}
+              />
+              <span style={{ color: "var(--text-muted)" }}>to</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                style={{ padding: "0.5rem", fontSize: "0.8125rem" }}
+              />
+            </div>
+          )}
+
+          <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem", alignItems: "center" }}>
+            {/* Category Filter */}
+            <select
+              value={selectedCategoryId || ""}
+              onChange={(e) => setSelectedCategoryId(e.target.value ? Number(e.target.value) : null)}
+              style={{ padding: "0.5rem", fontSize: "0.8125rem", minWidth: 150 }}
+            >
+              <option value="">All Categories</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+            
+            <select
+              value={granularity}
+              onChange={(e) => setGranularity(e.target.value as "day" | "week" | "month")}
+              style={{ padding: "0.5rem", fontSize: "0.8125rem" }}
+            >
+              <option value="day">Daily</option>
+              <option value="week">Weekly</option>
+              <option value="month">Monthly</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Category Detail View */}
+      {selectedCategoryId && categoryDetail && (
+        <div style={{ display: "grid", gap: "1.5rem" }}>
+          {/* Category Header */}
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h2 style={{ margin: 0, color: "var(--text-primary)" }}>{categoryDetail.category.name}</h2>
+                <p style={{ margin: "0.25rem 0 0", color: "var(--text-muted)", fontSize: "0.875rem" }}>
+                  {categoryDetail.count} transactions in selected period
+                </p>
+              </div>
+              <button
+                className="secondary"
+                onClick={() => setSelectedCategoryId(null)}
+                style={{ padding: "0.5rem 1rem" }}
+              >
+                ← Back to Overview
+              </button>
+            </div>
+          </div>
+
+          {/* Category Stats */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
+            <div className="card" style={{ padding: "1.25rem" }}>
+              <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
+                Total Spent
+              </div>
+              <div className="mono" style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--danger)" }}>
+                {formatFullCurrency(categoryDetail.total)}
+              </div>
+            </div>
+            <div className="card" style={{ padding: "1.25rem" }}>
+              <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
+                Transactions
+              </div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                {categoryDetail.count}
+              </div>
+            </div>
+            <div className="card" style={{ padding: "1.25rem" }}>
+              <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
+                Average
+              </div>
+              <div className="mono" style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                {formatFullCurrency(categoryDetail.average)}
+              </div>
+            </div>
+          </div>
+
+          {/* Subcategory Breakdown */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+            {/* Pie Chart */}
+            <div className="card">
+              <div className="card-header">
+                <h2>Subcategory Breakdown</h2>
+              </div>
+              <div style={{ height: 300 }}>
+                {categoryDetail.subcategories.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={categoryDetail.subcategories}
+                        dataKey="total"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={100}
+                        innerRadius={50}
+                        paddingAngle={2}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {categoryDetail.subcategories.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => formatFullCurrency(value)} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
+                    No subcategory data
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Subcategory List */}
+            <div className="card">
+              <div className="card-header">
+                <h2>Subcategories</h2>
+              </div>
+              <div style={{ maxHeight: 300, overflow: "auto" }}>
+                {categoryDetail.subcategories.length > 0 ? (
+                  <div style={{ display: "grid", gap: "0.5rem" }}>
+                    {categoryDetail.subcategories.map((sub, index) => (
+                      <div
+                        key={sub.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.75rem",
+                          padding: "0.75rem 1rem",
+                          background: "var(--bg-input)",
+                          borderRadius: "var(--radius-md)",
+                        }}
+                      >
+                        <div style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 3,
+                          background: COLORS[index % COLORS.length],
+                          flexShrink: 0,
+                        }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: "0.875rem", color: "var(--text-primary)", fontWeight: 500 }}>
+                            {sub.name}
+                          </div>
+                          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                            {sub.count} transactions
+                          </div>
+                        </div>
+                        <div className="mono" style={{ fontSize: "0.875rem", color: "var(--danger)" }}>
+                          {formatCurrency(sub.total)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
+                    No subcategories found
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Category Trend */}
+          <div className="card">
+            <div className="card-header">
+              <h2>Spending Trend</h2>
+            </div>
+            <div style={{ height: 250 }}>
+              {categoryDetail.timeseries.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={categoryDetail.timeseries} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorCategory" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                    <XAxis dataKey="period" stroke="var(--text-muted)" fontSize={12} tickFormatter={formatDate} />
+                    <YAxis stroke="var(--text-muted)" fontSize={12} tickFormatter={formatCurrency} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="amount"
+                      name="Spending"
+                      stroke="#ef4444"
+                      fillOpacity={1}
+                      fill="url(#colorCategory)"
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
+                  No trend data
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recent Transactions */}
+          <div className="card">
+            <div className="card-header">
+              <h2>Recent Transactions</h2>
+            </div>
+            <div style={{ maxHeight: 400, overflow: "auto" }}>
+              {categoryDetail.transactions.length > 0 ? (
+                <table style={{ width: "100%" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", padding: "0.75rem 1rem" }}>Date</th>
+                      <th style={{ textAlign: "left", padding: "0.75rem 1rem" }}>Description</th>
+                      <th style={{ textAlign: "left", padding: "0.75rem 1rem" }}>Subcategory</th>
+                      <th style={{ textAlign: "right", padding: "0.75rem 1rem" }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categoryDetail.transactions.map((tx) => (
+                      <tr key={tx.id}>
+                        <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+                          {formatDate(tx.posted_at)}
+                        </td>
+                        <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {tx.description_raw}
+                        </td>
+                        <td style={{ padding: "0.75rem 1rem" }}>
+                          {tx.subcategory_name ? (
+                            <span className="badge" style={{ fontSize: "0.75rem" }}>{tx.subcategory_name}</span>
+                          ) : (
+                            <span style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "0.75rem 1rem", textAlign: "right" }}>
+                          <span className="mono" style={{ color: "var(--danger)", fontWeight: 500 }}>
+                            -{formatCurrency(tx.amount)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
+                  No transactions found
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Overview (when no category selected) */}
+      {!selectedCategoryId && (
+        <>
+          {/* Summary Stats */}
+          {stats && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+              <div className="card" style={{ padding: "1.25rem" }}>
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
+                  Total Income
+                </div>
+                <div className="mono" style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--success)" }}>
+                  {formatFullCurrency(stats.total_income)}
+                </div>
+              </div>
+              <div className="card" style={{ padding: "1.25rem" }}>
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
+                  Total Expenses
+                </div>
+                <div className="mono" style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--danger)" }}>
+                  {formatFullCurrency(stats.total_expenses)}
+                </div>
+              </div>
+              <div className="card" style={{ padding: "1.25rem" }}>
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
+                  Net Balance
+                </div>
+                <div className="mono" style={{ 
+                  fontSize: "1.5rem", 
+                  fontWeight: 600, 
+                  color: stats.net_balance >= 0 ? "var(--success)" : "var(--danger)" 
+                }}>
+                  {formatFullCurrency(stats.net_balance)}
+                </div>
+              </div>
+              <div className="card" style={{ padding: "1.25rem" }}>
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
+                  Avg. Transaction
+                </div>
+                <div className="mono" style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                  {formatFullCurrency(stats.avg_expense)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Income vs Expenses Chart */}
+          <div className="card">
+            <div className="card-header">
+              <h2>Income vs Expenses</h2>
+            </div>
+            <div style={{ height: 350 }}>
+              {timeSeries.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={timeSeries} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                    <XAxis 
+                      dataKey="period" 
+                      stroke="var(--text-muted)" 
+                      fontSize={12}
+                      tickFormatter={formatDate}
+                    />
+                    <YAxis 
+                      stroke="var(--text-muted)" 
+                      fontSize={12}
+                      tickFormatter={formatCurrency}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Area
+                      type="monotone"
+                      dataKey="income"
+                      name="Income"
+                      stroke="#10b981"
+                      fillOpacity={1}
+                      fill="url(#colorIncome)"
+                      strokeWidth={2}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="expenses"
+                      name="Expenses"
+                      stroke="#ef4444"
+                      fillOpacity={1}
+                      fill="url(#colorExpenses)"
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
+                  No data for selected period
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Bar Chart - Daily/Weekly/Monthly comparison */}
+          <div className="card">
+            <div className="card-header">
+              <h2>Spending Pattern</h2>
+            </div>
+            <div style={{ height: 300 }}>
+              {timeSeries.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={timeSeries} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                    <XAxis 
+                      dataKey="period" 
+                      stroke="var(--text-muted)" 
+                      fontSize={12}
+                      tickFormatter={formatDate}
+                    />
+                    <YAxis 
+                      stroke="var(--text-muted)" 
+                      fontSize={12}
+                      tickFormatter={formatCurrency}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Bar dataKey="expenses" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
+                  No data for selected period
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Top Categories - Clickable */}
+          {stats && stats.top_categories.length > 0 && (
+            <div className="card">
+              <div className="card-header">
+                <h2>Top Spending Categories</h2>
+                <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Click to view details</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", padding: "0 1rem" }}>
+                {/* Pie Chart */}
+                <div style={{ height: 280 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={stats.top_categories}
+                        dataKey="total"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={100}
+                        innerRadius={60}
+                        paddingAngle={2}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                        style={{ cursor: "pointer" }}
+                        onClick={(data) => {
+                          const cat = categories.find((c) => c.name === data.name);
+                          if (cat) setSelectedCategoryId(cat.id);
+                        }}
+                      >
+                        {stats.top_categories.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => formatFullCurrency(value)} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                
+                {/* Legend list - Clickable */}
+                <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "0.75rem" }}>
+                  {stats.top_categories.map((cat, index) => {
+                    const catData = categories.find((c) => c.name === cat.name);
+                    return (
+                      <div
+                        key={cat.name}
+                        onClick={() => catData && setSelectedCategoryId(catData.id)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.75rem",
+                          padding: "0.5rem 0.75rem",
+                          borderRadius: "var(--radius-md)",
+                          cursor: "pointer",
+                          transition: "background var(--transition-fast)",
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-input)"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                      >
+                        <div style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: 3,
+                          background: COLORS[index % COLORS.length],
+                          flexShrink: 0,
+                        }} />
+                        <div style={{ flex: 1, fontSize: "0.875rem", color: "var(--text-primary)" }}>
+                          {cat.name}
+                        </div>
+                        <div className="mono" style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
+                          {formatCurrency(cat.total)}
+                        </div>
+                        <svg width="16" height="16" fill="none" stroke="var(--text-muted)" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Transaction Activity */}
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
+              Transaction Activity
+            </div>
+            <div style={{ fontSize: "1.25rem", fontWeight: 600, color: "var(--text-primary)" }}>
+              {stats?.transaction_count || 0} transactions
+            </div>
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+              in selected period
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Loading overlay for category detail */}
+      {loadingCategory && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 100,
+        }}>
+          <div className="card" style={{ padding: "2rem" }}>
+            <div className="loading">Loading category details...</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default Analytics;

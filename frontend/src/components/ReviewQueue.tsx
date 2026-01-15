@@ -9,6 +9,12 @@ type Props = {
   onUpdated: () => void;
 };
 
+type SimilarInfo = {
+  count: number;
+  pattern: string;
+  ids: number[];
+};
+
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -39,26 +45,87 @@ function ReviewQueue({
   const [saving, setSaving] = useState<Record<number, boolean>>({});
   const [page, setPage] = useState(0);
   const pageSize = 10;
+  
+  // Similar transactions tracking
+  const [similarInfo, setSimilarInfo] = useState<Record<number, SimilarInfo>>({});
+  const [applyToSimilar, setApplyToSimilar] = useState<Record<number, boolean>>({});
+  const [createRule, setCreateRule] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     fetch(`${apiBase}/transactions?uncertain=true`)
       .then((res) => res.json())
-      .then(setTransactions)
+      .then((data) => {
+        setTransactions(data);
+        // Fetch similar transactions for each
+        data.forEach((tx: Transaction) => {
+          fetchSimilar(tx.id);
+        });
+      })
       .catch(() => setTransactions([]));
   }, [apiBase, refreshKey]);
 
+  const fetchSimilar = async (txId: number) => {
+    try {
+      const res = await fetch(`${apiBase}/transactions/${txId}/similar`);
+      const data = await res.json();
+      setSimilarInfo((prev) => ({
+        ...prev,
+        [txId]: {
+          count: data.count || 0,
+          pattern: data.pattern || "",
+          ids: (data.similar || []).map((s: { id: number }) => s.id),
+        },
+      }));
+      // Default to applying to similar if there are any
+      if (data.count > 1) {
+        setApplyToSimilar((prev) => ({ ...prev, [txId]: true }));
+      }
+    } catch {
+      setSimilarInfo((prev) => ({ ...prev, [txId]: { count: 0, pattern: "", ids: [] } }));
+    }
+  };
+
   const submit = async (txId: number) => {
     setSaving((prev) => ({ ...prev, [txId]: true }));
-    const payload = {
-      category_id: category[txId] ? Number(category[txId]) : null,
-      subcategory_id: subcategory[txId] ? Number(subcategory[txId]) : null,
-      create_mapping: true,
-    };
-    await fetch(`${apiBase}/transactions/${txId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    
+    const catId = category[txId] ? Number(category[txId]) : null;
+    const subId = subcategory[txId] ? Number(subcategory[txId]) : null;
+    const similar = similarInfo[txId];
+    const shouldApplyToSimilar = applyToSimilar[txId] && similar && similar.count > 1;
+    const shouldCreateRule = createRule[txId] && similar && similar.pattern;
+
+    if (shouldApplyToSimilar && catId) {
+      // Use bulk update API
+      const formData = new FormData();
+      similar.ids.forEach((id) => formData.append("transaction_ids", id.toString()));
+      formData.append("category_id", catId.toString());
+      if (subId) {
+        formData.append("subcategory_id", subId.toString());
+      }
+      if (shouldCreateRule) {
+        formData.append("create_rule", "true");
+        formData.append("rule_pattern", similar.pattern.toUpperCase());
+        formData.append("rule_name", `Review: ${similar.pattern}`);
+      }
+      
+      await fetch(`${apiBase}/transactions/bulk-update`, {
+        method: "POST",
+        body: formData,
+      });
+    } else {
+      // Single transaction update
+      const payload = {
+        category_id: catId,
+        subcategory_id: subId,
+        create_mapping: true,
+      };
+      await fetch(`${apiBase}/transactions/${txId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    }
+    
     setSaving((prev) => ({ ...prev, [txId]: false }));
     onUpdated();
   };
@@ -134,133 +201,182 @@ function ReviewQueue({
       </div>
 
       {/* Transaction cards */}
-      {pagedTransactions.map((tx, idx) => (
-        <div
-          key={tx.id}
-          className="card animate-in"
-          style={{
-            animationDelay: `${idx * 50}ms`,
-            padding: "1.25rem",
-          }}
-        >
-          <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-            {/* Transaction info */}
-            <div style={{ flex: "1 1 300px", minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", marginBottom: "0.75rem" }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 10,
-                    background: "var(--bg-input)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
+      {pagedTransactions.map((tx, idx) => {
+        const similar = similarInfo[tx.id];
+        const hasSimilar = similar && similar.count > 1;
+        const willApplyToSimilar = applyToSimilar[tx.id] && hasSimilar;
+        
+        return (
+          <div
+            key={tx.id}
+            className="card animate-in"
+            style={{
+              animationDelay: `${idx * 50}ms`,
+              padding: "1.25rem",
+            }}
+          >
+            <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
+              {/* Transaction info */}
+              <div style={{ flex: "1 1 300px", minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", marginBottom: "0.75rem" }}>
                   <div
                     style={{
-                      fontWeight: 500,
-                      color: "var(--text-primary)",
-                      fontSize: "0.9375rem",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      width: 40,
+                      height: 40,
+                      borderRadius: 10,
+                      background: "var(--bg-input)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      color: "var(--text-muted)",
                     }}
-                    title={tx.description_raw}
                   >
-                    {tx.description_raw}
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
                   </div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                    {formatDate(tx.posted_at)}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 500,
+                        color: "var(--text-primary)",
+                        fontSize: "0.9375rem",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={tx.description_raw}
+                    >
+                      {tx.description_raw}
+                    </div>
+                    <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+                      {formatDate(tx.posted_at)}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Amount */}
-              <div
-                className="mono"
-                style={{
-                  fontSize: "1.5rem",
-                  fontWeight: 600,
-                  color: tx.amount < 0 ? "var(--danger)" : "var(--success)",
-                }}
-              >
-                {tx.amount < 0 ? "-" : "+"}{formatCurrency(Math.abs(tx.amount))}
-              </div>
-            </div>
-
-            {/* Category selectors */}
-            <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: "0.75rem", minWidth: 200 }}>
-              <div>
-                <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.375rem" }}>
-                  Category
-                </label>
-                <select
-                  value={category[tx.id] || ""}
-                  onChange={(e) => setCategory((prev) => ({ ...prev, [tx.id]: e.target.value }))}
-                  style={{ width: "100%" }}
+                {/* Amount */}
+                <div
+                  className="mono"
+                  style={{
+                    fontSize: "1.5rem",
+                    fontWeight: 600,
+                    color: tx.amount < 0 ? "var(--danger)" : "var(--success)",
+                  }}
                 >
-                  <option value="">Select category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
+                  {tx.amount < 0 ? "-" : "+"}{formatCurrency(Math.abs(tx.amount))}
+                </div>
+
+                {/* Similar transactions info */}
+                {hasSimilar && (
+                  <div 
+                    style={{ 
+                      marginTop: "1rem", 
+                      padding: "0.75rem", 
+                      background: "var(--bg-input)", 
+                      borderRadius: "var(--radius-md)",
+                      fontSize: "0.8125rem",
+                    }}
+                  >
+                    <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={applyToSimilar[tx.id] || false}
+                        onChange={(e) => setApplyToSimilar((prev) => ({ ...prev, [tx.id]: e.target.checked }))}
+                      />
+                      <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
+                        Apply to {similar.count} similar transactions
+                      </span>
+                    </label>
+                    <div style={{ marginLeft: "1.5rem", marginTop: "0.375rem", color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                      Pattern: <code style={{ background: "var(--bg-secondary)", padding: "0.125rem 0.375rem", borderRadius: 4 }}>{similar.pattern}</code>
+                    </div>
+                    
+                    {willApplyToSimilar && (
+                      <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", marginTop: "0.5rem", marginLeft: "1.5rem" }}>
+                        <input
+                          type="checkbox"
+                          checked={createRule[tx.id] || false}
+                          onChange={(e) => setCreateRule((prev) => ({ ...prev, [tx.id]: e.target.checked }))}
+                        />
+                        <span style={{ color: "var(--text-muted)" }}>Create rule for future transactions</span>
+                      </label>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div>
-                <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.375rem" }}>
-                  Subcategory
-                </label>
-                <select
-                  value={subcategory[tx.id] || ""}
-                  onChange={(e) => setSubcategory((prev) => ({ ...prev, [tx.id]: e.target.value }))}
-                  disabled={!category[tx.id]}
-                  style={{ width: "100%", opacity: category[tx.id] ? 1 : 0.5 }}
-                >
-                  <option value="">Select subcategory</option>
-                  {subcategories
-                    .filter((sub) => String(sub.category_id) === category[tx.id])
-                    .map((sub) => (
-                      <option key={sub.id} value={sub.id}>
-                        {sub.name}
+              {/* Category selectors */}
+              <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: "0.75rem", minWidth: 200 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.375rem" }}>
+                    Category
+                  </label>
+                  <select
+                    value={category[tx.id] || ""}
+                    onChange={(e) => setCategory((prev) => ({ ...prev, [tx.id]: e.target.value }))}
+                    style={{ width: "100%" }}
+                  >
+                    <option value="">Select category</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
                       </option>
                     ))}
-                </select>
-              </div>
+                  </select>
+                </div>
 
-              {/* Actions */}
-              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
-                <button
-                  className="ghost"
-                  onClick={() => skipTransaction(tx.id)}
-                  disabled={saving[tx.id]}
-                  style={{ flex: 1 }}
-                >
-                  Skip
-                </button>
-                <button
-                  className="primary"
-                  onClick={() => submit(tx.id)}
-                  disabled={!category[tx.id] || saving[tx.id]}
-                  style={{ flex: 1 }}
-                >
-                  {saving[tx.id] ? "Saving..." : "Save"}
-                </button>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.375rem" }}>
+                    Subcategory
+                  </label>
+                  <select
+                    value={subcategory[tx.id] || ""}
+                    onChange={(e) => setSubcategory((prev) => ({ ...prev, [tx.id]: e.target.value }))}
+                    disabled={!category[tx.id]}
+                    style={{ width: "100%", opacity: category[tx.id] ? 1 : 0.5 }}
+                  >
+                    <option value="">Select subcategory</option>
+                    {subcategories
+                      .filter((sub) => String(sub.category_id) === category[tx.id])
+                      .map((sub) => (
+                        <option key={sub.id} value={sub.id}>
+                          {sub.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
+                  <button
+                    className="ghost"
+                    onClick={() => skipTransaction(tx.id)}
+                    disabled={saving[tx.id]}
+                    style={{ flex: 1 }}
+                  >
+                    Skip
+                  </button>
+                  <button
+                    className="primary"
+                    onClick={() => submit(tx.id)}
+                    disabled={!category[tx.id] || saving[tx.id]}
+                    style={{ flex: 1 }}
+                  >
+                    {saving[tx.id] 
+                      ? "Saving..." 
+                      : willApplyToSimilar 
+                        ? `Save ${similar?.count || 1}` 
+                        : "Save"
+                    }
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* Pagination */}
       {totalPages > 1 && (

@@ -3,6 +3,7 @@ import Upload from "./components/Upload";
 import Transactions from "./components/Transactions";
 import ReviewQueue from "./components/ReviewQueue";
 import Reports from "./components/Reports";
+import Analytics from "./components/Analytics";
 
 const API_BASE = "http://localhost:8000";
 
@@ -30,7 +31,7 @@ export type Transaction = {
   is_uncertain: boolean;
 };
 
-type Tab = "dashboard" | "upload" | "review" | "transactions";
+type Tab = "dashboard" | "analytics" | "upload" | "review" | "transactions";
 
 const NavIcon = ({ active, children }: { active: boolean; children: React.ReactNode }) => (
   <div
@@ -84,6 +85,15 @@ function App() {
       icon: (
         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
+      ),
+    },
+    {
+      id: "analytics",
+      label: "Analytics",
+      icon: (
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       ),
     },
@@ -209,12 +219,14 @@ function App() {
         <header style={{ marginBottom: "2rem" }}>
           <h1 style={{ marginBottom: 4 }}>
             {activeTab === "dashboard" && "Dashboard"}
+            {activeTab === "analytics" && "Analytics"}
             {activeTab === "upload" && "Import Statement"}
             {activeTab === "review" && "Review Transactions"}
             {activeTab === "transactions" && "Transaction History"}
           </h1>
           <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
             {activeTab === "dashboard" && "Your financial overview at a glance"}
+            {activeTab === "analytics" && "Visualize your income and expenses over time"}
             {activeTab === "upload" && "Upload bank statements, credit card bills, or cash records"}
             {activeTab === "review" && `${reviewCount} transactions need your attention`}
             {activeTab === "transactions" && "View and filter all your transactions"}
@@ -225,6 +237,9 @@ function App() {
         <div className="animate-in">
           {activeTab === "dashboard" && (
             <Reports apiBase={API_BASE} refreshKey={refreshKey} />
+          )}
+          {activeTab === "analytics" && (
+            <Analytics apiBase={API_BASE} refreshKey={refreshKey} />
           )}
           {activeTab === "upload" && (
             <Upload
