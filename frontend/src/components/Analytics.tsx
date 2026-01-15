@@ -240,7 +240,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
     };
 
     fetchCategoryDetail();
-  }, [apiBase, selectedCategoryId, dateRange, customStart, customEnd]);
+  }, [apiBase, selectedCategoryId, dateRange, customStart, customEnd, refreshKey]);
 
   // Sync state to URL
   useEffect(() => {
