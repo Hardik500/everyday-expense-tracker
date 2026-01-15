@@ -72,13 +72,22 @@ def find_potential_transfers(conn, days_window: int = 7) -> List[Dict]:
         JOIN accounts a ON a.id = t.account_id
         LEFT JOIN categories c ON c.id = t.category_id
         WHERE t.id NOT IN (
-            SELECT source_transaction_id FROM transaction_links
+            SELECT source_transaction_id FROM transaction_links WHERE link_type != 'ignored'
             UNION
-            SELECT target_transaction_id FROM transaction_links
+            SELECT target_transaction_id FROM transaction_links WHERE link_type != 'ignored'
         )
         ORDER BY t.posted_at DESC
     """
     ).fetchall()
+
+    # Get ignored pairs to filter them out
+    ignored_rows = conn.execute(
+        "SELECT source_transaction_id, target_transaction_id FROM transaction_links WHERE link_type = 'ignored'"
+    ).fetchall()
+    ignored_pairs = {
+        tuple(sorted([row["source_transaction_id"], row["target_transaction_id"]]))
+        for row in ignored_rows
+    }
 
     potential_pairs = []
     checked_pairs = set()
@@ -96,6 +105,10 @@ def find_potential_transfers(conn, days_window: int = 7) -> List[Dict]:
             if pair_key in checked_pairs:
                 continue
             checked_pairs.add(pair_key)
+            
+            # Skip if explicitly ignored
+            if pair_key in ignored_pairs:
+                continue
             
             # Check if amounts are opposite (one debit, one credit)
             if tx1["amount"] * tx2["amount"] >= 0:  # Same sign
@@ -190,9 +203,9 @@ def auto_categorize_linked_transfers(conn) -> int:
         UPDATE transactions
         SET category_id = ?, subcategory_id = ?, is_uncertain = 0
         WHERE id IN (
-            SELECT source_transaction_id FROM transaction_links
+            SELECT source_transaction_id FROM transaction_links WHERE link_type != 'ignored'
             UNION
-            SELECT target_transaction_id FROM transaction_links
+            SELECT target_transaction_id FROM transaction_links WHERE link_type != 'ignored'
         )
         AND (category_id IS NULL OR category_id != ?)
         """,

@@ -64,7 +64,7 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
   const handleLink = async (pair: TransferPair) => {
     const key = `${pair.source.id}-${pair.target.id}`;
     setLinking((prev) => new Set([...prev, key]));
-    
+
     try {
       const res = await fetch(
         `${apiBase}/transfers/link?source_id=${pair.source.id}&target_id=${pair.target.id}`,
@@ -111,9 +111,23 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
     }
   };
 
-  const handleDismiss = (pair: TransferPair) => {
+  const handleDismiss = async (pair: TransferPair) => {
     const key = `${pair.source.id}-${pair.target.id}`;
     setDismissed((prev) => new Set([...prev, key]));
+
+    try {
+      await fetch(
+        `${apiBase}/transfers/ignore?source_id=${pair.source.id}&target_id=${pair.target.id}`,
+        { method: "POST" }
+      );
+    } catch (err) {
+      console.error("Dismiss failed", err);
+      setDismissed((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
   };
 
   const visibleTransfers = potentialTransfers.filter(
@@ -183,7 +197,7 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
         {visibleTransfers.slice(0, 5).map((pair) => {
           const key = `${pair.source.id}-${pair.target.id}`;
           const isLinking = linking.has(key);
-          
+
           return (
             <div
               key={key}
@@ -242,14 +256,14 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
                       pair.confidence >= 80
                         ? "rgba(34, 197, 94, 0.15)"
                         : pair.confidence >= 60
-                        ? "rgba(251, 191, 36, 0.15)"
-                        : "var(--bg-secondary)",
+                          ? "rgba(251, 191, 36, 0.15)"
+                          : "var(--bg-secondary)",
                     color:
                       pair.confidence >= 80
                         ? "#22c55e"
                         : pair.confidence >= 60
-                        ? "#fbbf24"
-                        : "var(--text-muted)",
+                          ? "#fbbf24"
+                          : "var(--text-muted)",
                   }}
                 >
                   {pair.confidence}% confidence

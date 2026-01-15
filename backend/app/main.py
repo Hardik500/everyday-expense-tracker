@@ -1956,3 +1956,19 @@ def approve_all_suggestions() -> dict:
         clear_category_cache()
         
     return {"status": "ok", "approved_count": approved_count}
+
+
+@app.post("/transfers/ignore")
+def ignore_transfer(source_id: int, target_id: int) -> dict:
+    """Mark a potential transfer as ignored."""
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO transaction_links
+            (source_transaction_id, target_transaction_id, link_type)
+            VALUES (?, ?, 'ignored')
+            """,
+            (source_id, target_id),
+        )
+        conn.commit()
+    return {"status": "ok"}
