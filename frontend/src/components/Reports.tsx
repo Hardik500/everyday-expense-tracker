@@ -75,7 +75,7 @@ function Reports({ apiBase, refreshKey, onRefresh }: Props) {
 
   // Categories that represent asset movements (not true spending/income)
   const assetMovementCategories = ["Transfers", "Investments"];
-  
+
   // Separate items into spending, asset movements, and income
   const spendingItems = items.filter(
     (i) => i.total < 0 && !assetMovementCategories.includes(i.category_name || "")
@@ -85,14 +85,14 @@ function Reports({ apiBase, refreshKey, onRefresh }: Props) {
     (i) => i.total > 0 && !assetMovementCategories.includes(i.category_name || "")
   );
 
-  // Net balance = total of all transactions
-  const netBalance = items.reduce((sum, item) => sum + item.total, 0);
-  
   // True spending (excludes investments and transfers)
   const totalSpend = Math.abs(spendingItems.reduce((sum, item) => sum + item.total, 0));
-  
+
   // True income (excludes investment returns and transfer receipts)
   const totalIncome = incomeItems.reduce((sum, item) => sum + item.total, 0);
+
+  // Net balance = income minus actual spending (excludes asset movements like investments)
+  const netBalance = totalIncome - totalSpend;
 
   // Total invested/transferred
   const totalInvested = Math.abs(
@@ -368,51 +368,51 @@ function Reports({ apiBase, refreshKey, onRefresh }: Props) {
           </div>
           <div style={{ display: "grid", gap: "0.75rem" }}>
             {incomeItems.map((item, idx) => {
-                const percentage = totalIncome > 0 ? (item.total / totalIncome) * 100 : 0;
-                return (
+              const percentage = totalIncome > 0 ? (item.total / totalIncome) * 100 : 0;
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                    padding: "0.875rem 1rem",
+                    background: "var(--bg-input)",
+                    borderRadius: "var(--radius-md)",
+                  }}
+                >
                   <div
-                    key={idx}
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "1rem",
-                      padding: "0.875rem 1rem",
-                      background: "var(--bg-input)",
-                      borderRadius: "var(--radius-md)",
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      background: "var(--accent)",
+                      flexShrink: 0,
                     }}
-                  >
-                    <div
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: "50%",
-                        background: "var(--accent)",
-                        flexShrink: 0,
-                      }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 500, color: "var(--text-primary)", fontSize: "0.875rem" }}>
-                        {item.category_name || "Other Income"}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", width: 50, textAlign: "right" }}>
-                      {percentage.toFixed(1)}%
-                    </div>
-                    <div
-                      className="mono"
-                      style={{
-                        fontWeight: 500,
-                        color: "var(--accent)",
-                        width: 100,
-                        textAlign: "right",
-                        fontSize: "0.875rem",
-                      }}
-                    >
-                      {formatCurrency(item.total)}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, color: "var(--text-primary)", fontSize: "0.875rem" }}>
+                      {item.category_name || "Other Income"}
                     </div>
                   </div>
-                );
-              })}
+                  <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", width: 50, textAlign: "right" }}>
+                    {percentage.toFixed(1)}%
+                  </div>
+                  <div
+                    className="mono"
+                    style={{
+                      fontWeight: 500,
+                      color: "var(--accent)",
+                      width: 100,
+                      textAlign: "right",
+                      fontSize: "0.875rem",
+                    }}
+                  >
+                    {formatCurrency(item.total)}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -475,7 +475,7 @@ function Reports({ apiBase, refreshKey, onRefresh }: Props) {
       <TransferDetector
         apiBase={apiBase}
         refreshKey={refreshKey}
-        onRefresh={onRefresh || (() => {})}
+        onRefresh={onRefresh || (() => { })}
       />
     </div>
   );
