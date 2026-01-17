@@ -2,6 +2,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
+from dotenv import load_dotenv
+load_dotenv()  # Load .env file before anything else
+
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -381,6 +384,91 @@ def toggle_rule(rule_id: int) -> dict:
     return {"rule_id": rule_id, "active": bool(new_active)}
 
 
+@app.post("/detect-account")
+def detect_account(file: UploadFile = File(...)) -> dict:
+    """Detect which account a statement belongs to based on file content."""
+    import io
+    import pdfplumber
+    
+    content = file.file.read()
+    file_name = file.filename or ""
+    ext = file_name.rsplit('.', 1)[-1].lower() if '.' in file_name else ""
+    
+    # Extract text based on file type
+    text = ""
+    if ext == "pdf":
+        try:
+            with pdfplumber.open(io.BytesIO(content)) as pdf:
+                for page in pdf.pages[:2]:  # Read first 2 pages
+                    text += (page.extract_text() or "") + "\n"
+        except Exception:
+            pass
+    else:
+        # Text-based files (csv, txt, etc.)
+        try:
+            text = content[:10000].decode('utf-8', errors='ignore')
+        except Exception:
+            pass
+    
+    text_lower = text.lower()
+    
+    # Detect account based on content
+    detected_account_name = None
+    detected_profile = None
+    
+    # HDFC Savings (bank statement with Narration column)
+    if 'narration' in text_lower and ('hdfc' in text_lower or 'withdrawal amt' in text_lower or 'deposit amt' in text_lower):
+        detected_account_name = "HDFC Savings"
+        detected_profile = "hdfc_txt"
+    # HDFC Credit Cards - check for specific card names
+    elif 'regalia' in text_lower:
+        detected_account_name = "HDFC Regalia Gold Credit Card"
+    elif 'millenn' in text_lower:  # Matches both 'millennia' and 'millenia'
+        detected_account_name = "HDFC Millenia Credit Card"
+    elif 'moneyback' in text_lower or 'money back' in text_lower:
+        detected_account_name = "HDFC Moneyback+ Credit Card"
+    elif ('tata' in text_lower or 'neu' in text_lower) and 'hdfc' in text_lower:
+        detected_account_name = "HDFC Tata Neu Card"
+    # ICICI / Amazon
+    elif 'icici' in text_lower or 'amazon pay' in text_lower:
+        detected_account_name = "Amazon ICICI Card"
+    # SBI Card
+    elif 'sbi card' in text_lower or 'sbicard' in text_lower:
+        detected_account_name = "SBI Cashback Card"
+    # Generic HDFC credit card
+    elif 'hdfc' in text_lower and 'credit card' in text_lower:
+        detected_account_name = "HDFC Regalia Gold Credit Card"  # Default to current card
+    
+    # Find matching account in database
+    detected_account_id = None
+    if detected_account_name:
+        with get_conn() as conn:
+            # Try exact match first
+            row = conn.execute(
+                "SELECT id, name FROM accounts WHERE LOWER(name) = LOWER(?)", 
+                (detected_account_name,)
+            ).fetchone()
+            if row:
+                detected_account_id = row["id"]
+                detected_account_name = row["name"]
+            else:
+                # Try partial match
+                search_term = detected_account_name.split()[0].lower()  # First word
+                row = conn.execute(
+                    "SELECT id, name FROM accounts WHERE LOWER(name) LIKE ?",
+                    (f"%{search_term}%",)
+                ).fetchone()
+                if row:
+                    detected_account_id = row["id"]
+                    detected_account_name = row["name"]
+    
+    return {
+        "detected_account_id": detected_account_id,
+        "detected_account_name": detected_account_name,
+        "detected_profile": detected_profile,
+    }
+
+
 @app.post("/ingest")
 def ingest_statement(
     account_id: int = Form(...),
@@ -388,7 +476,7 @@ def ingest_statement(
     file: UploadFile = File(...),
     profile: Optional[str] = Form(None),
 ) -> dict:
-    if source not in {"csv", "ofx", "xls", "pdf"}:
+    if source not in {"csv", "txt", "ofx", "xls", "pdf"}:
         raise HTTPException(
             status_code=400, detail="source must be csv, ofx, xls, or pdf"
         )
