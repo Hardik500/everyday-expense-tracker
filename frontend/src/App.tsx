@@ -68,6 +68,7 @@ function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [tabResetKey, setTabResetKey] = useState(0);
   const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);
   const [reviewCount, setReviewCount] = useState(0);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
@@ -268,7 +269,7 @@ function App() {
                 // Clear transaction and analytics specific filters on manual tab switch
                 ["q", "cat", "sub", "range", "start", "end", "page", "id"].forEach(p => params.delete(p));
                 window.history.pushState({}, "", "?" + params.toString());
-                setRefreshKey(k => k + 1);
+                setTabResetKey(k => k + 1);
                 setActiveTab(item.id);
               }}
               style={{
@@ -347,7 +348,7 @@ function App() {
         <div className="animate-in">
           {activeTab === "dashboard" && (
             <Reports
-              key={`dashboard-${refreshKey}`}
+              key={`dashboard-${tabResetKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
@@ -356,7 +357,7 @@ function App() {
           )}
           {activeTab === "analytics" && (
             <Analytics
-              key={`analytics-${refreshKey}`}
+              key={`analytics-${tabResetKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               initialCategoryId={selectedCategoryId}
@@ -367,7 +368,7 @@ function App() {
           )}
           {activeTab === "cards" && (
             <Cards
-              key={`cards-${refreshKey}`}
+              key={`cards-${tabResetKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
@@ -375,7 +376,7 @@ function App() {
           )}
           {activeTab === "accounts" && (
             <AccountManager
-              key={`accounts-${refreshKey}`}
+              key={`accounts-${tabResetKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
@@ -383,7 +384,7 @@ function App() {
           )}
           {activeTab === "categories" && (
             <CategoryManager
-              key={`categories-${refreshKey}`}
+              key={`categories-${tabResetKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
@@ -392,7 +393,7 @@ function App() {
           )}
           {activeTab === "rules" && (
             <RulesManager
-              key={`rules-${refreshKey}`}
+              key={`rules-${tabResetKey}`}
               apiBase={API_BASE}
               categories={categories}
               subcategories={subcategories}
@@ -402,7 +403,7 @@ function App() {
           )}
           {activeTab === "upload" && (
             <Upload
-              key={`upload-${refreshKey}`}
+              key={`upload-${tabResetKey}`}
               apiBase={API_BASE}
               onDone={() => {
                 setRefreshKey((k) => k + 1);
@@ -412,7 +413,7 @@ function App() {
           )}
           {activeTab === "review" && (
             <ReviewQueue
-              key={`review-${refreshKey}`}
+              key={`review-${tabResetKey}`}
               apiBase={API_BASE}
               categories={categories}
               subcategories={subcategories}
@@ -422,7 +423,7 @@ function App() {
           )}
           {activeTab === "transactions" && (
             <Transactions
-              key={`transactions-${refreshKey}`}
+              key={`transactions-${tabResetKey}`}
               apiBase={API_BASE}
               categories={categories}
               subcategories={subcategories}

@@ -16,6 +16,7 @@ type Suggestion = {
 
 type Props = {
   apiBase: string;
+  refreshKey: number;
   onUpdated: () => void;
 };
 
@@ -34,7 +35,7 @@ const formatDate = (dateStr: string) => {
   });
 };
 
-function AISuggestions({ apiBase, onUpdated }: Props) {
+function AISuggestions({ apiBase, refreshKey, onUpdated }: Props) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<Record<number, boolean>>({});
@@ -53,7 +54,7 @@ function AISuggestions({ apiBase, onUpdated }: Props) {
 
   useEffect(() => {
     fetchSuggestions();
-  }, [apiBase]);
+  }, [apiBase, refreshKey]);
 
   const approve = async (id: number) => {
     setProcessing((p) => ({ ...p, [id]: true }));

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { Category, Subcategory, Transaction } from "../App";
 import AISuggestions from "./AISuggestions";
 import SubcategorySearch from "./SubcategorySearch";
@@ -54,7 +54,10 @@ function ReviewQueue({
   const [page, setPage] = useState(0);
   const pageSize = 10;
 
-  const pagedTransactions = transactions.slice(page * pageSize, (page + 1) * pageSize);
+  const pagedTransactions = useMemo(() =>
+    transactions.slice(page * pageSize, (page + 1) * pageSize),
+    [transactions, page]
+  );
   const totalPages = Math.ceil(transactions.length / pageSize);
 
   // Similar transactions tracking
@@ -93,7 +96,7 @@ function ReviewQueue({
         fetchSimilar(tx.id);
       }
     });
-  }, [pagedTransactions]);
+  }, [pagedTransactions]); // Now depends on memoized array
 
   const fetchSimilar = async (txId: number) => {
     try {
@@ -144,6 +147,11 @@ function ReviewQueue({
         method: "POST",
         body: formData,
       });
+
+      // Optimistic update: remove ALL items affected by bulk update
+      if (shouldApplyToSimilar) {
+        setTransactions(prev => prev.filter(t => !similar.ids.includes(t.id)));
+      }
     } else {
       // Single transaction update
       const payload = {
@@ -156,6 +164,8 @@ function ReviewQueue({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      // Optimistic update: remove single item
+      setTransactions(prev => prev.filter(t => t.id !== txId));
     }
 
     setSaving((prev) => ({ ...prev, [txId]: false }));
@@ -174,6 +184,8 @@ function ReviewQueue({
         create_mapping: false,
       }),
     });
+    // Optimistic update
+    setTransactions(prev => prev.filter(t => t.id !== txId));
     setSaving((prev) => ({ ...prev, [txId]: false }));
     onUpdated();
   };
@@ -355,7 +367,7 @@ function ReviewQueue({
   return (
     <div style={{ display: "grid", gap: "1rem" }}>
       {/* AI Category Suggestions */}
-      <AISuggestions apiBase={apiBase} onUpdated={onUpdated} />
+      <AISuggestions apiBase={apiBase} refreshKey={refreshKey} onUpdated={onUpdated} />
 
       {/* Progress indicator */}
       <div className="card" style={{ padding: "1rem 1.25rem" }}>
