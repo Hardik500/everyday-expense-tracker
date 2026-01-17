@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useToast } from "./Toast";
 
 type Props = {
   apiBase: string;
@@ -47,6 +48,7 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
   const [autoLinking, setAutoLinking] = useState(false);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [needsRefresh, setNeedsRefresh] = useState(false);
+  const { toasts, addToast, dismissToast, ToastContainer } = useToast();
 
   // Debounced refresh
   useEffect(() => {
@@ -124,7 +126,12 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
         setPotentialTransfers(listData.potential_transfers || []);
         onRefresh();
         if (data.linked > 0) {
-          alert(`Linked ${data.linked} transfers automatically!`);
+          addToast({
+            type: "success",
+            title: "Success",
+            message: `Linked ${data.linked} transfers automatically!`,
+            duration: 4000,
+          });
         }
       }
     } catch (err) {
@@ -341,6 +348,7 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
           </span>
         </div>
       )}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
