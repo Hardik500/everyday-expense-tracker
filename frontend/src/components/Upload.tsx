@@ -130,6 +130,7 @@ function Upload({ apiBase, onDone }: Props) {
 
   const formatMap: Record<string, string> = {
     csv: "CSV",
+    txt: "TXT",
     ofx: "OFX/QFX",
     xls: "Excel",
     pdf: "PDF",
@@ -283,7 +284,7 @@ function Upload({ apiBase, onDone }: Props) {
             type="file"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             style={{ display: "none" }}
-            accept={source === "csv" ? ".csv" : source === "xls" ? ".xls,.xlsx" : source === "pdf" ? ".pdf" : ".ofx,.qfx"}
+            accept={source === "csv" ? ".csv" : source === "txt" ? ".txt" : source === "xls" ? ".xls,.xlsx" : source === "pdf" ? ".pdf" : ".ofx,.qfx"}
           />
         </div>
 
