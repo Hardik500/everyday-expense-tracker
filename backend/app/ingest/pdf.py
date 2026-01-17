@@ -274,7 +274,7 @@ def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes) -> Tupl
                 else:
                     amount = -abs(amount)  # Debit (expense)
                 
-                tx_hash = compute_hash(account_id, posted_at, amount, description_norm)
+                tx_hash = compute_hash(posted_at, amount, description_norm)
                 
                 # Skip duplicates within this import
                 if tx_hash in seen_hashes:

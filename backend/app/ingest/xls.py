@@ -141,7 +141,7 @@ def ingest_xls(
             continue
         
         currency = "INR"
-        tx_hash = compute_hash(account_id, posted_at, amount, description_norm)
+        tx_hash = compute_hash(posted_at, amount, description_norm)
 
         try:
             conn.execute(

@@ -23,9 +23,10 @@ def normalize_description(text: str) -> str:
 
 
 def compute_hash(
-    account_id: int, posted_at: str, amount: float, description_norm: str
+    posted_at: str, amount: float, description_norm: str
 ) -> str:
-    payload = f"{account_id}|{posted_at}|{amount:.2f}|{description_norm}"
+    # Hash is now account-independent to prevent cross-account duplicates
+    payload = f"{posted_at}|{amount:.2f}|{description_norm}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

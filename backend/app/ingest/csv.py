@@ -117,7 +117,7 @@ def ingest_csv(
         description_norm = normalize_description(description_raw)
         amount = _get_amount(row, mapping)
         currency = row.get(mapping.get("currency", ""), "INR") or "INR"
-        tx_hash = compute_hash(account_id, posted_at, amount, description_norm)
+        tx_hash = compute_hash(posted_at, amount, description_norm)
 
         try:
             conn.execute(
@@ -265,7 +265,7 @@ def _ingest_hdfc_cc_csv(
         else:
             amount = -abs(amount)
         
-        tx_hash = compute_hash(account_id, posted_at, amount, description_norm)
+        tx_hash = compute_hash(posted_at, amount, description_norm)
         
         try:
             conn.execute(

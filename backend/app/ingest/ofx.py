@@ -18,7 +18,7 @@ def ingest_ofx(
         description_raw = tx.payee or tx.memo or ""
         description_norm = normalize_description(description_raw)
         amount = float(tx.amount)
-        tx_hash = compute_hash(account_id, posted_at, amount, description_norm)
+        tx_hash = compute_hash(posted_at, amount, description_norm)
         try:
             conn.execute(
                 """

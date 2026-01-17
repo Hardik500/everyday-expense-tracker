@@ -416,28 +416,28 @@ def detect_account(file: UploadFile = File(...)) -> dict:
     detected_account_name = None
     detected_profile = None
     
-    # HDFC Savings (bank statement with Narration column)
+    # Advanced detection based on patterns in the first 10k characters
     if 'narration' in text_lower and ('hdfc' in text_lower or 'withdrawal amt' in text_lower or 'deposit amt' in text_lower):
         detected_account_name = "HDFC Savings"
         detected_profile = "hdfc_txt"
-    # HDFC Credit Cards - check for specific card names
-    elif 'regalia' in text_lower:
+    elif 'regalia gold' in text_lower or '4854 98xx xxxx 5391' in text_lower or '485498xxxxxx5391' in text_lower:
         detected_account_name = "HDFC Regalia Gold Credit Card"
-    elif 'millenn' in text_lower:  # Matches both 'millennia' and 'millenia'
+    elif 'millenn' in text_lower:
         detected_account_name = "HDFC Millenia Credit Card"
     elif 'moneyback' in text_lower or 'money back' in text_lower:
         detected_account_name = "HDFC Moneyback+ Credit Card"
-    elif ('tata' in text_lower or 'neu' in text_lower) and 'hdfc' in text_lower:
+    elif 'tata neu' in text_lower or '4023 59xx xxxx 1218' in text_lower or '402359xxxxxx1218' in text_lower:
         detected_account_name = "HDFC Tata Neu Card"
-    # ICICI / Amazon
-    elif 'icici' in text_lower or 'amazon pay' in text_lower:
+    elif 'icici' in text_lower or 'amazon' in text_lower:
         detected_account_name = "Amazon ICICI Card"
-    # SBI Card
     elif 'sbi card' in text_lower or 'sbicard' in text_lower:
         detected_account_name = "SBI Cashback Card"
-    # Generic HDFC credit card
     elif 'hdfc' in text_lower and 'credit card' in text_lower:
-        detected_account_name = "HDFC Regalia Gold Credit Card"  # Default to current card
+        # If it's a generic HDFC card but contains "Regalia Gold" rewards specifically
+        if 'regalia gold' in text_lower:
+            detected_account_name = "HDFC Regalia Gold Credit Card"
+        else:
+            detected_account_name = "HDFC Regalia Gold Credit Card"
     
     # Find matching account in database
     detected_account_id = None
