@@ -428,6 +428,22 @@ def detect_account(file: UploadFile = File(...)) -> dict:
     # Detect account based on content
     detected_account_name = None
     detected_profile = None
+    file_name_lower = file_name.lower()
+    
+    # Priority 1: Filename-based detection
+    if '4315' in file_name_lower and '3005' in file_name_lower:
+         detected_account_name = "Amazon ICICI Card"
+    elif 'amazon' in file_name_lower and 'icici' in file_name_lower:
+         detected_account_name = "Amazon ICICI Card"
+    elif 'regalia' in file_name_lower:
+         detected_account_name = "HDFC Regalia Gold Credit Card"
+    elif 'millenn' in file_name_lower:
+         detected_account_name = "HDFC Millenia Credit Card"
+    elif 'tata' in file_name_lower and 'neu' in file_name_lower:
+         detected_account_name = "HDFC Tata Neu Card"
+
+    if detected_account_name:
+        return {"account_name": detected_account_name, "profile": detected_profile}
     
     # Advanced detection based on patterns in the first 10k characters
     if 'narration' in text_lower and ('hdfc' in text_lower or 'withdrawal amt' in text_lower or 'deposit amt' in text_lower):
@@ -441,7 +457,7 @@ def detect_account(file: UploadFile = File(...)) -> dict:
         detected_account_name = "HDFC Moneyback+ Credit Card"
     elif 'tata neu' in text_lower or '4023 59xx xxxx 1218' in text_lower or '402359xxxxxx1218' in text_lower:
         detected_account_name = "HDFC Tata Neu Card"
-    elif 'icici' in text_lower or 'amazon' in text_lower:
+    elif ('icici' in text_lower or 'amazon pay' in text_lower) and ('credit card' in text_lower or 'statement' in text_lower or '3005' in text_lower):
         detected_account_name = "Amazon ICICI Card"
     elif 'sbi card' in text_lower or 'sbicard' in text_lower:
         detected_account_name = "SBI Cashback Card"
@@ -1301,10 +1317,20 @@ def report_card_coverage() -> dict:
                 y, m = map(int, m_str.split("-"))
                 if m == 12: return f"{y+1}-01"
                 return f"{y}-{m+1:02d}"
+
+            def get_prev_month(m_str):
+                y, m = map(int, m_str.split("-"))
+                if m == 1: return f"{y-1}-12"
+                return f"{y}-{m-1:02d}"
+
+            end_limit = current_month
+            if successor_first_stmt:
+                # End at the month before the successor's first statement
+                end_limit = min(current_month, get_prev_month(successor_first_stmt))
             
             curr = start_month_str
             all_timeline_months = []
-            while curr <= current_month and len(all_timeline_months) < 48: 
+            while curr <= end_limit and len(all_timeline_months) < 48: 
                 all_timeline_months.append(curr)
                 curr = get_next_month(curr)
             
