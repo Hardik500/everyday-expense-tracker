@@ -1115,16 +1115,14 @@ def report_card_coverage() -> dict:
             card_name = card["name"]
             
             # Patterns to identify payments to this card
-            # CRED payments, direct card payments, SBI card, etc.
             patterns = []
-            if "regalia" in card_name.lower() or "millenia" in card_name.lower() or "moneyback" in card_name.lower():
-                patterns.extend(["%CRED%CLUB%", "%CRED%CREDIT%", "%HDFC%CARD%"])
-            elif "sbi" in card_name.lower():
+            name_lower = card_name.lower()
+            if any(x in name_lower for x in ["regalia", "millenia", "moneyback", "tata neu"]):
+                patterns.extend(["%CRED%CLUB%", "%CRED%CREDIT%", "%HDFC%CARD%", "%HDFCSI%", "%AUTOPAY%TAD%"])
+            elif "sbi" in name_lower:
                 patterns.extend(["%SBI%CARD%", "%SBI%CREDIT%", "%SBICARD%"])
-            elif "icici" in card_name.lower() or "amazon" in card_name.lower():
-                patterns.extend(["%ICICI%CARD%", "%AMAZON%ICICI%"])
-            elif "tata" in card_name.lower() or "neu" in card_name.lower():
-                patterns.extend(["%TATA%NEU%", "%CRED%CLUB%"])
+            elif "icici" in name_lower or "amazon" in name_lower:
+                patterns.extend(["%ICICI%CARD%", "%AMAZON%ICICI%", "%ICICIBANK%CARD%", "%MOB%ICICI%"])
             else:
                 patterns.append("%CRED%CLUB%")
             
@@ -1154,8 +1152,8 @@ def report_card_coverage() -> dict:
                         "description": p["description_norm"][:50]
                     })
             
-            # Get all transaction months for this card (indicates statement coverage)
-            txn_months = conn.execute(
+            # Get all transaction months for this card
+            txn_months_rows = conn.execute(
                 """
                 SELECT substr(posted_at, 1, 7) as month, COUNT(*) as txn_count
                 FROM transactions
@@ -1166,37 +1164,88 @@ def report_card_coverage() -> dict:
                 (card_id,)
             ).fetchall()
             
-            statements_by_month = defaultdict(list)
-            for t in txn_months:
-                month = t["month"]
-                statements_by_month[month].append({
+            statements_by_month = {
+                t["month"]: {
                     "file_name": "statements",
                     "transaction_count": t["txn_count"],
-                    "date_range": month
+                    "date_range": t["month"]
+                }
+                for t in txn_months_rows
+            }
+            
+            # 1. Determine the start and end month for the timeline
+            current_month = datetime.now().strftime("%Y-%m")
+            
+            # Combine all known months (from payments and statements)
+            known_months = sorted(set(payments_by_month.keys()) | set(statements_by_month.keys()))
+            
+            if not known_months:
+                # If no data at all, skip or show empty
+                result.append({
+                    "account_id": card_id,
+                    "account_name": card_name,
+                    "timeline": [],
+                    "gaps": [],
+                    "total_payments": 0,
+                    "total_statements": 0,
                 })
+                continue
+
+            start_month_str = known_months[0]
             
-            # Find gaps: months with payments but no statements
-            all_months = set(payments_by_month.keys())
-            statement_months = set(statements_by_month.keys())
-            gaps = sorted(all_months - statement_months, reverse=True)
-            
-            # Build timeline
+            # 2. Generate continuous timeline from start_month to now (max 24)
             timeline = []
-            for month in sorted(all_months | statement_months, reverse=True):
+            gaps = []
+            
+            # Simple logic:
+            def get_next_month(m_str):
+                y, m = map(int, m_str.split("-"))
+                if m == 12: return f"{y+1}-01"
+                return f"{y}-{m+1:02d}"
+            
+            def get_month_diff(m1, m2):
+                y1, mon1 = map(int, m1.split("-"))
+                y2, mon2 = map(int, m2.split("-"))
+                return (y2 - y1) * 12 + (mon2 - mon1)
+            
+            # Cap the start at 24 months ago
+            start_dt = datetime.strptime(start_month_str, "%Y-%m")
+            limit_dt = datetime.now().replace(day=1)
+            months_back = 24
+            
+            # Walk through months
+            curr = start_month_str
+            all_timeline_months = []
+            while curr <= current_month and len(all_timeline_months) < 36: # safety limit
+                all_timeline_months.append(curr)
+                curr = get_next_month(curr)
+            
+            # We want the most recent 24
+            for m in reversed(all_timeline_months[-24:]):
+                has_stmt = m in statements_by_month
+                has_pay = m in payments_by_month
+                is_gap = not has_stmt and (has_pay or m < current_month) # A gap if no activity but not future
+                
+                # Special case: if no activity AND no payment, and it's a gap, 
+                # maybe they just didn't use the card. 
+                # But to be safe and helpful, we flag it.
+                
                 timeline.append({
-                    "month": month,
-                    "payments": payments_by_month.get(month, []),
-                    "statements": statements_by_month.get(month, []),
-                    "has_gap": month in gaps
+                    "month": m,
+                    "payments": payments_by_month.get(m, []),
+                    "statements": [statements_by_month[m]] if has_stmt else [],
+                    "has_gap": is_gap
                 })
+                if is_gap:
+                    gaps.append(m)
             
             result.append({
                 "account_id": card_id,
                 "account_name": card_name,
-                "timeline": timeline[:24],  # Last 24 months
-                "gaps": gaps[:12],  # Last 12 gap months
+                "timeline": timeline,
+                "gaps": gaps,
                 "total_payments": sum(len(v) for v in payments_by_month.values()),
-                "total_statements": len(txn_months),
+                "total_statements": len(txn_months_rows),
             })
         
         # Detect untracked card payments (payments to cards not in system)
