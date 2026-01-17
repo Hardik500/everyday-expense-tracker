@@ -15,7 +15,7 @@ from app.ingest.ofx import ingest_ofx
 from app.ingest.pdf import ingest_pdf
 from app.ingest.xls import ingest_xls
 from app.linking import link_card_payments
-from app.rules.engine import apply_rules
+from app.rules.engine import apply_rules, find_matching_rule
 import os
 
 from app.seed import seed_categories_and_rules, seed_statements_from_dir
@@ -648,7 +648,12 @@ def update_transaction(
 ) -> dict:
     with get_conn() as conn:
         tx = conn.execute(
-            "SELECT description_norm FROM transactions WHERE id = ?",
+            """
+            SELECT t.description_norm, t.amount, a.type as account_type 
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            WHERE t.id = ?
+            """,
             (transaction_id,),
         ).fetchone()
         if not tx:
@@ -686,7 +691,12 @@ def find_similar_transactions(transaction_id: int, pattern: Optional[str] = None
     
     with get_conn() as conn:
         tx = conn.execute(
-            "SELECT description_norm FROM transactions WHERE id = ?",
+            """
+            SELECT t.description_norm, t.amount, a.type as account_type 
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            WHERE t.id = ?
+            """,
             (transaction_id,),
         ).fetchone()
         if not tx:
@@ -714,6 +724,12 @@ def find_similar_transactions(transaction_id: int, pattern: Optional[str] = None
             display_pattern = "%".join(words[:2]) if len(words) >= 2 else words[0]
             search_pattern = f"%{display_pattern}%"
         
+        # Get total count of matches
+        total_count = conn.execute(
+            "SELECT COUNT(*) FROM transactions WHERE description_norm LIKE ?",
+            (search_pattern,),
+        ).fetchone()[0]
+        
         similar = conn.execute(
             """
             SELECT id, description_norm, amount, posted_at, category_id, subcategory_id
@@ -725,10 +741,20 @@ def find_similar_transactions(transaction_id: int, pattern: Optional[str] = None
             (search_pattern,),
         ).fetchall()
         
+        # Also find the matching rule if it exists
+        matching_rule = find_matching_rule(
+            conn, 
+            tx["description_norm"], 
+            tx["amount"], 
+            tx["account_type"]
+        )
+        
         return {
             "similar": [dict(row) for row in similar],
             "pattern": display_pattern,
             "count": len(similar),
+            "total_count": total_count,
+            "matching_rule": matching_rule
         }
 
 
@@ -740,32 +766,60 @@ def bulk_update_transactions(
     create_rule: bool = Form(False),
     rule_pattern: Optional[str] = Form(None),
     rule_name: Optional[str] = Form(None),
+    update_all_similar: bool = Form(False),
 ) -> dict:
     """Bulk update multiple transactions and optionally create a rule."""
     with get_conn() as conn:
-        # Update all specified transactions
-        placeholders = ",".join("?" * len(transaction_ids))
-        conn.execute(
-            f"""
-            UPDATE transactions
-            SET category_id = ?, subcategory_id = ?, is_uncertain = 0
-            WHERE id IN ({placeholders})
-            """,
-            [category_id, subcategory_id] + transaction_ids,
-        )
+        if update_all_similar and rule_pattern:
+            # Handle pattern wrapping if needed (consistent with find_similar)
+            search_pattern = rule_pattern
+            if "%" not in rule_pattern and "_" not in rule_pattern:
+                search_pattern = f"%{rule_pattern}%"
+                
+            conn.execute(
+                f"""
+                UPDATE transactions
+                SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+                WHERE description_norm LIKE ?
+                """,
+                (category_id, subcategory_id, search_pattern),
+            )
+        else:
+            # Update only specified transactions
+            placeholders = ",".join("?" * len(transaction_ids))
+            conn.execute(
+                f"""
+                UPDATE transactions
+                SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+                WHERE id IN ({placeholders})
+                """,
+                [category_id, subcategory_id] + transaction_ids,
+            )
         
         updated_count = conn.execute("SELECT changes()").fetchone()[0]
         
-        # Optionally create a rule for future transactions
+        # Optionally create or update a rule for future transactions
         rule_id = None
         if create_rule and rule_pattern:
-            # Check if rule already exists
+            # Check if rule already exists by pattern
             existing = conn.execute(
                 "SELECT id FROM rules WHERE pattern = ?",
                 (rule_pattern,),
             ).fetchone()
             
-            if not existing:
+            if existing:
+                # Update existing rule
+                conn.execute(
+                    """
+                    UPDATE rules 
+                    SET category_id = ?, subcategory_id = ?
+                    WHERE id = ?
+                    """,
+                    (category_id, subcategory_id, existing["id"]),
+                )
+                rule_id = existing["id"]
+            else:
+                # Create new rule
                 cursor = conn.execute(
                     """
                     INSERT INTO rules (name, pattern, category_id, subcategory_id, priority, active)

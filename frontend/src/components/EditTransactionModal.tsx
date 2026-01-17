@@ -30,6 +30,38 @@ const formatCurrency = (amount: number) => {
     }).format(Math.abs(amount));
 };
 
+const Toggle = ({ checked, onChange }: { checked: boolean, onChange: (val: boolean) => void }) => (
+    <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        style={{
+            position: "relative",
+            width: 44,
+            height: 24,
+            borderRadius: 12,
+            border: "none",
+            background: checked ? "var(--accent)" : "var(--bg-secondary)",
+            cursor: "pointer",
+            transition: "background 0.2s ease",
+            flexShrink: 0,
+        }}
+    >
+        <span
+            style={{
+                position: "absolute",
+                top: 2,
+                left: checked ? 22 : 2,
+                width: 20,
+                height: 20,
+                borderRadius: "50%",
+                background: "white",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                transition: "left 0.2s ease",
+            }}
+        />
+    </button>
+);
+
 const EditTransactionModal = ({
     transaction,
     isOpen,
@@ -48,6 +80,9 @@ const EditTransactionModal = ({
     const [selectedSimilarIds, setSelectedSimilarIds] = useState<Set<number>>(new Set());
     const [saving, setSaving] = useState(false);
     const [similarPattern, setSimilarPattern] = useState("");
+    const [matchingRule, setMatchingRule] = useState<any>(null);
+    const [totalSimilarCount, setTotalSimilarCount] = useState(0);
+    const [updateAllSimilar, setUpdateAllSimilar] = useState(false);
 
     // Reset state when transaction changes or modal opens
     useEffect(() => {
@@ -59,6 +94,9 @@ const EditTransactionModal = ({
             setSimilarTxs([]);
             setSelectedSimilarIds(new Set([transaction.id]));
             setSimilarPattern("");
+            setMatchingRule(null);
+            setTotalSimilarCount(0);
+            setUpdateAllSimilar(false);
             fetchSimilar();
         }
     }, [transaction, isOpen]);
@@ -74,6 +112,7 @@ const EditTransactionModal = ({
             .then((res) => res.json())
             .then((data) => {
                 setSimilarTxs(data.similar || []);
+                setTotalSimilarCount(data.total_count || 0);
                 // Only update pattern if it was auto-generated (i.e. we didn't have one yet)
                 if (!similarPattern) {
                     setSimilarPattern(data.pattern || "");
@@ -95,6 +134,14 @@ const EditTransactionModal = ({
                 } else {
                     // Initial load
                     setSelectedSimilarIds(new Set([transaction.id]));
+
+                    // If there's an existing matching rule, suggest using its pattern
+                    if (data.matching_rule) {
+                        setMatchingRule(data.matching_rule);
+                        setSimilarPattern(data.matching_rule.pattern);
+                        setRuleName(data.matching_rule.name);
+                        setCreateRule(true); // Default to updating it
+                    }
                 }
             })
             .catch((err) => {
@@ -126,6 +173,10 @@ const EditTransactionModal = ({
             formData.append("create_rule", "true");
             if (ruleName) formData.append("rule_name", ruleName);
             if (similarPattern) formData.append("rule_pattern", similarPattern);
+        }
+        if (updateAllSimilar && similarPattern) {
+            formData.append("update_all_similar", "true");
+            formData.append("rule_pattern", similarPattern);
         }
 
         try {
@@ -340,45 +391,53 @@ const EditTransactionModal = ({
                     )}
 
                     <div style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                        {selectedSimilarIds.size} transaction{selectedSimilarIds.size !== 1 ? "s" : ""} will be updated
+                        {updateAllSimilar ? (
+                            <span style={{ color: "var(--accent)", fontWeight: 500 }}>
+                                All {totalSimilarCount} matching transactions will be updated
+                            </span>
+                        ) : (
+                            `${selectedSimilarIds.size} transaction${selectedSimilarIds.size !== 1 ? "s" : ""} will be updated`
+                        )}
                     </div>
+
+                    {totalSimilarCount > 1 && (
+                        <div style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginTop: "1rem",
+                            padding: "0.75rem",
+                            background: "rgba(var(--accent-rgb), 0.05)",
+                            borderRadius: "var(--radius-md)",
+                            border: "1px dashed var(--accent)"
+                        }}>
+                            <div>
+                                <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--accent)" }}>
+                                    Global Update
+                                </div>
+                                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                                    Apply this category to all {totalSimilarCount} matches
+                                </div>
+                            </div>
+                            <Toggle checked={updateAllSimilar} onChange={setUpdateAllSimilar} />
+                        </div>
+                    )}
                 </div>
 
                 {/* Create Rule Option */}
                 <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "var(--bg-input)", borderRadius: "var(--radius-md)" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
                         <div>
-                            <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>Create rule for future transactions</div>
+                            <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>
+                                {matchingRule ? "Update existing matching rule" : "Create rule for future transactions"}
+                            </div>
+                            {matchingRule && (
+                                <div style={{ fontSize: "0.75rem", color: "var(--accent)", marginTop: "2px" }}>
+                                    Matching: {matchingRule.name}
+                                </div>
+                            )}
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => setCreateRule(!createRule)}
-                            style={{
-                                position: "relative",
-                                width: 44,
-                                height: 24,
-                                borderRadius: 12,
-                                border: "none",
-                                background: createRule ? "var(--accent)" : "var(--bg-secondary)",
-                                cursor: "pointer",
-                                transition: "background 0.2s ease",
-                                flexShrink: 0,
-                            }}
-                        >
-                            <span
-                                style={{
-                                    position: "absolute",
-                                    top: 2,
-                                    left: createRule ? 22 : 2,
-                                    width: 20,
-                                    height: 20,
-                                    borderRadius: "50%",
-                                    background: "white",
-                                    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                                    transition: "left 0.2s ease",
-                                }}
-                            />
-                        </button>
+                        <Toggle checked={createRule} onChange={setCreateRule} />
                     </div>
 
                     <div style={{ marginTop: "0.75rem" }}>
@@ -460,7 +519,9 @@ const EditTransactionModal = ({
                         Cancel
                     </button>
                     <button className="primary" onClick={handleSave} disabled={!selectedCategory || saving}>
-                        {saving ? "Saving..." : `Update ${selectedSimilarIds.size} Transaction${selectedSimilarIds.size !== 1 ? "s" : ""}`}
+                        {saving ? "Saving..." :
+                            updateAllSimilar ? `Update All ${totalSimilarCount} Transactions` :
+                                `Update ${selectedSimilarIds.size} Transaction${selectedSimilarIds.size !== 1 ? "s" : ""}`}
                     </button>
                 </div>
             </div>

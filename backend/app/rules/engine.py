@@ -55,6 +55,22 @@ def _score_rule(rule, description_norm: str) -> int:
     return score
 
 
+def find_matching_rule(conn, description_norm: str, amount: float, account_type: Optional[str]) -> Optional[dict]:
+    rules = _load_rules(conn)
+    best_rule = None
+    best_score = -1
+    
+    for rule in rules:
+        if not _match_rule(rule, description_norm, amount, account_type):
+            continue
+        score = _score_rule(rule, description_norm)
+        if score > best_score:
+            best_score = score
+            best_rule = rule
+            
+    return dict(best_rule) if best_rule else None
+
+
 def apply_rules(
     conn, account_id: Optional[int] = None, statement_id: Optional[int] = None
 ) -> None:
