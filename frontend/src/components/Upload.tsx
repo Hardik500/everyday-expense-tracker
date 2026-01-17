@@ -124,7 +124,44 @@ function Upload({ apiBase, onDone }: Props) {
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
+      handleFileSelect(e.dataTransfer.files[0]);
+    }
+  };
+
+  // Auto-detect format and account from file content via backend
+  const handleFileSelect = async (selectedFile: File) => {
+    setFile(selectedFile);
+
+    // Auto-detect format from extension
+    const ext = selectedFile.name.split('.').pop()?.toLowerCase();
+    if (ext === 'csv') setSource('csv');
+    else if (ext === 'txt') setSource('txt');
+    else if (ext === 'pdf') setSource('pdf');
+    else if (ext === 'xls' || ext === 'xlsx') setSource('xls');
+    else if (ext === 'ofx' || ext === 'qfx') setSource('ofx');
+
+    // Call backend to detect account from file content
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const response = await fetch(`${apiBase}/detect-account`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.detected_account_id) {
+          setAccountId(String(data.detected_account_id));
+          setStatus({ type: 'success', message: `Auto-detected: ${data.detected_account_name}` });
+          if (data.detected_profile) {
+            setProfile(data.detected_profile);
+          }
+        }
+      }
+    } catch {
+      // Ignore detection errors - user can still manually select
     }
   };
 
@@ -282,9 +319,9 @@ function Upload({ apiBase, onDone }: Props) {
           <input
             ref={fileInputRef}
             type="file"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
             style={{ display: "none" }}
-            accept={source === "csv" ? ".csv" : source === "txt" ? ".txt" : source === "xls" ? ".xls,.xlsx" : source === "pdf" ? ".pdf" : ".ofx,.qfx"}
+            accept=".csv,.txt,.pdf,.xls,.xlsx,.ofx,.qfx"
           />
         </div>
 

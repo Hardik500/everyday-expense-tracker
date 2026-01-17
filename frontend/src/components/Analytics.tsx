@@ -61,7 +61,7 @@ type CategoryDetail = {
   transactions: Transaction[];
 };
 
-type DateRange = "7d" | "30d" | "90d" | "year" | "all" | "custom";
+type DateRange = "7d" | "30d" | "90d" | "year" | "2yr" | "3yr" | "5yr" | "all" | "custom";
 
 const COLORS = [
   "#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -83,9 +83,18 @@ const formatFullCurrency = (value: number) => {
   }).format(value);
 };
 
-const formatDate = (dateStr: string) => {
+const formatDate = (dateStr: string, includeYear: boolean = false) => {
   const date = new Date(dateStr);
+  if (includeYear) {
+    return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" });
+  }
   return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+};
+
+// Wrapper for XAxis tickFormatter - always includes year for clarity
+const formatDateAxis = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
 };
 
 const TransactionRow = ({ tx, onClick }: { tx: Transaction; onClick: (tx: Transaction) => void }) => {
@@ -167,6 +176,15 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
         break;
       case "year":
         startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        break;
+      case "2yr":
+        startDate = new Date(now.getTime() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        break;
+      case "3yr":
+        startDate = new Date(now.getTime() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        break;
+      case "5yr":
+        startDate = new Date(now.getTime() - 5 * 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
         break;
       case "all":
         startDate = "2000-01-01";
@@ -320,7 +338,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
       <div className="card" style={{ padding: "1rem 1.25rem" }}>
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            {(["7d", "30d", "90d", "year", "all"] as DateRange[]).map((range) => (
+            {(["7d", "30d", "90d", "year", "2yr", "3yr", "5yr", "all"] as DateRange[]).map((range) => (
               <button
                 key={range}
                 className={dateRange === range ? "primary" : "secondary"}
@@ -330,7 +348,10 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                 {range === "7d" ? "7 Days" :
                   range === "30d" ? "30 Days" :
                     range === "90d" ? "90 Days" :
-                      range === "year" ? "1 Year" : "All Time"}
+                      range === "year" ? "1 Year" :
+                        range === "2yr" ? "2 Years" :
+                          range === "3yr" ? "3 Years" :
+                            range === "5yr" ? "5 Years" : "All Time"}
               </button>
             ))}
             <button
@@ -545,7 +566,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                    <XAxis dataKey="period" stroke="var(--text-muted)" fontSize={12} tickFormatter={formatDate} />
+                    <XAxis dataKey="period" stroke="var(--text-muted)" fontSize={12} tickFormatter={formatDateAxis} />
                     <YAxis stroke="var(--text-muted)" fontSize={12} tickFormatter={formatCurrency} />
                     <Tooltip content={<CustomTooltip />} />
                     <Area
@@ -668,7 +689,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                       dataKey="period"
                       stroke="var(--text-muted)"
                       fontSize={12}
-                      tickFormatter={formatDate}
+                      tickFormatter={formatDateAxis}
                     />
                     <YAxis
                       stroke="var(--text-muted)"
@@ -719,7 +740,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                       dataKey="period"
                       stroke="var(--text-muted)"
                       fontSize={12}
-                      tickFormatter={formatDate}
+                      tickFormatter={formatDateAxis}
                     />
                     <YAxis
                       stroke="var(--text-muted)"
