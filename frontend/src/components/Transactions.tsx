@@ -152,7 +152,11 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
   }, [categoryFilter]);
 
   useEffect(() => {
-    if (isAIMode) return; // Skip standard fetch in AI mode
+    if (isAIMode) {
+      // In AI mode, we use executeAISearch for refresh too
+      executeAISearch(page, true);
+      return;
+    }
 
     setLoading(true);
     const params = new URLSearchParams();
@@ -177,7 +181,6 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       .then((data) => {
         setTransactions(data);
         setLoading(false);
-        setPage(0);
       })
       .catch(() => {
         setTransactions([]);
@@ -185,10 +188,10 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       });
   }, [apiBase, categoryFilter, subcategoryFilter, refreshKey, dateRange, customStartDate, customEndDate, isAIMode]);
 
-  // Reset page when search query changes
+  // Reset page when filters change (but not on refreshKey)
   useEffect(() => {
     setPage(0);
-  }, [searchQuery]);
+  }, [categoryFilter, subcategoryFilter, searchQuery, dateRange, customStartDate, customEndDate]);
 
   const executeAISearch = async (targetPage: number, useExistingFilters: boolean) => {
     setLoading(true);
@@ -808,15 +811,6 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
             onClose={closeEdit}
             onSave={async () => {
               onUpdated?.();
-              const params = new URLSearchParams();
-              const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
-              if (startDate) params.append("start_date", startDate);
-              if (endDate) params.append("end_date", endDate + " 23:59:59");
-              if (categoryFilter) params.append("category_id", categoryFilter);
-              fetch(`${apiBase}/transactions?${params.toString()}`)
-                .then((res) => res.json())
-                .then((data) => setTransactions(data))
-                .catch(() => { });
             }}
             categories={categories}
             subcategories={subcategories}
@@ -840,16 +834,6 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
             onLinked={() => {
               setLinkingTx(null);
               onUpdated?.();
-              // Refresh transactions with current filters
-              const params = new URLSearchParams();
-              const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
-              if (startDate) params.append("start_date", startDate);
-              if (endDate) params.append("end_date", endDate + " 23:59:59");
-              if (categoryFilter) params.append("category_id", categoryFilter);
-              fetch(`${apiBase}/transactions?${params.toString()}`)
-                .then((res) => res.json())
-                .then((data) => setTransactions(data))
-                .catch(() => { });
             }}
           />
         )
