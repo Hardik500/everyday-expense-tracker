@@ -79,7 +79,9 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
   };
 
   useEffect(() => {
-    setLoading(true);
+    if (items.length === 0) {
+      setLoading(true);
+    }
     let summaryUrl = `${apiBase}/reports/summary`;
 
     if (selectedMonth) {

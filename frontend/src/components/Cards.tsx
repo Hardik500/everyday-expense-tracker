@@ -59,7 +59,9 @@ function Cards({ apiBase, refreshKey }: Props) {
 
     // Fetch spending by account
     useEffect(() => {
-        setLoading(true);
+        if (accountData.length === 0) {
+            setLoading(true);
+        }
         fetch(`${apiBase}/reports/by-account`)
             .then(res => res.json())
             .then(data => {

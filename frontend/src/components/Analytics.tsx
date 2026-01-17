@@ -232,7 +232,9 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
   // Fetch main data
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
+      if (timeSeries.length === 0) {
+        setLoading(true);
+      }
       const { startDate, endDate } = getDateParams();
       const accountParam = selectedAccountId ? `&account_id=${selectedAccountId}` : "";
 

@@ -45,10 +45,23 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
   const [loading, setLoading] = useState(true);
   const [linking, setLinking] = useState<Set<string>>(new Set());
   const [autoLinking, setAutoLinking] = useState(false);
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [needsRefresh, setNeedsRefresh] = useState(false);
+
+  // Debounced refresh
+  useEffect(() => {
+    if (!needsRefresh) return;
+    const timer = setTimeout(() => {
+      onRefresh();
+      setNeedsRefresh(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [needsRefresh, onRefresh]);
 
   useEffect(() => {
-    setLoading(true);
+    if (!potentialTransfers.length) {
+      setLoading(true);
+    }
     fetch(`${apiBase}/transfers/potential?days_window=14`)
       .then((res) => res.json())
       .then((data) => {
@@ -65,21 +78,31 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
     const key = `${pair.source.id}-${pair.target.id}`;
     setLinking((prev) => new Set([...prev, key]));
 
+    setHidden((prev) => new Set([...prev, key]));
+
     try {
       const res = await fetch(
         `${apiBase}/transfers/link?source_id=${pair.source.id}&target_id=${pair.target.id}`,
         { method: "POST" }
       );
       if (res.ok) {
-        setPotentialTransfers((prev) =>
-          prev.filter(
-            (p) => p.source.id !== pair.source.id || p.target.id !== pair.target.id
-          )
-        );
-        onRefresh();
+        setNeedsRefresh(true);
+      } else {
+        // Rollback if failed
+        setHidden((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
       }
     } catch (err) {
       console.error("Link failed", err);
+      // Rollback on network error
+      setHidden((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     } finally {
       setLinking((prev) => {
         const next = new Set(prev);
@@ -113,16 +136,18 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
 
   const handleDismiss = async (pair: TransferPair) => {
     const key = `${pair.source.id}-${pair.target.id}`;
-    setDismissed((prev) => new Set([...prev, key]));
+    setHidden((prev) => new Set([...prev, key]));
 
     try {
       await fetch(
         `${apiBase}/transfers/ignore?source_id=${pair.source.id}&target_id=${pair.target.id}`,
         { method: "POST" }
       );
+      // No refresh needed for ignore as it doesn't affect spending stats
     } catch (err) {
       console.error("Dismiss failed", err);
-      setDismissed((prev) => {
+      // Rollback
+      setHidden((prev) => {
         const next = new Set(prev);
         next.delete(key);
         return next;
@@ -131,7 +156,7 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
   };
 
   const visibleTransfers = potentialTransfers.filter(
-    (p) => !dismissed.has(`${p.source.id}-${p.target.id}`)
+    (p) => !hidden.has(`${p.source.id}-${p.target.id}`)
   );
 
   if (loading) {
@@ -175,6 +200,7 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
         </div>
         {highConfidence.length > 0 && (
           <button
+            type="button"
             onClick={handleAutoLink}
             disabled={autoLinking}
             style={{
@@ -270,6 +296,7 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
                 </div>
                 <div style={{ marginLeft: "auto", display: "flex", gap: "0.5rem" }}>
                   <button
+                    type="button"
                     onClick={() => handleDismiss(pair)}
                     style={{
                       padding: "0.375rem 0.75rem",
@@ -284,6 +311,7 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
                     Not a transfer
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleLink(pair)}
                     disabled={isLinking}
                     style={{
