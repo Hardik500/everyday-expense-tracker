@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ReactDOM from "react-dom";
 import Select from "./ui/Select";
 import { Category, Subcategory } from "../App";
 import SubcategorySearch from "./SubcategorySearch";
@@ -26,6 +27,38 @@ type Rule = {
   merchant_contains: string | null;
   active: boolean;
 };
+
+const Toggle = ({ checked, onChange }: { checked: boolean, onChange: (val: boolean) => void }) => (
+  <button
+    type="button"
+    onClick={() => onChange(!checked)}
+    style={{
+      position: "relative",
+      width: 44,
+      height: 24,
+      borderRadius: 12,
+      border: "none",
+      background: checked ? "var(--accent)" : "var(--bg-secondary)",
+      cursor: "pointer",
+      transition: "background 0.2s ease",
+      flexShrink: 0,
+    }}
+  >
+    <span
+      style={{
+        position: "absolute",
+        top: 2,
+        left: checked ? 22 : 2,
+        width: 20,
+        height: 20,
+        borderRadius: "50%",
+        background: "white",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+        transition: "left 0.2s ease",
+      }}
+    />
+  </button>
+);
 
 function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefresh }: Props) {
   const [rules, setRules] = useState<Rule[]>([]);
@@ -55,7 +88,8 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
   }, [apiBase, refreshKey]);
 
   const filteredRules = rules.filter((rule) => {
-    if (!showInactive && !rule.active) return false;
+    // Exclusively show active or inactive based on toggle
+    if (Boolean(rule.active) === showInactive) return false;
     if (filterCategory && rule.category_id !== filterCategory) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -172,17 +206,12 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
           />
 
           {/* Show inactive toggle */}
-          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
-              style={{ accentColor: "var(--accent)" }}
-            />
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
             <span style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>
-              Show inactive
+              {showInactive ? "Inactive rules" : "Active rules"}
             </span>
-          </label>
+            <Toggle checked={showInactive} onChange={setShowInactive} />
+          </div>
 
           {/* Stats */}
           <div style={{ marginLeft: "auto", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
@@ -336,16 +365,16 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
       </div>
 
       {/* Edit Modal */}
-      {editingRule && (
+      {editingRule && ReactDOM.createPortal(
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0, 0, 0, 0.7)",
+            background: "rgba(0,0, 0, 0.7)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 1000,
+            zIndex: 9999,
           }}
           onClick={(e) => e.target === e.currentTarget && setEditingRule(null)}
         >
@@ -356,6 +385,7 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
               maxWidth: "560px",
               maxHeight: "90vh",
               overflow: "auto",
+              animation: "slideUp 0.2s ease",
             }}
           >
             <div className="card-header">
@@ -525,7 +555,8 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
