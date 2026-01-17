@@ -17,6 +17,8 @@ type AccountData = {
 type CardCoverage = {
     account_id: number;
     account_name: string;
+    upgraded_from_id: number | null;
+    superseded_by_id: number | null;
     timeline: {
         month: string;
         payments: { date: string; amount: number; description: string }[];
@@ -26,6 +28,11 @@ type CardCoverage = {
     gaps: string[];
     total_payments: number;
     total_statements: number;
+};
+
+type CardAccount = {
+    id: number;
+    name: string;
 };
 
 type UntrackedCard = {
@@ -54,8 +61,10 @@ function Cards({ apiBase, refreshKey }: Props) {
     const [accountData, setAccountData] = useState<AccountData[]>([]);
     const [cardCoverage, setCardCoverage] = useState<CardCoverage[]>([]);
     const [untrackedCards, setUntrackedCards] = useState<UntrackedCard[]>([]);
+    const [allCardAccounts, setAllCardAccounts] = useState<CardAccount[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedCard, setExpandedCard] = useState<number | null>(null);
+    const [updatingCardId, setUpdatingCardId] = useState<number | null>(null);
 
     // Fetch spending by account
     useEffect(() => {
@@ -86,7 +95,37 @@ function Cards({ apiBase, refreshKey }: Props) {
                 setCardCoverage([]);
                 setUntrackedCards([]);
             });
+
+        // Fetch all card accounts for linking
+        fetch(`${apiBase}/accounts`)
+            .then(res => res.json())
+            .then(data => {
+                setAllCardAccounts(data.filter((a: any) => a.type === "card"));
+            })
+            .catch(() => setAllCardAccounts([]));
     }, [apiBase, refreshKey]);
+
+    const handleLinkAccount = async (cardId: number, upgradedFromId: number | null) => {
+        setUpdatingCardId(cardId);
+        try {
+            await fetch(`${apiBase}/accounts/${cardId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ upgraded_from_id: upgradedFromId || 0 })
+            });
+            // Refresh both coverage and accounts
+            fetch(`${apiBase}/reports/card-coverage`)
+                .then(res => res.json())
+                .then(data => {
+                    setCardCoverage(data.cards || []);
+                    setUntrackedCards(data.untracked_cards || []);
+                });
+        } catch (err) {
+            console.error("Failed to link account", err);
+        } finally {
+            setUpdatingCardId(null);
+        }
+    };
 
     if (loading) {
         return (
@@ -323,7 +362,8 @@ function Cards({ apiBase, refreshKey }: Props) {
                                 <div key={card.account_id} style={{
                                     border: "1px solid var(--border-color)",
                                     borderRadius: "var(--radius-md)",
-                                    overflow: "hidden"
+                                    overflow: "hidden",
+                                    marginBottom: "1rem"
                                 }}>
                                     <div style={{
                                         padding: "1rem",
@@ -336,6 +376,11 @@ function Cards({ apiBase, refreshKey }: Props) {
                                             <div style={{ fontWeight: 600 }}>{card.account_name}</div>
                                             <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                                                 {card.total_statements} months with data • {card.gaps.length} gaps
+                                                {card.superseded_by_id && (
+                                                    <span style={{ color: "var(--accent)", marginLeft: "0.5rem" }}>
+                                                        • Upgraded to {allCardAccounts.find(a => a.id === card.superseded_by_id)?.name || "another card"}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         {card.gaps.length > 0 && (
@@ -352,9 +397,45 @@ function Cards({ apiBase, refreshKey }: Props) {
                                         )}
                                     </div>
 
+                                    {/* Upgrade Settings */}
+                                    <div style={{
+                                        padding: "0.75rem 1rem",
+                                        background: "var(--bg-input)",
+                                        borderTop: "1px solid var(--border-color)",
+                                        borderBottom: "1px solid var(--border-color)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "1rem",
+                                        fontSize: "0.8125rem"
+                                    }}>
+                                        <div style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Upgrade Settings:</div>
+                                        <select
+                                            value={card.upgraded_from_id || ""}
+                                            onChange={(e) => handleLinkAccount(card.account_id, e.target.value ? Number(e.target.value) : null)}
+                                            disabled={updatingCardId === card.account_id}
+                                            style={{
+                                                background: "var(--bg-secondary)",
+                                                border: "1px solid var(--border-subtle)",
+                                                color: "var(--text-primary)",
+                                                borderRadius: "var(--radius-sm)",
+                                                padding: "2px 8px",
+                                                outline: "none"
+                                            }}
+                                        >
+                                            <option value="">This is a new card</option>
+                                            {allCardAccounts
+                                                .filter(a => a.id !== card.account_id)
+                                                .map(a => (
+                                                    <option key={a.id} value={a.id}>Upgraded from {a.name}</option>
+                                                ))
+                                            }
+                                        </select>
+                                        {updatingCardId === card.account_id && <span style={{ color: "var(--accent)", fontSize: "0.75rem" }}>Saving...</span>}
+                                    </div>
+
                                     {/* Timeline */}
-                                    <div style={{ padding: "1rem", display: "grid", gap: "0.5rem" }}>
-                                        {card.timeline.slice(0, 12).map((t, idx) => {
+                                    <div style={{ padding: "1rem", display: "grid", gap: "0.5rem", maxHeight: "400px", overflowY: "auto" }}>
+                                        {card.timeline.map((t, idx) => {
                                             const [year, month] = t.month.split("-");
                                             const monthLabel = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString("en-IN", {
                                                 month: "short",

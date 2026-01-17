@@ -65,27 +65,40 @@ def create_account(payload: schemas.AccountCreate) -> schemas.Account:
 def list_accounts() -> List[schemas.Account]:
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT id, name, type, currency FROM accounts ORDER BY name"
+            "SELECT id, name, type, currency, upgraded_from_id FROM accounts ORDER BY name"
         ).fetchall()
     return [schemas.Account(**dict(row)) for row in rows]
 
 
-@app.put("/accounts/{account_id}", response_model=schemas.Account)
-def update_account(account_id: int, payload: schemas.AccountCreate) -> schemas.Account:
+@app.patch("/accounts/{account_id}", response_model=schemas.Account)
+def update_account(account_id: int, payload: schemas.AccountUpdate) -> schemas.Account:
     with get_conn() as conn:
         existing = conn.execute(
-            "SELECT id FROM accounts WHERE id = ?", (account_id,)
+            "SELECT * FROM accounts WHERE id = ?", (account_id,)
         ).fetchone()
         if not existing:
             raise HTTPException(status_code=404, detail="Account not found")
-        conn.execute(
-            "UPDATE accounts SET name = ?, type = ?, currency = ? WHERE id = ?",
-            (payload.name, payload.type, payload.currency, account_id),
-        )
-        conn.commit()
+        
+        # Build update query
+        updates = []
+        params = []
+        if payload.name is not None:
+            updates.append("name = ?")
+            params.append(payload.name)
+        if payload.upgraded_from_id is not None:
+            # Allow setting to 0 or null to clear
+            val = None if payload.upgraded_from_id == 0 else payload.upgraded_from_id
+            updates.append("upgraded_from_id = ?")
+            params.append(val)
+            
+        if updates:
+            query = f"UPDATE accounts SET {', '.join(updates)} WHERE id = ?"
+            conn.execute(query, (*params, account_id))
+            conn.commit()
+            
         row = conn.execute(
-            "SELECT id, name, type, currency FROM accounts WHERE id = ?",
-            (account_id,),
+            "SELECT id, name, type, currency, upgraded_from_id FROM accounts WHERE id = ?",
+            (account_id,)
         ).fetchone()
     return schemas.Account(**dict(row))
 
@@ -1153,7 +1166,7 @@ def report_card_coverage() -> dict:
     with get_conn() as conn:
         # Get all credit card accounts
         card_accounts = conn.execute(
-            "SELECT id, name FROM accounts WHERE type = 'card'"
+            "SELECT id, name, upgraded_from_id FROM accounts WHERE type = 'card'"
         ).fetchall()
         
         # Get bank accounts (for finding card payments)
@@ -1162,11 +1175,47 @@ def report_card_coverage() -> dict:
         ).fetchall()
         bank_ids = [a["id"] for a in bank_accounts]
         
+        # Build succession map (child -> parent)
+        succession_rules = {a["id"]: a["upgraded_from_id"] for a in card_accounts if a["upgraded_from_id"]}
+        
+        # Build inverse map (parent -> child) to find when a card was superseded
+        superseded_by = {v: k for k, v in succession_rules.items()}
+        
+        # Pre-fetch earliest statement month for each card to define active windows
+        first_stmt_months = {}
+        stmt_data = conn.execute(
+            "SELECT account_id, MIN(posted_at) as first_txn FROM transactions WHERE account_id IN (SELECT id FROM accounts WHERE type = 'card') GROUP BY account_id"
+        ).fetchall()
+        for row in stmt_data:
+            first_stmt_months[row["account_id"]] = row["first_txn"][:7]
+            
+        # Helper to find the absolute start of an account chain
+        def get_chain_start(acc_id):
+            curr = acc_id
+            seen = {curr}
+            while curr in succession_rules:
+                curr = succession_rules[curr]
+                if curr in seen: break # cycle
+                seen.add(curr)
+            return curr
+
         result = []
         
         for card in card_accounts:
             card_id = card["id"]
             card_name = card["name"]
+            upgraded_from = card["upgraded_from_id"]
+            
+            # Succession bounds
+            # Start: Either its own first statement, or if no statements, we don't know (fallback)
+            card_first_stmt = first_stmt_months.get(card_id)
+            
+            # End: Month before successor starts
+            successor_id = superseded_by.get(card_id)
+            successor_first_stmt = first_stmt_months.get(successor_id) if successor_id else None
+            
+            # Active Window [start, end)
+            # We only show gaps if month >= card_first_stmt AND (not successor_first_stmt OR month < successor_first_stmt)
             
             # Patterns to identify payments to this card
             patterns = []
@@ -1227,17 +1276,16 @@ def report_card_coverage() -> dict:
                 for t in txn_months_rows
             }
             
-            # 1. Determine the start and end month for the timeline
+            # Determine the start and end month for the timeline
             current_month = datetime.now().strftime("%Y-%m")
             
-            # Combine all known months (from payments and statements)
-            known_months = sorted(set(payments_by_month.keys()) | set(statements_by_month.keys()))
-            
-            if not known_months:
-                # If no data at all, skip or show empty
+            # Only generate timeline once we have a starting point (first statement)
+            if not card_first_stmt:
                 result.append({
                     "account_id": card_id,
                     "account_name": card_name,
+                    "upgraded_from_id": upgraded_from,
+                    "superseded_by_id": successor_id,
                     "timeline": [],
                     "gaps": [],
                     "total_payments": 0,
@@ -1245,48 +1293,46 @@ def report_card_coverage() -> dict:
                 })
                 continue
 
-            start_month_str = known_months[0]
+            # Start timeline from card's first statement
+            start_month_str = card_first_stmt
             
-            # 2. Generate continuous timeline from start_month to now (max 24)
-            timeline = []
-            gaps = []
-            
-            # Simple logic:
+            # Generate potential months
             def get_next_month(m_str):
                 y, m = map(int, m_str.split("-"))
                 if m == 12: return f"{y+1}-01"
                 return f"{y}-{m+1:02d}"
             
-            def get_month_diff(m1, m2):
-                y1, mon1 = map(int, m1.split("-"))
-                y2, mon2 = map(int, m2.split("-"))
-                return (y2 - y1) * 12 + (mon2 - mon1)
-            
-            # Cap the start at 24 months ago
-            start_dt = datetime.strptime(start_month_str, "%Y-%m")
-            limit_dt = datetime.now().replace(day=1)
-            months_back = 24
-            
-            # Walk through months
             curr = start_month_str
             all_timeline_months = []
-            while curr <= current_month and len(all_timeline_months) < 36: # safety limit
+            while curr <= current_month and len(all_timeline_months) < 48: 
                 all_timeline_months.append(curr)
                 curr = get_next_month(curr)
             
-            # We want the most recent 24
-            for m in reversed(all_timeline_months[-24:]):
+            timeline = []
+            gaps = []
+            
+            # Most recent months
+            for m in reversed(all_timeline_months):
                 has_stmt = m in statements_by_month
-                has_pay = m in payments_by_month
-                is_gap = not has_stmt and (has_pay or m < current_month) # A gap if no activity but not future
                 
-                # Special case: if no activity AND no payment, and it's a gap, 
-                # maybe they just didn't use the card. 
-                # But to be safe and helpful, we flag it.
+                # Payment attribution: only consider payments if month >= card_first_stmt
+                # AND it is not superseded yet.
+                is_after_start = m >= card_first_stmt
+                is_superseded = successor_first_stmt and m >= successor_first_stmt
+                isActive = is_after_start and not is_superseded
+                
+                payments = payments_by_month.get(m, []) if isActive else []
+                has_pay = len(payments) > 0
+                
+                # Gap Logic: 
+                # 1. No statement
+                # 2. Within active window
+                # 3. Either has a payment OR it's a past month (to ensure no missing statements)
+                is_gap = not has_stmt and isActive and (has_pay or m < current_month)
                 
                 timeline.append({
                     "month": m,
-                    "payments": payments_by_month.get(m, []),
+                    "payments": payments,
                     "statements": [statements_by_month[m]] if has_stmt else [],
                     "has_gap": is_gap
                 })
@@ -1296,9 +1342,11 @@ def report_card_coverage() -> dict:
             result.append({
                 "account_id": card_id,
                 "account_name": card_name,
+                "upgraded_from_id": upgraded_from,
+                "superseded_by_id": successor_id,
                 "timeline": timeline,
                 "gaps": gaps,
-                "total_payments": sum(len(v) for v in payments_by_month.values()),
+                "total_payments": sum(len(v) for k, v in payments_by_month.items() if (not successor_first_stmt or k < successor_first_stmt) and k >= card_first_stmt),
                 "total_statements": len(txn_months_rows),
             })
         

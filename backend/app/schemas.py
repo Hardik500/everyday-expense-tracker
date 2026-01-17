@@ -15,6 +15,12 @@ class Account(BaseModel):
     name: str
     type: str
     currency: str
+    upgraded_from_id: Optional[int] = None
+
+
+class AccountUpdate(BaseModel):
+    name: Optional[str] = None
+    upgraded_from_id: Optional[int] = None
 
 
 class Category(BaseModel):
