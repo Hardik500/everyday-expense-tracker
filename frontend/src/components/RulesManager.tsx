@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Select from "./ui/Select";
 import { Category, Subcategory } from "../App";
 import SubcategorySearch from "./SubcategorySearch";
 
@@ -159,23 +160,16 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
           </div>
 
           {/* Category filter */}
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value ? Number(e.target.value) : "")}
-            style={{
-              padding: "0.625rem 1rem",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--border-subtle)",
-              background: "var(--bg-input)",
-              color: "var(--text-primary)",
-              fontSize: "0.875rem",
-            }}
-          >
-            <option value="">All Categories</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          <Select
+            value={filterCategory || ""}
+            onChange={(val) => setFilterCategory(val ? Number(val) : "")}
+            options={[
+              { value: "", label: "All Categories" },
+              ...categories.map((c) => ({ value: c.id, label: c.name }))
+            ]}
+            placeholder="Categories"
+            style={{ width: 180 }}
+          />
 
           {/* Show inactive toggle */}
           <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>

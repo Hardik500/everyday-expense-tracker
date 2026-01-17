@@ -18,6 +18,7 @@ import {
 } from "recharts";
 import type { Category, Subcategory, Transaction as BaseTransaction } from "../App";
 import EditTransactionModal from "./EditTransactionModal";
+import Select from "./ui/Select";
 
 type Transaction = BaseTransaction & {
   subcategory_name?: string | null;
@@ -361,26 +362,28 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
 
           <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem", alignItems: "center" }}>
             {/* Category Filter */}
-            <select
+            <Select
               value={selectedCategoryId || ""}
-              onChange={(e) => setSelectedCategoryId(e.target.value ? Number(e.target.value) : null)}
-              style={{ padding: "0.5rem", fontSize: "0.8125rem", minWidth: 150 }}
-            >
-              <option value="">All Categories</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedCategoryId(val ? Number(val) : null)}
+              options={[
+                { value: "", label: "All Categories" },
+                ...categories.map((cat) => ({ value: cat.id, label: cat.name }))
+              ]}
+              placeholder="Categories"
+              style={{ minWidth: 180 }}
+            />
 
-            <select
+            <Select
               value={granularity}
-              onChange={(e) => setGranularity(e.target.value as "day" | "week" | "month")}
-              style={{ padding: "0.5rem", fontSize: "0.8125rem" }}
-            >
-              <option value="day">Daily</option>
-              <option value="week">Weekly</option>
-              <option value="month">Monthly</option>
-            </select>
+              onChange={(val: any) => setGranularity(val)}
+              options={[
+                { value: "day", label: "Daily" },
+                { value: "week", label: "Weekly" },
+                { value: "month", label: "Monthly" },
+              ]}
+              placeholder="Duration"
+              style={{ minWidth: 120 }}
+            />
           </div>
         </div>
       </div>

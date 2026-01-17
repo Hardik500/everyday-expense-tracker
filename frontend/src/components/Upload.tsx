@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import Select from "./ui/Select";
 
 type Account = {
   id: number;
@@ -167,15 +168,16 @@ function Upload({ apiBase, onDone }: Props) {
               placeholder="Account name (e.g., HDFC Savings)"
               style={{ background: "var(--bg-card)" }}
             />
-            <select
+            <Select
               value={accountType}
-              onChange={(e) => setAccountType(e.target.value)}
-              style={{ width: 120 }}
-            >
-              <option value="bank">Bank</option>
-              <option value="card">Card</option>
-              <option value="cash">Cash</option>
-            </select>
+              onChange={(val) => setAccountType(String(val))}
+              options={[
+                { value: "bank", label: "Bank" },
+                { value: "card", label: "Card" },
+                { value: "cash", label: "Cash" },
+              ]}
+              style={{ width: 140 }}
+            />
             <button className="primary" onClick={createAccount}>
               Add
             </button>
@@ -315,21 +317,20 @@ function Upload({ apiBase, onDone }: Props) {
                 status.type === "success"
                   ? "rgba(34, 197, 94, 0.1)"
                   : status.type === "error"
-                  ? "rgba(239, 68, 68, 0.1)"
-                  : "var(--bg-input)",
+                    ? "rgba(239, 68, 68, 0.1)"
+                    : "var(--bg-input)",
               color:
                 status.type === "success"
                   ? "var(--success)"
                   : status.type === "error"
-                  ? "var(--danger)"
-                  : "var(--text-secondary)",
-              border: `1px solid ${
-                status.type === "success"
-                  ? "rgba(34, 197, 94, 0.3)"
-                  : status.type === "error"
+                    ? "var(--danger)"
+                    : "var(--text-secondary)",
+              border: `1px solid ${status.type === "success"
+                ? "rgba(34, 197, 94, 0.3)"
+                : status.type === "error"
                   ? "rgba(239, 68, 68, 0.3)"
                   : "var(--border-color)"
-              }`,
+                }`,
             }}
           >
             {status.type === "loading" && (

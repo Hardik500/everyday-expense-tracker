@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Select from "./ui/Select";
 
 type Props = {
   apiBase: string;
@@ -283,24 +284,17 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
                 >
                   Currency
                 </label>
-                <select
+                <Select
                   value={formData.currency}
-                  onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem 1rem",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--border-subtle)",
-                    background: "var(--bg-input)",
-                    color: "var(--text-primary)",
-                    fontSize: "0.9375rem",
-                  }}
-                >
-                  <option value="INR">₹ INR - Indian Rupee</option>
-                  <option value="USD">$ USD - US Dollar</option>
-                  <option value="EUR">€ EUR - Euro</option>
-                  <option value="GBP">£ GBP - British Pound</option>
-                </select>
+                  onChange={(val) => setFormData({ ...formData, currency: String(val) })}
+                  options={[
+                    { value: "INR", label: "₹ INR - Indian Rupee" },
+                    { value: "USD", label: "$ USD - US Dollar" },
+                    { value: "EUR", label: "€ EUR - Euro" },
+                    { value: "GBP", label: "£ GBP - British Pound" },
+                  ]}
+                  style={{ width: "100%" }}
+                />
               </div>
 
               {/* Error */}

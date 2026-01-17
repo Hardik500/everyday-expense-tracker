@@ -3,6 +3,7 @@ import type { Category, Subcategory, Transaction } from "../App";
 import LinkTransactionModal from "./LinkTransactionModal";
 import EditTransactionModal from "./EditTransactionModal";
 import SubcategorySearch from "./SubcategorySearch";
+import Select from "./ui/Select";
 
 type Props = {
   apiBase: string;
@@ -443,37 +444,32 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
           {/* Category filter */}
           <div style={{ flex: "0 0 200px" }}>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+            <Select
+              value={categoryFilter || ""}
+              onChange={(val) => setCategoryFilter(String(val))}
+              options={[
+                { value: "", label: "All categories" },
+                ...categories.map(c => ({ value: c.id, label: c.name }))
+              ]}
+              placeholder="Categories"
               style={{ width: "100%" }}
-            >
-              <option value="">All categories</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           {/* Subcategory filter */}
           <div style={{ flex: "0 0 200px" }}>
-            <select
-              value={subcategoryFilter}
-              onChange={(e) => setSubcategoryFilter(e.target.value)}
-              style={{ width: "100%" }}
-              disabled={!categoryFilter}
-            >
-              <option value="">All subcategories</option>
-              {subcategories
-                .filter((sub) => sub.category_id === parseInt(categoryFilter))
-                .map((sub) => (
-                  <option key={sub.id} value={sub.id}>
-                    {sub.name}
-                  </option>
-                ))}
-            </select>
+            <Select
+              value={subcategoryFilter || ""}
+              onChange={(val) => setSubcategoryFilter(String(val))}
+              options={[
+                { value: "", label: "All subcategories" },
+                ...subcategories
+                  .filter(sub => sub.category_id === parseInt(categoryFilter))
+                  .map(sub => ({ value: sub.id, label: sub.name }))
+              ]}
+              placeholder="Subcategories"
+              style={{ width: "100%", opacity: categoryFilter ? 1 : 0.5, pointerEvents: categoryFilter ? "auto" : "none" }}
+            />
           </div>
 
           {/* Summary */}

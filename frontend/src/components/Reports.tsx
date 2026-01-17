@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import TransferDetector from "./TransferDetector";
+import Select from "./ui/Select";
 
 type Props = {
   apiBase: string;
@@ -175,28 +176,16 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
     <div style={{ display: "grid", gap: "1.5rem" }}>
       {/* Month Selector */}
       <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-        <label style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>Period:</label>
-        <select
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          style={{
-            padding: "0.5rem 1rem",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--border-color)",
-            background: "var(--bg-input)",
-            color: "var(--text-primary)",
-            fontSize: "0.875rem",
-            cursor: "pointer",
-            minWidth: 180,
-          }}
-        >
-          <option value="">All Time</option>
-          {getMonthOptions().map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+        <Select
+          label="Period"
+          value={selectedMonth || ""}
+          onChange={(val) => setSelectedMonth(String(val))}
+          options={[
+            { value: "", label: "All Time" },
+            ...getMonthOptions()
+          ]}
+          style={{ minWidth: 200 }}
+        />
       </div>
 
       {/* Summary Cards */}
