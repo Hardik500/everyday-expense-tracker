@@ -5,7 +5,7 @@ from typing import List, Optional
 from dotenv import load_dotenv
 load_dotenv()  # Load .env file before anything else
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import schemas
@@ -426,47 +426,17 @@ def detect_account(file: UploadFile = File(...)) -> dict:
     text_lower = text.lower()
     
     # Detect account based on content
+    from app.accounts.matcher import AccountMatcher
+    with get_conn() as conn:
+        matcher = AccountMatcher(conn)
+        matched_account = matcher.detect_account_from_text(text, file_name)
+        
     detected_account_name = None
     detected_profile = None
-    file_name_lower = file_name.lower()
-    
-    # Priority 1: Filename-based detection
-    if '4315' in file_name_lower and '3005' in file_name_lower:
-         detected_account_name = "Amazon ICICI Card"
-    elif 'amazon' in file_name_lower and 'icici' in file_name_lower:
-         detected_account_name = "Amazon ICICI Card"
-    elif 'regalia' in file_name_lower:
-         detected_account_name = "HDFC Regalia Gold Credit Card"
-    elif 'millenn' in file_name_lower:
-         detected_account_name = "HDFC Millenia Credit Card"
-    elif 'tata' in file_name_lower and 'neu' in file_name_lower:
-         detected_account_name = "HDFC Tata Neu Card"
-
-    if detected_account_name:
-        return {"account_name": detected_account_name, "profile": detected_profile}
-    
-    # Advanced detection based on patterns in the first 10k characters
-    if 'narration' in text_lower and ('hdfc' in text_lower or 'withdrawal amt' in text_lower or 'deposit amt' in text_lower):
-        detected_account_name = "HDFC Savings"
-        detected_profile = "hdfc_txt"
-    elif 'regalia gold' in text_lower or '4854 98xx xxxx 5391' in text_lower or '485498xxxxxx5391' in text_lower:
-        detected_account_name = "HDFC Regalia Gold Credit Card"
-    elif 'millenn' in text_lower:
-        detected_account_name = "HDFC Millenia Credit Card"
-    elif 'moneyback' in text_lower or 'money back' in text_lower:
-        detected_account_name = "HDFC Moneyback+ Credit Card"
-    elif 'tata neu' in text_lower or '4023 59xx xxxx 1218' in text_lower or '402359xxxxxx1218' in text_lower:
-        detected_account_name = "HDFC Tata Neu Card"
-    elif ('icici' in text_lower or 'amazon pay' in text_lower) and ('credit card' in text_lower or 'statement' in text_lower or '3005' in text_lower):
-        detected_account_name = "Amazon ICICI Card"
-    elif 'sbi card' in text_lower or 'sbicard' in text_lower:
-        detected_account_name = "SBI Cashback Card"
-    elif 'hdfc' in text_lower and 'credit card' in text_lower:
-        # If it's a generic HDFC card but contains "Regalia Gold" rewards specifically
-        if 'regalia gold' in text_lower:
-            detected_account_name = "HDFC Regalia Gold Credit Card"
-        else:
-            detected_account_name = "HDFC Regalia Gold Credit Card"
+    if matched_account:
+        detected_account_name = matched_account["name"]
+        if matched_account["type"] == "bank":
+            detected_profile = "hdfc_txt" # Fallback profile for bank statements
     
     # Find matching account in database
     detected_account_id = None
@@ -500,6 +470,7 @@ def detect_account(file: UploadFile = File(...)) -> dict:
 
 @app.post("/ingest")
 def ingest_statement(
+    background_tasks: BackgroundTasks,
     account_id: int = Form(...),
     source: str = Form(...),
     file: UploadFile = File(...),
@@ -535,6 +506,10 @@ def ingest_statement(
         apply_rules(conn, account_id=account_id, statement_id=statement_id)
         link_card_payments(conn, account_id=account_id)
         conn.commit()
+
+    # Refine metadata in background (AI-driven discovery)
+    from app.accounts.discovery import refine_account_metadata
+    background_tasks.add_task(refine_account_metadata, get_conn().__enter__(), account_id)
 
     return {
         "inserted": inserted,
@@ -1190,19 +1165,10 @@ def report_card_coverage() -> dict:
             "SELECT id FROM accounts WHERE type = 'bank'"
         ).fetchall()
         bank_ids = [a["id"] for a in bank_accounts]
-
-        # Suffixes for HDFC/ICICI cards to disambiguate payments
-        card_suffixes = {
-            "regalia": "5391",
-            "tata neu": "1218",
-            "amazon": "3005",
-            "icici": "3005",
-            "moneyback": "9293",
-            "millenia": "5122"
-        }
-        known_suffixes = {cid: card_suffixes[k] for cid, a in {a["id"]: a["name"].lower() for a in card_accounts}.items() for k in card_suffixes if k in a}
         
-        # Build succession map (child -> parent)
+        from app.accounts.matcher import AccountMatcher
+        matcher = AccountMatcher(conn)
+
         succession_rules = {a["id"]: a["upgraded_from_id"] for a in card_accounts if a["upgraded_from_id"]}
         
         # Build inverse map (parent -> child) to find when a card was superseded
@@ -1245,16 +1211,13 @@ def report_card_coverage() -> dict:
             # We only show gaps if month >= card_first_stmt AND (not successor_first_stmt OR month < successor_first_stmt)
             
             # Patterns to identify payments to this card
-            patterns = []
-            name_lower = card_name.lower()
-            if any(x in name_lower for x in ["regalia", "millenia", "moneyback", "tata neu"]):
-                patterns.extend(["%CRED%CLUB%", "%CRED%CREDIT%", "%HDFC%CARD%", "%HDFCSI%", "%AUTOPAY%TAD%"])
-            elif "sbi" in name_lower:
-                patterns.extend(["%SBI%CARD%", "%SBI%CREDIT%", "%SBICARD%"])
-            elif "icici" in name_lower or "amazon" in name_lower:
-                patterns.extend(["%ICICI%CARD%", "%AMAZON%ICICI%", "%ICICIBANK%CARD%", "%MOB%ICICI%"])
+            patterns = matcher.get_payment_patterns(card_id)
+            if not patterns:
+                # Default generic patterns if none defined in metadata
+                patterns = ["%CRED%CLUB%"]
             else:
-                patterns.append("%CRED%CLUB%")
+                # Convert to LIKE patterns if they aren't already
+                patterns = [f"%{p}%" if "%" not in p else p for p in patterns]
             
             # Find payments from bank accounts matching these patterns
             payments_by_month = defaultdict(list)
@@ -1275,15 +1238,8 @@ def report_card_coverage() -> dict:
                 ).fetchall()
                 
                 for p in payments:
-                    desc_norm = p["description_norm"]
-                    
-                    # Disambiguation: If description contains a DIFFERENT card's suffix, skip it
-                    is_other_card = False
-                    for cid, sfx in known_suffixes.items():
-                        if cid != card_id and sfx in desc_norm:
-                            is_other_card = True
-                            break
-                    if is_other_card:
+                    # Disambiguation: Use AccountMatcher to verify if this payment belongs to this account
+                    if not matcher.is_payment_for_account(p["description_norm"], card_id):
                         continue
 
                     month = p["posted_at"][:7]  # YYYY-MM

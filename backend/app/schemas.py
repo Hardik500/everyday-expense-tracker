@@ -16,6 +16,7 @@ class Account(BaseModel):
     type: str
     currency: str
     upgraded_from_id: Optional[int] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class AccountUpdate(BaseModel):
