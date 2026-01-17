@@ -99,7 +99,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
     const p = getParams();
     if (p.get("start") || p.get("end")) return "custom";
     if (p.get("range")) return p.get("range") as DateRange;
-    return "all";
+    return "30d";
   });
   const [customStartDate, setCustomStartDate] = useState(() => getParams().get("start") || "");
   const [customEndDate, setCustomEndDate] = useState(() => getParams().get("end") || "");

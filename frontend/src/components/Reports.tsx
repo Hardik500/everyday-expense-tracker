@@ -60,7 +60,10 @@ const formatFullCurrency = (amount: number) => {
 function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
   const [items, setItems] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState<string>(""); // "" = all time, "YYYY-MM" = specific month
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }); // "" = all time, "YYYY-MM" = specific month
 
   // Generate last 12 months for dropdown
   const getMonthOptions = () => {

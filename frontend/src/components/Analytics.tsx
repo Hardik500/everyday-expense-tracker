@@ -147,7 +147,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
     const p = getParams();
     if (p.get("start") || p.get("end")) return "custom";
     if (p.get("range")) return p.get("range") as DateRange;
-    return "all"; // Default to All Time
+    return "30d"; // Default to Last 30 Days
   });
 
   const [granularity, setGranularity] = useState<"day" | "week" | "month">("month");
