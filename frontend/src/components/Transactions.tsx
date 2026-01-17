@@ -109,7 +109,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
   // Link modal state
   const [linkingTx, setLinkingTx] = useState<Transaction | null>(null);
 
-  // Sync state to URL
+  // Sync state TO URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 

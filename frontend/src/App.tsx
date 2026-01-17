@@ -262,7 +262,15 @@ function App() {
           {navItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                const params = new URLSearchParams(window.location.search);
+                params.set("tab", item.id);
+                // Clear transaction and analytics specific filters on manual tab switch
+                ["q", "cat", "sub", "range", "start", "end", "page", "id"].forEach(p => params.delete(p));
+                window.history.pushState({}, "", "?" + params.toString());
+                setRefreshKey(k => k + 1);
+                setActiveTab(item.id);
+              }}
               style={{
                 background: "transparent",
                 border: "none",
@@ -339,6 +347,7 @@ function App() {
         <div className="animate-in">
           {activeTab === "dashboard" && (
             <Reports
+              key={`dashboard-${refreshKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
@@ -347,6 +356,7 @@ function App() {
           )}
           {activeTab === "analytics" && (
             <Analytics
+              key={`analytics-${refreshKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               initialCategoryId={selectedCategoryId}
@@ -357,6 +367,7 @@ function App() {
           )}
           {activeTab === "cards" && (
             <Cards
+              key={`cards-${refreshKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
@@ -364,6 +375,7 @@ function App() {
           )}
           {activeTab === "accounts" && (
             <AccountManager
+              key={`accounts-${refreshKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
@@ -371,6 +383,7 @@ function App() {
           )}
           {activeTab === "categories" && (
             <CategoryManager
+              key={`categories-${refreshKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
@@ -379,6 +392,7 @@ function App() {
           )}
           {activeTab === "rules" && (
             <RulesManager
+              key={`rules-${refreshKey}`}
               apiBase={API_BASE}
               categories={categories}
               subcategories={subcategories}
@@ -388,6 +402,7 @@ function App() {
           )}
           {activeTab === "upload" && (
             <Upload
+              key={`upload-${refreshKey}`}
               apiBase={API_BASE}
               onDone={() => {
                 setRefreshKey((k) => k + 1);
@@ -397,6 +412,7 @@ function App() {
           )}
           {activeTab === "review" && (
             <ReviewQueue
+              key={`review-${refreshKey}`}
               apiBase={API_BASE}
               categories={categories}
               subcategories={subcategories}
@@ -406,6 +422,7 @@ function App() {
           )}
           {activeTab === "transactions" && (
             <Transactions
+              key={`transactions-${refreshKey}`}
               apiBase={API_BASE}
               categories={categories}
               subcategories={subcategories}
