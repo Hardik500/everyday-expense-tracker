@@ -63,6 +63,12 @@ type CategoryDetail = {
 
 type DateRange = "7d" | "30d" | "90d" | "year" | "2yr" | "3yr" | "5yr" | "all" | "custom";
 
+type Account = {
+  id: number;
+  name: string;
+  type: string;
+};
+
 const COLORS = [
   "#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6",
   "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1"
@@ -159,6 +165,13 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
   const [loadingCategory, setLoadingCategory] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
+  // Account filter state
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(() => {
+    const p = getParams();
+    return p.get("account") ? Number(p.get("account")) : null;
+  });
+
   const getDateParams = () => {
     const now = new Date();
     let startDate = "";
@@ -208,16 +221,25 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
   }, [apiBase]);
   */
 
+  // Fetch accounts for filter
+  useEffect(() => {
+    fetch(`${apiBase}/accounts`)
+      .then(res => res.json())
+      .then(data => setAccounts(data.accounts || []))
+      .catch(() => setAccounts([]));
+  }, [apiBase]);
+
   // Fetch main data
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       const { startDate, endDate } = getDateParams();
+      const accountParam = selectedAccountId ? `&account_id=${selectedAccountId}` : "";
 
       try {
         const [tsRes, statsRes] = await Promise.all([
-          fetch(`${apiBase}/reports/timeseries?start_date=${startDate}&end_date=${endDate}&granularity=${granularity}`),
-          fetch(`${apiBase}/reports/stats?start_date=${startDate}&end_date=${endDate}`),
+          fetch(`${apiBase}/reports/timeseries?start_date=${startDate}&end_date=${endDate}&granularity=${granularity}${accountParam}`),
+          fetch(`${apiBase}/reports/stats?start_date=${startDate}&end_date=${endDate}${accountParam}`),
         ]);
 
         const tsData = await tsRes.json();
@@ -232,7 +254,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
     };
 
     fetchData();
-  }, [apiBase, refreshKey, dateRange, granularity, customStart, customEnd]);
+  }, [apiBase, refreshKey, dateRange, granularity, customStart, customEnd, selectedAccountId]);
 
   // Fetch category detail when selected
   useEffect(() => {
@@ -244,10 +266,11 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
     const fetchCategoryDetail = async () => {
       setLoadingCategory(true);
       const { startDate, endDate } = getDateParams();
+      const accountParam = selectedAccountId ? `&account_id=${selectedAccountId}` : "";
 
       try {
         const res = await fetch(
-          `${apiBase}/reports/category/${selectedCategoryId}?start_date=${startDate}&end_date=${endDate}`
+          `${apiBase}/reports/category/${selectedCategoryId}?start_date=${startDate}&end_date=${endDate}${accountParam}`
         );
         const data = await res.json();
         setCategoryDetail(data);
@@ -259,7 +282,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
     };
 
     fetchCategoryDetail();
-  }, [apiBase, selectedCategoryId, dateRange, customStart, customEnd, refreshKey]);
+  }, [apiBase, selectedCategoryId, dateRange, customStart, customEnd, refreshKey, selectedAccountId]);
 
   // Sync state to URL
   useEffect(() => {
@@ -286,11 +309,17 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
       params.delete("cat");
     }
 
+    if (selectedAccountId) {
+      params.set("account", selectedAccountId.toString());
+    } else {
+      params.delete("account");
+    }
+
     const newUrl = "?" + params.toString();
     if (window.location.search !== newUrl) {
       window.history.replaceState({}, "", newUrl);
     }
-  }, [dateRange, customStart, customEnd, selectedCategoryId]);
+  }, [dateRange, customStart, customEnd, selectedCategoryId, selectedAccountId]);
 
   // Auto-adjust granularity based on date range
   useEffect(() => {
@@ -382,6 +411,18 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
           )}
 
           <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem", alignItems: "center" }}>
+            {/* Account Filter */}
+            <Select
+              value={selectedAccountId || ""}
+              onChange={(val) => setSelectedAccountId(val ? Number(val) : null)}
+              options={[
+                { value: "", label: "All Accounts" },
+                ...accounts.map((acc) => ({ value: acc.id, label: acc.name }))
+              ]}
+              placeholder="Accounts"
+              style={{ minWidth: 150 }}
+            />
+
             {/* Category Filter */}
             <Select
               value={selectedCategoryId || ""}
@@ -391,7 +432,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                 ...categories.map((cat) => ({ value: cat.id, label: cat.name }))
               ]}
               placeholder="Categories"
-              style={{ minWidth: 180 }}
+              style={{ minWidth: 150 }}
             />
 
             <Select

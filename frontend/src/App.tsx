@@ -4,6 +4,7 @@ import Transactions from "./components/Transactions";
 import ReviewQueue from "./components/ReviewQueue";
 import Reports from "./components/Reports";
 import Analytics from "./components/Analytics";
+import Cards from "./components/Cards";
 import AccountManager from "./components/AccountManager";
 import RulesManager from "./components/RulesManager";
 import CategoryManager from "./components/CategoryManager";
@@ -35,7 +36,7 @@ export type Transaction = {
   account_name?: string;
 };
 
-type Tab = "dashboard" | "analytics" | "accounts" | "categories" | "rules" | "upload" | "review" | "transactions";
+type Tab = "dashboard" | "analytics" | "cards" | "accounts" | "categories" | "rules" | "upload" | "review" | "transactions";
 
 const NavIcon = ({ active, children }: { active: boolean; children: React.ReactNode }) => (
   <div
@@ -60,7 +61,7 @@ function App() {
   const getInitialTab = (): Tab => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab") as Tab;
-    const validTabs: Tab[] = ["dashboard", "analytics", "accounts", "categories", "rules", "upload", "review", "transactions"];
+    const validTabs: Tab[] = ["dashboard", "analytics", "cards", "accounts", "categories", "rules", "upload", "review", "transactions"];
     return validTabs.includes(tab) ? tab : "dashboard";
   };
 
@@ -154,11 +155,20 @@ function App() {
       ),
     },
     {
+      id: "cards",
+      label: "Cards",
+      icon: (
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+      ),
+    },
+    {
       id: "accounts",
       label: "Accounts",
       icon: (
         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
         </svg>
       ),
     },
@@ -304,6 +314,7 @@ function App() {
           <h1 style={{ marginBottom: 4 }}>
             {activeTab === "dashboard" && "Dashboard"}
             {activeTab === "analytics" && "Analytics"}
+            {activeTab === "cards" && "Credit Cards"}
             {activeTab === "accounts" && "Accounts"}
             {activeTab === "categories" && "Categories"}
             {activeTab === "rules" && "Categorization Rules"}
@@ -314,6 +325,7 @@ function App() {
           <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
             {activeTab === "dashboard" && "Your financial overview at a glance"}
             {activeTab === "analytics" && "Visualize your income and expenses over time"}
+            {activeTab === "cards" && "Spending breakdown and statement coverage by card"}
             {activeTab === "accounts" && "Manage your bank accounts, credit cards, and cash wallets"}
             {activeTab === "categories" && "Organize your transactions with categories and subcategories"}
             {activeTab === "rules" && "Manage rules for automatic transaction categorization"}
@@ -340,6 +352,13 @@ function App() {
               initialCategoryId={selectedCategoryId}
               categories={categories}
               subcategories={subcategories}
+              onRefresh={() => setRefreshKey((k) => k + 1)}
+            />
+          )}
+          {activeTab === "cards" && (
+            <Cards
+              apiBase={API_BASE}
+              refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
             />
           )}

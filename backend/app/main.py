@@ -897,6 +897,7 @@ def report_timeseries(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     granularity: str = "day",  # day, week, month
+    account_id: Optional[int] = None,
 ) -> dict:
     """Get time-series data for expenses and income."""
     from datetime import datetime, timedelta
@@ -919,6 +920,13 @@ def report_timeseries(
         date_format = "%Y-%m-%d"
         date_trunc = "date(t.posted_at)"
     
+    clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "l.id IS NULL", "(c.name IS NULL OR c.name != 'Transfers')"]
+    params: List[object] = [start_date, end_date + " 23:59:59"]
+
+    if account_id:
+        clauses.append("t.account_id = ?")
+        params.append(account_id)
+
     query = f"""
         SELECT 
             {date_trunc} as period,
@@ -930,16 +938,13 @@ def report_timeseries(
         LEFT JOIN transaction_links l
           ON (l.source_transaction_id = t.id OR l.target_transaction_id = t.id)
          AND l.link_type = 'card_payment'
-        WHERE t.posted_at >= ? 
-          AND t.posted_at <= ?
-          AND l.id IS NULL
-          AND (c.name IS NULL OR c.name != 'Transfers')
+        WHERE {' AND '.join(clauses)}
         GROUP BY {date_trunc}
         ORDER BY period ASC
     """
     
     with get_conn() as conn:
-        rows = conn.execute(query, (start_date, end_date + " 23:59:59")).fetchall()
+        rows = conn.execute(query, params).fetchall()
     
     return {
         "data": [dict(row) for row in rows],
@@ -954,6 +959,7 @@ def report_category_trend(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     category_id: Optional[int] = None,
+    account_id: Optional[int] = None,
 ) -> dict:
     """Get spending trend by category over time."""
     from datetime import datetime, timedelta
@@ -970,6 +976,10 @@ def report_category_trend(
     if category_id:
         clauses.append("t.category_id = ?")
         params.append(category_id)
+
+    if account_id:
+        clauses.append("t.account_id = ?")
+        params.append(account_id)
     
     query = f"""
         SELECT 
@@ -997,6 +1007,7 @@ def report_category_trend(
 def report_stats(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    account_id: Optional[int] = None,
 ) -> dict:
     """Get overall statistics for the date range."""
     from datetime import datetime, timedelta
@@ -1007,10 +1018,17 @@ def report_stats(
         start_dt = datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=30)
         start_date = start_dt.strftime("%Y-%m-%d")
     
+    clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "l.id IS NULL", "(c.name IS NULL OR c.name != 'Transfers')"]
+    params: List[object] = [start_date, end_date + " 23:59:59"]
+
+    if account_id:
+        clauses.append("t.account_id = ?")
+        params.append(account_id)
+
     with get_conn() as conn:
         # Get totals excluding transfers
         totals = conn.execute(
-            """
+            f"""
             SELECT 
                 SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as total_expenses,
                 SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as total_income,
@@ -1021,33 +1039,32 @@ def report_stats(
             LEFT JOIN transaction_links l
               ON (l.source_transaction_id = t.id OR l.target_transaction_id = t.id)
              AND l.link_type = 'card_payment'
-            WHERE t.posted_at >= ? 
-              AND t.posted_at <= ?
-              AND l.id IS NULL
-              AND (c.name IS NULL OR c.name != 'Transfers')
+            WHERE {' AND '.join(clauses)}
             """,
-            (start_date, end_date + " 23:59:59"),
+            params,
         ).fetchone()
         
         # Get top spending categories
+        top_clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "t.amount < 0", "l.id IS NULL", "c.name != 'Transfers'"]
+        top_params: List[object] = [start_date, end_date + " 23:59:59"]
+        if account_id:
+            top_clauses.append("t.account_id = ?")
+            top_params.append(account_id)
+
         top_categories = conn.execute(
-            """
+            f"""
             SELECT c.name, ABS(SUM(t.amount)) as total
             FROM transactions t
             JOIN categories c ON c.id = t.category_id
             LEFT JOIN transaction_links l
               ON (l.source_transaction_id = t.id OR l.target_transaction_id = t.id)
              AND l.link_type = 'card_payment'
-            WHERE t.posted_at >= ? 
-              AND t.posted_at <= ?
-              AND t.amount < 0
-              AND l.id IS NULL
-              AND c.name != 'Transfers'
+            WHERE {' AND '.join(top_clauses)}
             GROUP BY c.id, c.name
             ORDER BY total DESC
             LIMIT 5
             """,
-            (start_date, end_date + " 23:59:59"),
+            top_params,
         ).fetchall()
         
         # Get date range bounds
@@ -1067,6 +1084,159 @@ def report_stats(
         "data_min_date": date_bounds["min_date"][:10] if date_bounds["min_date"] else None,
         "data_max_date": date_bounds["max_date"][:10] if date_bounds["max_date"] else None,
     }
+    
+
+@app.get("/reports/card-coverage")
+def report_card_coverage() -> dict:
+    """
+    Get credit card statement coverage report.
+    Identifies payments from bank accounts to credit cards,
+    and shows which months have statements uploaded vs gaps.
+    """
+    from datetime import datetime
+    from collections import defaultdict
+    
+    with get_conn() as conn:
+        # Get all credit card accounts
+        card_accounts = conn.execute(
+            "SELECT id, name FROM accounts WHERE type = 'card'"
+        ).fetchall()
+        
+        # Get bank accounts (for finding card payments)
+        bank_accounts = conn.execute(
+            "SELECT id FROM accounts WHERE type = 'bank'"
+        ).fetchall()
+        bank_ids = [a["id"] for a in bank_accounts]
+        
+        result = []
+        
+        for card in card_accounts:
+            card_id = card["id"]
+            card_name = card["name"]
+            
+            # Patterns to identify payments to this card
+            # CRED payments, direct card payments, SBI card, etc.
+            patterns = []
+            if "regalia" in card_name.lower() or "millenia" in card_name.lower() or "moneyback" in card_name.lower():
+                patterns.extend(["%CRED%CLUB%", "%CRED%CREDIT%", "%HDFC%CARD%"])
+            elif "sbi" in card_name.lower():
+                patterns.extend(["%SBI%CARD%", "%SBI%CREDIT%", "%SBICARD%"])
+            elif "icici" in card_name.lower() or "amazon" in card_name.lower():
+                patterns.extend(["%ICICI%CARD%", "%AMAZON%ICICI%"])
+            elif "tata" in card_name.lower() or "neu" in card_name.lower():
+                patterns.extend(["%TATA%NEU%", "%CRED%CLUB%"])
+            else:
+                patterns.append("%CRED%CLUB%")
+            
+            # Find payments from bank accounts matching these patterns
+            payments_by_month = defaultdict(list)
+            for pattern in patterns:
+                if not bank_ids:
+                    continue
+                placeholders = ",".join("?" * len(bank_ids))
+                payments = conn.execute(
+                    f"""
+                    SELECT posted_at, amount, description_norm
+                    FROM transactions
+                    WHERE account_id IN ({placeholders})
+                    AND description_norm LIKE ?
+                    AND amount < 0
+                    ORDER BY posted_at DESC
+                    """,
+                    (*bank_ids, pattern)
+                ).fetchall()
+                
+                for p in payments:
+                    month = p["posted_at"][:7]  # YYYY-MM
+                    payments_by_month[month].append({
+                        "date": p["posted_at"][:10],
+                        "amount": abs(p["amount"]),
+                        "description": p["description_norm"][:50]
+                    })
+            
+            # Get all transaction months for this card (indicates statement coverage)
+            txn_months = conn.execute(
+                """
+                SELECT substr(posted_at, 1, 7) as month, COUNT(*) as txn_count
+                FROM transactions
+                WHERE account_id = ?
+                GROUP BY month
+                ORDER BY month DESC
+                """,
+                (card_id,)
+            ).fetchall()
+            
+            statements_by_month = defaultdict(list)
+            for t in txn_months:
+                month = t["month"]
+                statements_by_month[month].append({
+                    "file_name": "statements",
+                    "transaction_count": t["txn_count"],
+                    "date_range": month
+                })
+            
+            # Find gaps: months with payments but no statements
+            all_months = set(payments_by_month.keys())
+            statement_months = set(statements_by_month.keys())
+            gaps = sorted(all_months - statement_months, reverse=True)
+            
+            # Build timeline
+            timeline = []
+            for month in sorted(all_months | statement_months, reverse=True):
+                timeline.append({
+                    "month": month,
+                    "payments": payments_by_month.get(month, []),
+                    "statements": statements_by_month.get(month, []),
+                    "has_gap": month in gaps
+                })
+            
+            result.append({
+                "account_id": card_id,
+                "account_name": card_name,
+                "timeline": timeline[:24],  # Last 24 months
+                "gaps": gaps[:12],  # Last 12 gap months
+                "total_payments": sum(len(v) for v in payments_by_month.values()),
+                "total_statements": len(txn_months),
+            })
+        
+        # Detect untracked card payments (payments to cards not in system)
+        untracked_patterns = [
+            ("%BOBCARD%", "BOB Card / OneCard"),
+            ("%ONECARD%", "OneCard"),
+            ("%AXIS%CARD%", "Axis Card"),
+            ("%KOTAK%CARD%", "Kotak Card"),
+            ("%AU%CARD%", "AU Card"),
+            ("%INDUSIND%CARD%", "IndusInd Card"),
+        ]
+        
+        untracked_cards = []
+        for pattern, card_name in untracked_patterns:
+            if not bank_ids:
+                continue
+            placeholders = ",".join("?" * len(bank_ids))
+            payments = conn.execute(
+                f"""
+                SELECT DISTINCT substr(posted_at, 1, 7) as month, COUNT(*) as cnt, SUM(ABS(amount)) as total
+                FROM transactions
+                WHERE account_id IN ({placeholders})
+                AND description_norm LIKE ?
+                AND amount < 0
+                GROUP BY month
+                ORDER BY month DESC
+                """,
+                (*bank_ids, pattern)
+            ).fetchall()
+            
+            if payments:
+                untracked_cards.append({
+                    "card_name": card_name,
+                    "pattern": pattern,
+                    "payment_months": len(payments),
+                    "total_amount": sum(p["total"] for p in payments),
+                    "recent_months": [p["month"] for p in payments[:6]]
+                })
+        
+        return {"cards": result, "untracked_cards": untracked_cards}
 
 
 @app.get("/reports/category/{category_id}")
@@ -1074,6 +1244,7 @@ def report_category_detail(
     category_id: int,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    account_id: Optional[int] = None,
 ) -> dict:
     """Get detailed breakdown for a specific category."""
     from datetime import datetime, timedelta
@@ -1084,6 +1255,13 @@ def report_category_detail(
         start_dt = datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=30)
         start_date = start_dt.strftime("%Y-%m-%d")
     
+    clauses = ["t.category_id = ?", "t.posted_at >= ?", "t.posted_at <= ?", "t.amount < 0", "l.id IS NULL"]
+    params = [category_id, start_date, end_date + " 23:59:59"]
+    
+    if account_id:
+        clauses.append("t.account_id = ?")
+        params.append(account_id)
+        
     with get_conn() as conn:
         # Get category info
         category = conn.execute(
@@ -1095,7 +1273,7 @@ def report_category_detail(
         
         # Get subcategory breakdown
         subcategories = conn.execute(
-            """
+            f"""
             SELECT 
                 s.id,
                 s.name,
@@ -1106,20 +1284,16 @@ def report_category_detail(
             LEFT JOIN transaction_links l
               ON (l.source_transaction_id = t.id OR l.target_transaction_id = t.id)
              AND l.link_type = 'card_payment'
-            WHERE t.category_id = ?
-              AND t.posted_at >= ?
-              AND t.posted_at <= ?
-              AND t.amount < 0
-              AND l.id IS NULL
+            WHERE {' AND '.join(clauses)}
             GROUP BY s.id, s.name
             ORDER BY total DESC
             """,
-            (category_id, start_date, end_date + " 23:59:59"),
+            params,
         ).fetchall()
         
         # Get time series for this category
         timeseries = conn.execute(
-            """
+            f"""
             SELECT 
                 date(t.posted_at) as period,
                 ABS(SUM(t.amount)) as amount,
@@ -1128,20 +1302,16 @@ def report_category_detail(
             LEFT JOIN transaction_links l
               ON (l.source_transaction_id = t.id OR l.target_transaction_id = t.id)
              AND l.link_type = 'card_payment'
-            WHERE t.category_id = ?
-              AND t.posted_at >= ?
-              AND t.posted_at <= ?
-              AND t.amount < 0
-              AND l.id IS NULL
+            WHERE {' AND '.join(clauses)}
             GROUP BY date(t.posted_at)
             ORDER BY period ASC
             """,
-            (category_id, start_date, end_date + " 23:59:59"),
+            params,
         ).fetchall()
         
         # Get total for this category
         total = conn.execute(
-            """
+            f"""
             SELECT 
                 ABS(SUM(t.amount)) as total,
                 COUNT(*) as count,
@@ -1150,18 +1320,14 @@ def report_category_detail(
             LEFT JOIN transaction_links l
               ON (l.source_transaction_id = t.id OR l.target_transaction_id = t.id)
              AND l.link_type = 'card_payment'
-            WHERE t.category_id = ?
-              AND t.posted_at >= ?
-              AND t.posted_at <= ?
-              AND t.amount < 0
-              AND l.id IS NULL
+            WHERE {' AND '.join(clauses)}
             """,
-            (category_id, start_date, end_date + " 23:59:59"),
+            params,
         ).fetchone()
         
         # Get recent transactions
         transactions = conn.execute(
-            """
+            f"""
             SELECT 
                 t.id,
                 t.posted_at,
@@ -1173,15 +1339,11 @@ def report_category_detail(
             LEFT JOIN transaction_links l
               ON (l.source_transaction_id = t.id OR l.target_transaction_id = t.id)
              AND l.link_type = 'card_payment'
-            WHERE t.category_id = ?
-              AND t.posted_at >= ?
-              AND t.posted_at <= ?
-              AND t.amount < 0
-              AND l.id IS NULL
+            WHERE {' AND '.join(clauses)}
             ORDER BY t.posted_at DESC
             LIMIT 50
             """,
-            (category_id, start_date, end_date + " 23:59:59"),
+            params,
         ).fetchall()
     
     return {
