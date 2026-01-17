@@ -1190,6 +1190,17 @@ def report_card_coverage() -> dict:
             "SELECT id FROM accounts WHERE type = 'bank'"
         ).fetchall()
         bank_ids = [a["id"] for a in bank_accounts]
+
+        # Suffixes for HDFC/ICICI cards to disambiguate payments
+        card_suffixes = {
+            "regalia": "5391",
+            "tata neu": "1218",
+            "amazon": "3005",
+            "icici": "3005",
+            "moneyback": "9293",
+            "millenia": "5122"
+        }
+        known_suffixes = {cid: card_suffixes[k] for cid, a in {a["id"]: a["name"].lower() for a in card_accounts}.items() for k in card_suffixes if k in a}
         
         # Build succession map (child -> parent)
         succession_rules = {a["id"]: a["upgraded_from_id"] for a in card_accounts if a["upgraded_from_id"]}
@@ -1264,12 +1275,25 @@ def report_card_coverage() -> dict:
                 ).fetchall()
                 
                 for p in payments:
+                    desc_norm = p["description_norm"]
+                    
+                    # Disambiguation: If description contains a DIFFERENT card's suffix, skip it
+                    is_other_card = False
+                    for cid, sfx in known_suffixes.items():
+                        if cid != card_id and sfx in desc_norm:
+                            is_other_card = True
+                            break
+                    if is_other_card:
+                        continue
+
                     month = p["posted_at"][:7]  # YYYY-MM
-                    payments_by_month[month].append({
+                    payment_obj = {
                         "date": p["posted_at"][:10],
                         "amount": abs(p["amount"]),
                         "description": p["description_norm"][:50]
-                    })
+                    }
+                    if payment_obj not in payments_by_month[month]:
+                        payments_by_month[month].append(payment_obj)
             
             # Get all transaction months for this card
             txn_months_rows = conn.execute(
