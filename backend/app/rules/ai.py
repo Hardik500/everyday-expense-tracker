@@ -12,22 +12,24 @@ import httpx
 
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
-# Cache for category/subcategory lookups to avoid repeated DB queries
-_category_cache: dict = {}
+# Cache for category/subcategory lookups per user to avoid repeated DB queries
+_category_cache: Dict[int, dict] = {}
 
 
-def _get_categories_json(conn) -> str:
-    """Build a JSON representation of all categories and subcategories."""
+def _get_categories_json(conn, user_id: int) -> str:
+    """Build a JSON representation of all categories and subcategories for a user."""
     global _category_cache
     
-    if _category_cache:
-        return json.dumps(_category_cache, indent=2)
+    if user_id in _category_cache:
+        return json.dumps(_category_cache[user_id], indent=2)
     
     categories = conn.execute(
-        "SELECT id, name FROM categories ORDER BY name"
+        "SELECT id, name FROM categories WHERE user_id = ? ORDER BY name",
+        (user_id,)
     ).fetchall()
     subcategories = conn.execute(
-        "SELECT id, category_id, name FROM subcategories ORDER BY name"
+        "SELECT id, category_id, name FROM subcategories WHERE user_id = ? ORDER BY name",
+        (user_id,)
     ).fetchall()
     
     result = {}
@@ -42,7 +44,7 @@ def _get_categories_json(conn) -> str:
             "subcategories": cat_subs
         }
     
-    _category_cache = result
+    _category_cache[user_id] = result
     return json.dumps(result, indent=2)
 
 
@@ -97,6 +99,7 @@ def ai_classify(
     description_norm: str,
     amount: float,
     conn=None,
+    user_id: Optional[int] = None,
     transaction_id: Optional[int] = None,
     allow_new_categories: bool = True,
 ) -> Optional[Tuple[int, int]]:
@@ -117,7 +120,10 @@ def ai_classify(
         return None
     
     try:
-        categories_json = _get_categories_json(conn)
+        if not user_id:
+            return None
+            
+        categories_json = _get_categories_json(conn, user_id)
         prompt = _build_prompt(description_norm, amount, categories_json, allow_new=allow_new_categories)
         
         response = httpx.post(
@@ -158,8 +164,8 @@ def ai_classify(
         
         # Look up category
         category = conn.execute(
-            "SELECT id FROM categories WHERE LOWER(name) = LOWER(?)",
-            (category_name,)
+            "SELECT id FROM categories WHERE LOWER(name) = LOWER(?) AND user_id = ?",
+            (category_name, user_id)
         ).fetchone()
         
         # If category doesn't exist and AI suggested new one
@@ -167,42 +173,43 @@ def ai_classify(
             if is_new_category and allow_new_categories and transaction_id:
                 # Create a suggestion for user approval
                 _create_suggestion(
-                    conn, transaction_id, category_name, subcategory_name,
+                    conn, transaction_id, user_id, category_name, subcategory_name,
                     None, None, regex_pattern, confidence
                 )
                 return None  # Don't categorize yet, wait for approval
             else:
                 # Fall back to Miscellaneous
                 category = conn.execute(
-                    "SELECT id FROM categories WHERE name = 'Miscellaneous'"
+                    "SELECT id FROM categories WHERE name = 'Miscellaneous' AND user_id = ?",
+                    (user_id,)
                 ).fetchone()
                 if not category:
                     return None
         
         # Look up subcategory
         subcategory = conn.execute(
-            "SELECT id FROM subcategories WHERE category_id = ? AND LOWER(name) = LOWER(?)",
-            (category["id"], subcategory_name)
+            "SELECT id FROM subcategories WHERE category_id = ? AND LOWER(name) = LOWER(?) AND user_id = ?",
+            (category["id"], subcategory_name, user_id)
         ).fetchone()
         
         if not subcategory:
             if is_new_subcategory and allow_new_categories and transaction_id:
                 # Create a suggestion for new subcategory
                 _create_suggestion(
-                    conn, transaction_id, category_name, subcategory_name,
+                    conn, transaction_id, user_id, category_name, subcategory_name,
                     category["id"], None, regex_pattern, confidence
                 )
                 return None  # Don't categorize yet, wait for approval
             else:
                 # Try to find first subcategory in this category, or use "Other"
                 subcategory = conn.execute(
-                    "SELECT id FROM subcategories WHERE category_id = ? AND name LIKE '%Other%' LIMIT 1",
-                    (category["id"],)
+                    "SELECT id FROM subcategories WHERE category_id = ? AND name LIKE '%Other%' AND user_id = ? LIMIT 1",
+                    (category["id"], user_id)
                 ).fetchone()
                 if not subcategory:
                     subcategory = conn.execute(
-                        "SELECT id FROM subcategories WHERE category_id = ? LIMIT 1",
-                        (category["id"],)
+                        "SELECT id FROM subcategories WHERE category_id = ? AND user_id = ? LIMIT 1",
+                        (category["id"], user_id)
                     ).fetchone()
                 if not subcategory:
                     return None
@@ -211,6 +218,7 @@ def ai_classify(
         if regex_pattern and regex_pattern != "null":
             _create_rule_from_ai(
                 conn,
+                user_id,
                 description_norm,
                 regex_pattern,
                 category["id"],
@@ -228,6 +236,7 @@ def ai_classify(
 def _create_suggestion(
     conn,
     transaction_id: int,
+    user_id: int,
     category_name: str,
     subcategory_name: str,
     existing_category_id: Optional[int],
@@ -239,8 +248,8 @@ def _create_suggestion(
     try:
         # Check if suggestion already exists for this transaction
         existing = conn.execute(
-            "SELECT id FROM ai_suggestions WHERE transaction_id = ? AND status = 'pending'",
-            (transaction_id,)
+            "SELECT id FROM ai_suggestions WHERE transaction_id = ? AND status = 'pending' AND user_id = ?",
+            (transaction_id, user_id)
         ).fetchone()
         
         if existing:
@@ -249,11 +258,11 @@ def _create_suggestion(
         conn.execute(
             """
             INSERT INTO ai_suggestions (
-                transaction_id, suggested_category, suggested_subcategory,
+                transaction_id, user_id, suggested_category, suggested_subcategory,
                 existing_category_id, existing_subcategory_id, regex_pattern, confidence
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (transaction_id, category_name, subcategory_name,
+            (transaction_id, user_id, category_name, subcategory_name,
              existing_category_id, existing_subcategory_id, regex_pattern, confidence),
         )
     except Exception:
@@ -262,6 +271,7 @@ def _create_suggestion(
 
 def _create_rule_from_ai(
     conn,
+    user_id: int,
     description_norm: str,
     regex_pattern: str,
     category_id: int,
@@ -276,8 +286,8 @@ def _create_rule_from_ai(
         
         # Check if rule already exists
         existing = conn.execute(
-            "SELECT id FROM rules WHERE pattern = ?",
-            (regex_pattern,)
+            "SELECT id FROM rules WHERE pattern = ? AND user_id = ?",
+            (regex_pattern, user_id)
         ).fetchone()
         
         if existing:
@@ -288,10 +298,10 @@ def _create_rule_from_ai(
         
         conn.execute(
             """
-            INSERT INTO rules (name, pattern, category_id, subcategory_id, priority, active)
-            VALUES (?, ?, ?, ?, ?, 1)
+            INSERT INTO rules (name, pattern, category_id, subcategory_id, priority, active, user_id)
+            VALUES (?, ?, ?, ?, ?, 1, ?)
             """,
-            (rule_name, regex_pattern, category_id, subcategory_id, 55),
+            (rule_name, regex_pattern, category_id, subcategory_id, 55, user_id),
         )
         
     except (re.error, Exception):

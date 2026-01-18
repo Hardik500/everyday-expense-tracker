@@ -2,13 +2,16 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 
 
-def link_card_payments(conn, account_id: Optional[int] = None) -> None:
+def link_card_payments(conn, account_id: Optional[int] = None, user_id: Optional[int] = None) -> None:
     """Link credit card bill payments from bank to card accounts."""
     clauses = []
     params = []
     if account_id is not None:
         clauses.append("t.account_id = ?")
         params.append(account_id)
+    if user_id is not None:
+        clauses.append("t.user_id = ?")
+        params.append(user_id)
     where = f"AND {' AND '.join(clauses)}" if clauses else ""
 
     bank_payments = conn.execute(
@@ -29,7 +32,7 @@ def link_card_payments(conn, account_id: Optional[int] = None) -> None:
         FROM transactions t
         JOIN accounts a ON a.id = t.account_id
         WHERE a.type = 'card'
-        """
+        """ + (f" AND t.user_id = {user_id}" if user_id is not None else "")
     ).fetchall()
 
     for payment in bank_payments:
@@ -53,18 +56,16 @@ def link_card_payments(conn, account_id: Optional[int] = None) -> None:
             )
 
 
-def find_potential_transfers(conn, days_window: int = 7) -> List[Dict]:
+def find_potential_transfers(conn, days_window: int = 7, user_id: Optional[int] = None) -> List[Dict]:
     """
     Find potential internal transfers that aren't already linked.
-    Returns pairs of transactions that:
-    - Are on different accounts
-    - Have opposite signs (one debit, one credit)
-    - Have matching amounts (or very close)
-    - Are within a date window
     """
+    user_clause = " AND t.user_id = ?" if user_id is not None else ""
+    user_param = [user_id] if user_id is not None else []
+
     # Get all transactions not already linked
     all_txs = conn.execute(
-        """
+        f"""
         SELECT t.id, t.account_id, a.name as account_name, a.type as account_type,
                t.posted_at, t.amount, t.description_raw, t.description_norm,
                c.name as category_name
@@ -76,13 +77,16 @@ def find_potential_transfers(conn, days_window: int = 7) -> List[Dict]:
             UNION
             SELECT target_transaction_id FROM transaction_links WHERE link_type != 'ignored'
         )
+        {user_clause}
         ORDER BY t.posted_at DESC
-    """
+    """,
+    user_param
     ).fetchall()
 
     # Get ignored pairs to filter them out
     ignored_rows = conn.execute(
-        "SELECT source_transaction_id, target_transaction_id FROM transaction_links WHERE link_type = 'ignored'"
+        "SELECT l.source_transaction_id, l.target_transaction_id FROM transaction_links l JOIN transactions t ON t.id = l.source_transaction_id WHERE l.link_type = 'ignored'" + 
+        (f" AND t.user_id = {user_id}" if user_id is not None else "")
     ).fetchall()
     ignored_pairs = {
         tuple(sorted([row["source_transaction_id"], row["target_transaction_id"]]))
@@ -177,29 +181,33 @@ def calculate_transfer_confidence(tx1: Dict, tx2: Dict) -> int:
     return min(100, score)
 
 
-def auto_categorize_linked_transfers(conn) -> int:
+def auto_categorize_linked_transfers(conn, user_id: Optional[int] = None) -> int:
     """
     Categorize linked transactions as Transfers.
     Returns count of transactions updated.
     """
+    user_clause = " AND user_id = ?" if user_id is not None else ""
+    user_params = [user_id] if user_id is not None else []
+
     # Get the Transfers category and Credit Card Payment subcategory
     transfers_cat = conn.execute(
-        "SELECT id FROM categories WHERE name = 'Transfers'"
+        "SELECT id FROM categories WHERE name = 'Transfers'" + user_clause,
+        user_params
     ).fetchone()
     
     if not transfers_cat:
         return 0
     
     cc_payment_sub = conn.execute(
-        "SELECT id FROM subcategories WHERE category_id = ? AND name LIKE '%Credit Card%'",
-        (transfers_cat["id"],)
+        "SELECT id FROM subcategories WHERE category_id = ? AND name LIKE '%Credit Card%'" + user_clause,
+        [transfers_cat["id"]] + user_params
     ).fetchone()
     
     subcat_id = cc_payment_sub["id"] if cc_payment_sub else None
     
     # Update all linked transactions
     result = conn.execute(
-        """
+        f"""
         UPDATE transactions
         SET category_id = ?, subcategory_id = ?, is_uncertain = 0
         WHERE id IN (
@@ -208,8 +216,9 @@ def auto_categorize_linked_transfers(conn) -> int:
             SELECT target_transaction_id FROM transaction_links WHERE link_type != 'ignored'
         )
         AND (category_id IS NULL OR category_id != ?)
+        {user_clause}
         """,
-        (transfers_cat["id"], subcat_id, transfers_cat["id"])
+        [transfers_cat["id"], subcat_id, transfers_cat["id"]] + user_params
     )
     conn.commit()
     return result.rowcount

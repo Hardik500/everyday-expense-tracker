@@ -10,49 +10,53 @@ from app.rules.engine import apply_rules
 from app.rules.seed_rules import SEED_CATEGORIES, SEED_RULES
 
 
-def seed_categories_and_rules() -> None:
-    with get_conn() as conn:
-        existing = conn.execute("SELECT COUNT(1) as total FROM categories").fetchone()
-        if existing and existing["total"] > 0:
-            return
+def seed_categories_and_rules(conn, user_id: int) -> None:
+    # Check if already seeded for this user
+    existing = conn.execute("SELECT COUNT(1) as total FROM categories WHERE user_id = ?", (user_id,)).fetchone()
+    if existing and existing["total"] > 0:
+        return
 
-        category_ids = {}
-        for category_name, subcats in SEED_CATEGORIES.items():
-            cursor = conn.execute(
-                "INSERT INTO categories (name, is_system) VALUES (?, 1)",
-                (category_name,),
-            )
-            category_id = cursor.lastrowid
-            category_ids[category_name] = category_id
-            for subcat in subcats:
-                conn.execute(
-                    "INSERT INTO subcategories (category_id, name) VALUES (?, ?)",
-                    (category_id, subcat),
-                )
-
-        for rule in SEED_RULES:
-            category_id = category_ids[rule["category"]]
-            subcategory_id = conn.execute(
-                """
-                SELECT id FROM subcategories
-                WHERE category_id = ? AND name = ?
-                """,
-                (category_id, rule["subcategory"]),
-            ).fetchone()["id"]
+    category_ids = {}
+    for category_name, subcats in SEED_CATEGORIES.items():
+        cursor = conn.execute(
+            "INSERT INTO categories (name, user_id) VALUES (?, ?)",
+            (category_name, user_id),
+        )
+        category_id = cursor.lastrowid
+        category_ids[category_name] = category_id
+        for subcat in subcats:
             conn.execute(
-                """
-                INSERT INTO rules (name, pattern, category_id, subcategory_id, priority)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    rule["name"],
-                    rule["pattern"],
-                    category_id,
-                    subcategory_id,
-                    rule["priority"],
-                ),
+                "INSERT INTO subcategories (category_id, name, user_id) VALUES (?, ?, ?)",
+                (category_id, subcat, user_id),
             )
-        conn.commit()
+
+    for rule in SEED_RULES:
+        category_id = category_ids[rule["category"]]
+        subcategory_row = conn.execute(
+            """
+            SELECT id FROM subcategories
+            WHERE category_id = ? AND name = ? AND user_id = ?
+            """,
+            (category_id, rule["subcategory"], user_id),
+        ).fetchone()
+        if not subcategory_row:
+            continue
+        
+        subcategory_id = subcategory_row["id"]
+        conn.execute(
+            """
+            INSERT INTO rules (name, pattern, category_id, subcategory_id, priority, user_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                rule["name"],
+                rule["pattern"],
+                category_id,
+                subcategory_id,
+                rule["priority"],
+                user_id
+            ),
+        )
 
 
 def seed_statements_from_dir(statements_dir: Path, account_id: int = 1) -> None:

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fetchWithAuth } from "../utils/api";
 import {
   AreaChart,
   Area,
@@ -223,7 +224,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
 
   // Fetch accounts for filter
   useEffect(() => {
-    fetch(`${apiBase}/accounts`)
+    fetchWithAuth(`${apiBase}/accounts`)
       .then(res => res.json())
       .then(data => setAccounts(data.accounts || []))
       .catch(() => setAccounts([]));
@@ -240,8 +241,8 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
 
       try {
         const [tsRes, statsRes] = await Promise.all([
-          fetch(`${apiBase}/reports/timeseries?start_date=${startDate}&end_date=${endDate}&granularity=${granularity}${accountParam}`),
-          fetch(`${apiBase}/reports/stats?start_date=${startDate}&end_date=${endDate}${accountParam}`),
+          fetchWithAuth(`${apiBase}/reports/timeseries?start_date=${startDate}&end_date=${endDate}&granularity=${granularity}${accountParam}`),
+          fetchWithAuth(`${apiBase}/reports/stats?start_date=${startDate}&end_date=${endDate}${accountParam}`),
         ]);
 
         const tsData = await tsRes.json();
@@ -271,7 +272,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
       const accountParam = selectedAccountId ? `&account_id=${selectedAccountId}` : "";
 
       try {
-        const res = await fetch(
+        const res = await fetchWithAuth(
           `${apiBase}/reports/category/${selectedCategoryId}?start_date=${startDate}&end_date=${endDate}${accountParam}`
         );
         const data = await res.json();

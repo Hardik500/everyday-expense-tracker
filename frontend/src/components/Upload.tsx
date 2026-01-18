@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { fetchWithAuth } from "../utils/api";
 import Select from "./ui/Select";
 
 type Account = {
@@ -54,7 +55,7 @@ function Upload({ apiBase, onDone }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch(`${apiBase}/accounts`)
+    fetchWithAuth(`${apiBase}/accounts`)
       .then((res) => res.json())
       .then(setAccounts)
       .catch(() => setAccounts([]));
@@ -65,7 +66,7 @@ function Upload({ apiBase, onDone }: Props) {
       setStatus({ type: "error", message: "Account name is required." });
       return;
     }
-    const response = await fetch(`${apiBase}/accounts`, {
+    const response = await fetchWithAuth(`${apiBase}/accounts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: accountName, type: accountType, currency: "INR" }),
@@ -77,7 +78,7 @@ function Upload({ apiBase, onDone }: Props) {
     setAccountName("");
     setShowNewAccount(false);
     setStatus({ type: "success", message: "Account created successfully!" });
-    const updatedAccounts = await fetch(`${apiBase}/accounts`).then((res) => res.json());
+    const updatedAccounts = await fetchWithAuth(`${apiBase}/accounts`).then((res) => res.json());
     setAccounts(updatedAccounts);
   };
 
@@ -94,7 +95,7 @@ function Upload({ apiBase, onDone }: Props) {
     }
     form.append("file", file);
     setStatus({ type: "loading", message: "Processing your statement..." });
-    const response = await fetch(`${apiBase}/ingest`, {
+    const response = await fetchWithAuth(`${apiBase}/ingest`, {
       method: "POST",
       body: form,
     });
@@ -145,7 +146,7 @@ function Upload({ apiBase, onDone }: Props) {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      const response = await fetch(`${apiBase}/detect-account`, {
+      const response = await fetchWithAuth(`${apiBase}/detect-account`, {
         method: 'POST',
         body: formData,
       });

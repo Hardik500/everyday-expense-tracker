@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fetchWithAuth } from "../utils/api";
 import type { Category, Subcategory, Transaction } from "../App";
 import LinkTransactionModal from "./LinkTransactionModal";
 import EditTransactionModal from "./EditTransactionModal";
@@ -176,7 +177,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
     if (subcategoryFilter) {
       params.append("subcategory_id", subcategoryFilter);
     }
-    fetch(`${apiBase}/transactions?${params.toString()}`)
+    fetchWithAuth(`${apiBase}/transactions?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
         setTransactions(data);
@@ -207,7 +208,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
         payload.query = searchQuery;
       }
 
-      const res = await fetch(`${apiBase}/transactions/search`, {
+      const res = await fetchWithAuth(`${apiBase}/transactions/search`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

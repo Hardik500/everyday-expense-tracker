@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fetchWithAuth } from "../utils/api";
 import ReactDOM from "react-dom";
 import Select from "./ui/Select";
 import { Category, Subcategory } from "../App";
@@ -71,7 +72,7 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
 
   const fetchRules = () => {
     setLoading(true);
-    fetch(`${apiBase}/rules`)
+    fetchWithAuth(`${apiBase}/rules`)
       .then((res) => res.json())
       .then((data) => {
         setRules(data);
@@ -105,7 +106,7 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
 
   const handleToggle = async (rule: Rule) => {
     try {
-      await fetch(`${apiBase}/rules/${rule.id}/toggle`, { method: "PATCH" });
+      await fetchWithAuth(`${apiBase}/rules/${rule.id}/toggle`, { method: "PATCH" });
       fetchRules();
     } catch (err) {
       console.error("Toggle failed", err);
@@ -115,7 +116,7 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
   const handleDelete = async (rule: Rule) => {
     if (!confirm(`Delete rule "${rule.name}"? This cannot be undone.`)) return;
     try {
-      await fetch(`${apiBase}/rules/${rule.id}`, { method: "DELETE" });
+      await fetchWithAuth(`${apiBase}/rules/${rule.id}`, { method: "DELETE" });
       fetchRules();
       onRefresh();
     } catch (err) {
@@ -131,7 +132,7 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
         ? `${apiBase}/rules/${editingRule.id}`
         : `${apiBase}/rules`;
       const method = editingRule.id > 0 ? "PUT" : "POST";
-      await fetch(url, {
+      await fetchWithAuth(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

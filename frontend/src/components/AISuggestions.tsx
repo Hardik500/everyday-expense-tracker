@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fetchWithAuth } from "../utils/api";
 
 type Suggestion = {
   id: number;
@@ -42,7 +43,7 @@ function AISuggestions({ apiBase, refreshKey, onUpdated }: Props) {
 
   const fetchSuggestions = async () => {
     try {
-      const res = await fetch(`${apiBase}/ai/suggestions?status=pending`);
+      const res = await fetchWithAuth(`${apiBase}/ai/suggestions?status=pending`);
       const data = await res.json();
       setSuggestions(data);
     } catch {
@@ -59,7 +60,7 @@ function AISuggestions({ apiBase, refreshKey, onUpdated }: Props) {
   const approve = async (id: number) => {
     setProcessing((p) => ({ ...p, [id]: true }));
     try {
-      await fetch(`${apiBase}/ai/suggestions/${id}/approve`, { method: "POST" });
+      await fetchWithAuth(`${apiBase}/ai/suggestions/${id}/approve`, { method: "POST" });
       setSuggestions((s) => s.filter((x) => x.id !== id));
       onUpdated();
     } finally {
@@ -70,7 +71,7 @@ function AISuggestions({ apiBase, refreshKey, onUpdated }: Props) {
   const reject = async (id: number) => {
     setProcessing((p) => ({ ...p, [id]: true }));
     try {
-      await fetch(`${apiBase}/ai/suggestions/${id}/reject`, { method: "POST" });
+      await fetchWithAuth(`${apiBase}/ai/suggestions/${id}/reject`, { method: "POST" });
       setSuggestions((s) => s.filter((x) => x.id !== id));
     } finally {
       setProcessing((p) => ({ ...p, [id]: false }));
@@ -80,7 +81,7 @@ function AISuggestions({ apiBase, refreshKey, onUpdated }: Props) {
   const approveAll = async () => {
     setLoading(true);
     try {
-      await fetch(`${apiBase}/ai/suggestions/approve-all`, { method: "POST" });
+      await fetchWithAuth(`${apiBase}/ai/suggestions/approve-all`, { method: "POST" });
       setSuggestions([]);
       onUpdated();
     } finally {

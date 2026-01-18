@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fetchWithAuth } from "../utils/api";
 
 type Transaction = {
   id: number;
@@ -57,13 +58,13 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
       setLoading(true);
       try {
         const [linksRes, linkableRes] = await Promise.all([
-          fetch(`${apiBase}/transactions/${transaction.id}/links`),
-          fetch(`${apiBase}/transactions/${transaction.id}/linkable`),
+          fetchWithAuth(`${apiBase}/transactions/${transaction.id}/links`),
+          fetchWithAuth(`${apiBase}/transactions/${transaction.id}/linkable`),
         ]);
-        
+
         const linksData = await linksRes.json();
         const linkableData = await linkableRes.json();
-        
+
         setExistingLinks(linksData.links || []);
         setLinkableTransactions(linkableData.linkable || []);
       } catch (err) {
@@ -78,26 +79,26 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
 
   const handleLink = async () => {
     if (!selectedId) return;
-    
+
     setLinking(true);
     setError(null);
-    
+
     try {
       const formData = new FormData();
       formData.append("source_id", transaction.id.toString());
       formData.append("target_id", selectedId.toString());
       formData.append("link_type", "card_payment");
-      
-      const res = await fetch(`${apiBase}/transactions/link`, {
+
+      const res = await fetchWithAuth(`${apiBase}/transactions/link`, {
         method: "POST",
         body: formData,
       });
-      
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.detail || "Failed to create link");
       }
-      
+
       onLinked();
     } catch (err: any) {
       setError(err.message || "Failed to create link");
@@ -107,21 +108,21 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
 
   const handleUnlink = async (linkId: number) => {
     try {
-      const res = await fetch(`${apiBase}/transactions/link/${linkId}`, {
+      const res = await fetchWithAuth(`${apiBase}/transactions/link/${linkId}`, {
         method: "DELETE",
       });
-      
+
       if (!res.ok) {
         throw new Error("Failed to remove link");
       }
-      
+
       // Refresh links
-      const linksRes = await fetch(`${apiBase}/transactions/${transaction.id}/links`);
+      const linksRes = await fetchWithAuth(`${apiBase}/transactions/${transaction.id}/links`);
       const linksData = await linksRes.json();
       setExistingLinks(linksData.links || []);
-      
+
       // Also refresh linkable
-      const linkableRes = await fetch(`${apiBase}/transactions/${transaction.id}/linkable`);
+      const linkableRes = await fetchWithAuth(`${apiBase}/transactions/${transaction.id}/linkable`);
       const linkableData = await linkableRes.json();
       setLinkableTransactions(linkableData.linkable || []);
     } catch (err) {
@@ -179,9 +180,9 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
         {/* Content */}
         <div style={{ flex: 1, overflow: "auto", padding: "1.25rem" }}>
           {/* Source Transaction */}
-          <div style={{ 
-            padding: "1rem", 
-            background: "var(--bg-input)", 
+          <div style={{
+            padding: "1rem",
+            background: "var(--bg-input)",
             borderRadius: "var(--radius-md)",
             marginBottom: "1.5rem",
           }}>
@@ -193,7 +194,7 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
             </div>
             <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem", fontSize: "0.8125rem" }}>
               <span style={{ color: "var(--text-muted)" }}>{formatDate(transaction.posted_at)}</span>
-              <span className="mono" style={{ 
+              <span className="mono" style={{
                 color: transaction.amount < 0 ? "var(--danger)" : "var(--success)",
                 fontWeight: 600,
               }}>
@@ -236,8 +237,8 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                         </svg>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ 
-                            fontSize: "0.875rem", 
+                          <div style={{
+                            fontSize: "0.875rem",
                             color: "var(--text-primary)",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -275,7 +276,7 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
                       (similar amount, opposite account type, within 7 days)
                     </span>
                   </h3>
-                  
+
                   {linkableTransactions.length > 0 ? (
                     <div style={{ display: "grid", gap: "0.5rem" }}>
                       {linkableTransactions.map((tx) => (
@@ -300,8 +301,8 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
                             onChange={() => setSelectedId(tx.id)}
                           />
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ 
-                              fontSize: "0.875rem", 
+                            <div style={{
+                              fontSize: "0.875rem",
                               color: "var(--text-primary)",
                               fontWeight: 500,
                               overflow: "hidden",
@@ -315,8 +316,8 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
                               <span className="badge" style={{ fontSize: "0.6875rem" }}>{tx.account_name}</span>
                             </div>
                           </div>
-                          <div className="mono" style={{ 
-                            fontSize: "0.9375rem", 
+                          <div className="mono" style={{
+                            fontSize: "0.9375rem",
                             color: tx.amount < 0 ? "var(--danger)" : "var(--success)",
                             fontWeight: 600,
                           }}>
@@ -331,9 +332,9 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
                       ))}
                     </div>
                   ) : (
-                    <div style={{ 
-                      padding: "2rem", 
-                      textAlign: "center", 
+                    <div style={{
+                      padding: "2rem",
+                      textAlign: "center",
                       color: "var(--text-muted)",
                       background: "var(--bg-input)",
                       borderRadius: "var(--radius-md)",
@@ -352,7 +353,7 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
 
               {/* Error */}
               {error && (
-                <div style={{ 
+                <div style={{
                   marginTop: "1rem",
                   padding: "0.75rem 1rem",
                   background: "rgba(239, 68, 68, 0.1)",
@@ -369,8 +370,8 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
         </div>
 
         {/* Footer */}
-        <div style={{ 
-          padding: "1rem 1.25rem", 
+        <div style={{
+          padding: "1rem 1.25rem",
           borderTop: "1px solid var(--border-color)",
           display: "flex",
           justifyContent: "flex-end",
@@ -380,8 +381,8 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
             Cancel
           </button>
           {existingLinks.length === 0 && linkableTransactions.length > 0 && (
-            <button 
-              className="primary" 
+            <button
+              className="primary"
               onClick={handleLink}
               disabled={!selectedId || linking}
             >

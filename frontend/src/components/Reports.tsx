@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fetchWithAuth } from "../utils/api";
 import TransferDetector from "./TransferDetector";
 import Select from "./ui/Select";
 
@@ -93,7 +94,7 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
       summaryUrl += dateParams;
     }
 
-    fetch(summaryUrl)
+    fetchWithAuth(summaryUrl)
       .then((res) => res.json())
       .then((summaryData) => {
         setItems(summaryData.items || []);

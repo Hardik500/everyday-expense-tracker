@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { fetchWithAuth } from "../utils/api";
 import type { Category, Subcategory, Transaction } from "../App";
 import AISuggestions from "./AISuggestions";
 import SubcategorySearch from "./SubcategorySearch";
@@ -74,14 +75,14 @@ function ReviewQueue({
 
   // Check AI status on mount
   useEffect(() => {
-    fetch(`${apiBase}/ai/status`)
+    fetchWithAuth(`${apiBase}/ai/status`)
       .then((res) => res.json())
       .then(setAiStatus)
       .catch(() => setAiStatus({ configured: false, model: null }));
   }, [apiBase]);
 
   useEffect(() => {
-    fetch(`${apiBase}/transactions?uncertain=true`)
+    fetchWithAuth(`${apiBase}/transactions?uncertain=true`)
       .then((res) => res.json())
       .then((data) => {
         setTransactions(data);
@@ -100,7 +101,7 @@ function ReviewQueue({
 
   const fetchSimilar = async (txId: number) => {
     try {
-      const res = await fetch(`${apiBase}/transactions/${txId}/similar`);
+      const res = await fetchWithAuth(`${apiBase}/transactions/${txId}/similar`);
       const data = await res.json();
       setSimilarInfo((prev) => ({
         ...prev,
@@ -143,7 +144,7 @@ function ReviewQueue({
         formData.append("rule_name", `Review: ${patternToUse}`);
       }
 
-      await fetch(`${apiBase}/transactions/bulk-update`, {
+      await fetchWithAuth(`${apiBase}/transactions/bulk-update`, {
         method: "POST",
         body: formData,
       });
@@ -159,7 +160,7 @@ function ReviewQueue({
         subcategory_id: subId,
         create_mapping: true,
       };
-      await fetch(`${apiBase}/transactions/${txId}`, {
+      await fetchWithAuth(`${apiBase}/transactions/${txId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -175,7 +176,7 @@ function ReviewQueue({
   const skipTransaction = async (txId: number) => {
     setSaving((prev) => ({ ...prev, [txId]: true }));
     const miscCategory = categories.find((c) => c.name.toLowerCase() === "miscellaneous");
-    await fetch(`${apiBase}/transactions/${txId}`, {
+    await fetchWithAuth(`${apiBase}/transactions/${txId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -204,7 +205,7 @@ function ReviewQueue({
       formData.append("limit", Math.min(transactions.length, 50).toString());
       formData.append("dry_run", "false");
 
-      const response = await fetch(`${apiBase}/ai/categorize`, {
+      const response = await fetchWithAuth(`${apiBase}/ai/categorize`, {
         method: "POST",
         body: formData,
       });
@@ -293,7 +294,7 @@ function ReviewQueue({
     setAiProcessingTx((prev) => ({ ...prev, [txId]: true }));
 
     try {
-      const res = await fetch(`${apiBase}/ai/categorize/${txId}`, {
+      const res = await fetchWithAuth(`${apiBase}/ai/categorize/${txId}`, {
         method: "POST",
       });
 

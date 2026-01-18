@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fetchWithAuth } from "../utils/api";
 import Select from "./ui/Select";
 
 type Props = {
@@ -35,7 +36,7 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
 
   const fetchAccounts = () => {
     setLoading(true);
-    fetch(`${apiBase}/accounts`)
+    fetchWithAuth(`${apiBase}/accounts`)
       .then((res) => res.json())
       .then((data) => {
         setAccounts(data);
@@ -84,7 +85,7 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
         : `${apiBase}/accounts`;
       const method = editingAccount ? "PUT" : "POST";
 
-      const res = await fetch(url, {
+      const res = await fetchWithAuth(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -109,7 +110,7 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
     if (!confirm(`Delete "${account.name}"? This cannot be undone.`)) return;
 
     try {
-      const res = await fetch(`${apiBase}/accounts/${account.id}`, {
+      const res = await fetchWithAuth(`${apiBase}/accounts/${account.id}`, {
         method: "DELETE",
       });
 

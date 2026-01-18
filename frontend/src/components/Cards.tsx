@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fetchWithAuth } from "../utils/api";
 
 type Props = {
     apiBase: string;
@@ -71,7 +72,7 @@ function Cards({ apiBase, refreshKey }: Props) {
         if (accountData.length === 0) {
             setLoading(true);
         }
-        fetch(`${apiBase}/reports/by-account`)
+        fetchWithAuth(`${apiBase}/reports/by-account`)
             .then(res => res.json())
             .then(data => {
                 setAccountData(data.accounts || []);
@@ -85,7 +86,7 @@ function Cards({ apiBase, refreshKey }: Props) {
 
     // Fetch card coverage
     useEffect(() => {
-        fetch(`${apiBase}/reports/card-coverage`)
+        fetchWithAuth(`${apiBase}/reports/card-coverage`)
             .then(res => res.json())
             .then(data => {
                 setCardCoverage(data.cards || []);
@@ -97,7 +98,7 @@ function Cards({ apiBase, refreshKey }: Props) {
             });
 
         // Fetch all card accounts for linking
-        fetch(`${apiBase}/accounts`)
+        fetchWithAuth(`${apiBase}/accounts`)
             .then(res => res.json())
             .then(data => {
                 setAllCardAccounts(data.filter((a: any) => a.type === "card"));
@@ -108,13 +109,13 @@ function Cards({ apiBase, refreshKey }: Props) {
     const handleLinkAccount = async (cardId: number, upgradedFromId: number | null) => {
         setUpdatingCardId(cardId);
         try {
-            await fetch(`${apiBase}/accounts/${cardId}`, {
+            await fetchWithAuth(`${apiBase}/accounts/${cardId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ upgraded_from_id: upgradedFromId || 0 })
             });
             // Refresh both coverage and accounts
-            fetch(`${apiBase}/reports/card-coverage`)
+            fetchWithAuth(`${apiBase}/reports/card-coverage`)
                 .then(res => res.json())
                 .then(data => {
                     setCardCoverage(data.cards || []);

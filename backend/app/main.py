@@ -5,7 +5,7 @@ from typing import List, Optional
 from dotenv import load_dotenv
 load_dotenv()  # Load .env file before anything else
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body, BackgroundTasks
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body, BackgroundTasks, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import schemas
@@ -16,9 +16,9 @@ from app.ingest.pdf import ingest_pdf
 from app.ingest.xls import ingest_xls
 from app.linking import link_card_payments
 from app.rules.engine import apply_rules, find_matching_rule
-import os
-
 from app.seed import seed_categories_and_rules, seed_statements_from_dir
+from app.auth import get_current_user, get_password_hash, verify_password, create_access_token
+from fastapi.security import OAuth2PasswordRequestForm
 
 app = FastAPI(title="Expense Tracker API")
 
@@ -34,10 +34,6 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup() -> None:
     apply_migrations()
-    seed_categories_and_rules()
-    statements_dir = os.getenv("SEED_STATEMENTS_DIR")
-    if statements_dir:
-        seed_statements_from_dir(Path(statements_dir))
 
 
 @app.get("/health")
@@ -45,36 +41,103 @@ def health() -> dict:
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
 
 
+@app.post("/auth/register", response_model=schemas.User)
+def register(user: schemas.UserCreate):
+    with get_conn() as conn:
+        # Check if username exists
+        existing = conn.execute("SELECT id FROM users WHERE username = ?", (user.username,)).fetchone()
+        if existing:
+            raise HTTPException(status_code=400, detail="Username already registered")
+        
+        hashed_password = get_password_hash(user.password)
+        cursor = conn.execute(
+            "INSERT INTO users (username, hashed_password, email, full_name) VALUES (?, ?, ?, ?)",
+            (user.username, hashed_password, user.email, user.full_name)
+        )
+        conn.commit()
+        user_id = cursor.lastrowid
+        
+        # Migration: If this is the first user, assign all standalone data to them
+        count = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()["cnt"]
+        if count == 1:
+            print(f"First user created ({user.username}). Migrating existing data...")
+            tables = [
+                'accounts', 'transactions', 'categories', 'subcategories', 
+                'rules', 'statements', 'ai_suggestions', 'transaction_links', 'mappings'
+            ]
+            for table in tables:
+                conn.execute(f"UPDATE {table} SET user_id = ? WHERE user_id IS NULL", (user_id,))
+            conn.commit()
+            print("Migration successful.")
+        else:
+            # Seed default categories and rules for NOT the first user
+            # (First user already has them from migration or had them globally)
+            from app.seed import seed_categories_and_rules
+            seed_categories_and_rules(conn, user_id)
+            conn.commit()
+
+        row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    return schemas.User(**dict(row))
+
+
+@app.post("/auth/login", response_model=schemas.Token)
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    with get_conn() as conn:
+        user_row = conn.execute("SELECT * FROM users WHERE username = ?", (form_data.username,)).fetchone()
+        if not user_row or not verify_password(form_data.password, user_row["hashed_password"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        access_token = create_access_token(data={"sub": user_row["username"]})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.get("/auth/me", response_model=schemas.User)
+def get_me(current_user: schemas.User = Depends(get_current_user)):
+    return current_user
+
+
 @app.post("/accounts", response_model=schemas.Account)
-def create_account(payload: schemas.AccountCreate) -> schemas.Account:
+def create_account(
+    payload: schemas.AccountCreate,
+    current_user: schemas.User = Depends(get_current_user)
+) -> schemas.Account:
     with get_conn() as conn:
         cursor = conn.execute(
-            "INSERT INTO accounts (name, type, currency) VALUES (?, ?, ?)",
-            (payload.name, payload.type, payload.currency),
+            "INSERT INTO accounts (name, type, currency, user_id) VALUES (?, ?, ?, ?)",
+            (payload.name, payload.type, payload.currency, current_user.id),
         )
         conn.commit()
         account_id = cursor.lastrowid
         row = conn.execute(
-            "SELECT id, name, type, currency FROM accounts WHERE id = ?",
-            (account_id,),
+            "SELECT id, name, type, currency, upgraded_from_id FROM accounts WHERE id = ? AND user_id = ?",
+            (account_id, current_user.id),
         ).fetchone()
     return schemas.Account(**dict(row))
 
 
 @app.get("/accounts", response_model=List[schemas.Account])
-def list_accounts() -> List[schemas.Account]:
+def list_accounts(current_user: schemas.User = Depends(get_current_user)) -> List[schemas.Account]:
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT id, name, type, currency, upgraded_from_id FROM accounts ORDER BY name"
+            "SELECT id, name, type, currency, upgraded_from_id FROM accounts WHERE user_id = ? ORDER BY name",
+            (current_user.id,)
         ).fetchall()
     return [schemas.Account(**dict(row)) for row in rows]
 
 
 @app.patch("/accounts/{account_id}", response_model=schemas.Account)
-def update_account(account_id: int, payload: schemas.AccountUpdate) -> schemas.Account:
+def update_account(
+    account_id: int, 
+    payload: schemas.AccountUpdate,
+    current_user: schemas.User = Depends(get_current_user)
+) -> schemas.Account:
     with get_conn() as conn:
         existing = conn.execute(
-            "SELECT * FROM accounts WHERE id = ?", (account_id,)
+            "SELECT * FROM accounts WHERE id = ? AND user_id = ?", (account_id, current_user.id)
         ).fetchone()
         if not existing:
             raise HTTPException(status_code=404, detail="Account not found")
@@ -92,43 +155,55 @@ def update_account(account_id: int, payload: schemas.AccountUpdate) -> schemas.A
             params.append(val)
             
         if updates:
-            query = f"UPDATE accounts SET {', '.join(updates)} WHERE id = ?"
-            conn.execute(query, (*params, account_id))
+            query = f"UPDATE accounts SET {', '.join(updates)} WHERE id = ? AND user_id = ?"
+            conn.execute(query, (*params, account_id, current_user.id))
             conn.commit()
             
         row = conn.execute(
-            "SELECT id, name, type, currency, upgraded_from_id FROM accounts WHERE id = ?",
-            (account_id,)
+            "SELECT id, name, type, currency, upgraded_from_id FROM accounts WHERE id = ? AND user_id = ?",
+            (account_id, current_user.id)
         ).fetchone()
     return schemas.Account(**dict(row))
 
 
 @app.delete("/accounts/{account_id}")
-def delete_account(account_id: int) -> dict:
+def delete_account(
+    account_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     with get_conn() as conn:
+        # Check if account exists for user
+        existing = conn.execute(
+            "SELECT id FROM accounts WHERE id = ? AND user_id = ?", (account_id, current_user.id)
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Account not found")
+
         # Check if account has transactions
         txn_count = conn.execute(
-            "SELECT COUNT(*) as cnt FROM transactions WHERE account_id = ?",
-            (account_id,)
+            "SELECT COUNT(*) as cnt FROM transactions WHERE account_id = ? AND user_id = ?",
+            (account_id, current_user.id)
         ).fetchone()["cnt"]
         if txn_count > 0:
             raise HTTPException(
                 status_code=400,
                 detail=f"Cannot delete account with {txn_count} transactions. Delete transactions first."
             )
-        conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
+        conn.execute("DELETE FROM accounts WHERE id = ? AND user_id = ?", (account_id, current_user.id))
         conn.commit()
     return {"deleted": True, "account_id": account_id}
 
 
 @app.get("/categories")
-def list_categories() -> dict:
+def list_categories(current_user: schemas.User = Depends(get_current_user)) -> dict:
     with get_conn() as conn:
         categories = conn.execute(
-            "SELECT id, name FROM categories ORDER BY name"
+            "SELECT id, name FROM categories WHERE user_id = ? ORDER BY name",
+            (current_user.id,)
         ).fetchall()
         subcategories = conn.execute(
-            "SELECT id, category_id, name FROM subcategories ORDER BY name"
+            "SELECT id, category_id, name FROM subcategories WHERE user_id = ? ORDER BY name",
+            (current_user.id,)
         ).fetchall()
     return {
         "categories": [dict(row) for row in categories],
@@ -137,56 +212,76 @@ def list_categories() -> dict:
 
 
 @app.post("/categories")
-def create_category(name: str = Form(...)) -> dict:
+def create_category(
+    name: str = Form(...),
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Create a new category."""
     with get_conn() as conn:
-        # Check if already exists
+        # Check if already exists for this user
         existing = conn.execute(
-            "SELECT id FROM categories WHERE LOWER(name) = LOWER(?)", (name.strip(),)
+            "SELECT id FROM categories WHERE LOWER(name) = LOWER(?) AND user_id = ?", 
+            (name.strip(), current_user.id)
         ).fetchone()
         if existing:
             raise HTTPException(status_code=400, detail="Category already exists")
         
         cursor = conn.execute(
-            "INSERT INTO categories (name) VALUES (?)", (name.strip(),)
+            "INSERT INTO categories (name, user_id) VALUES (?, ?)", 
+            (name.strip(), current_user.id)
         )
         conn.commit()
         return {"id": cursor.lastrowid, "name": name.strip()}
 
 
 @app.put("/categories/{category_id}")
-def update_category(category_id: int, name: str = Form(...)) -> dict:
+def update_category(
+    category_id: int, 
+    name: str = Form(...),
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Update a category name."""
     with get_conn() as conn:
         existing = conn.execute(
-            "SELECT id FROM categories WHERE id = ?", (category_id,)
+            "SELECT id FROM categories WHERE id = ? AND user_id = ?", (category_id, current_user.id)
         ).fetchone()
         if not existing:
             raise HTTPException(status_code=404, detail="Category not found")
         
-        # Check for duplicate name
+        # Check for duplicate name for this user
         duplicate = conn.execute(
-            "SELECT id FROM categories WHERE LOWER(name) = LOWER(?) AND id != ?",
-            (name.strip(), category_id)
+            "SELECT id FROM categories WHERE LOWER(name) = LOWER(?) AND id != ? AND user_id = ?",
+            (name.strip(), category_id, current_user.id)
         ).fetchone()
         if duplicate:
             raise HTTPException(status_code=400, detail="Category name already exists")
         
         conn.execute(
-            "UPDATE categories SET name = ? WHERE id = ?", (name.strip(), category_id)
+            "UPDATE categories SET name = ? WHERE id = ? AND user_id = ?", 
+            (name.strip(), category_id, current_user.id)
         )
         conn.commit()
         return {"id": category_id, "name": name.strip()}
 
 
 @app.delete("/categories/{category_id}")
-def delete_category(category_id: int) -> dict:
+def delete_category(
+    category_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Delete a category (only if no transactions use it)."""
     with get_conn() as conn:
+        # Check if category exists for user
+        existing = conn.execute(
+            "SELECT id FROM categories WHERE id = ? AND user_id = ?", (category_id, current_user.id)
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Category not found")
+
         # Check if any transactions use this category
         txn_count = conn.execute(
-            "SELECT COUNT(*) as cnt FROM transactions WHERE category_id = ?",
-            (category_id,)
+            "SELECT COUNT(*) as cnt FROM transactions WHERE category_id = ? AND user_id = ?",
+            (category_id, current_user.id)
         ).fetchone()["cnt"]
         
         if txn_count > 0:
@@ -196,68 +291,88 @@ def delete_category(category_id: int) -> dict:
             )
         
         # Delete subcategories first
-        conn.execute("DELETE FROM subcategories WHERE category_id = ?", (category_id,))
+        conn.execute("DELETE FROM subcategories WHERE category_id = ? AND user_id = ?", (category_id, current_user.id))
         # Delete any rules using this category
-        conn.execute("DELETE FROM rules WHERE category_id = ?", (category_id,))
+        conn.execute("DELETE FROM rules WHERE category_id = ? AND user_id = ?", (category_id, current_user.id))
         # Delete the category
-        conn.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+        conn.execute("DELETE FROM categories WHERE id = ? AND user_id = ?", (category_id, current_user.id))
         conn.commit()
         
         return {"deleted": True, "category_id": category_id}
 
 
 @app.post("/subcategories")
-def create_subcategory(category_id: int = Form(...), name: str = Form(...)) -> dict:
+def create_subcategory(
+    category_id: int = Form(...), 
+    name: str = Form(...),
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Create a new subcategory under a category."""
     with get_conn() as conn:
-        # Verify category exists
+        # Verify category exists for this user
         category = conn.execute(
-            "SELECT id FROM categories WHERE id = ?", (category_id,)
+            "SELECT id FROM categories WHERE id = ? AND user_id = ?", (category_id, current_user.id)
         ).fetchone()
         if not category:
             raise HTTPException(status_code=404, detail="Category not found")
         
-        # Check if subcategory already exists in this category
+        # Check if subcategory already exists in this category for this user
         existing = conn.execute(
-            "SELECT id FROM subcategories WHERE category_id = ? AND LOWER(name) = LOWER(?)",
-            (category_id, name.strip())
+            "SELECT id FROM subcategories WHERE category_id = ? AND LOWER(name) = LOWER(?) AND user_id = ?",
+            (category_id, name.strip(), current_user.id)
         ).fetchone()
         if existing:
             raise HTTPException(status_code=400, detail="Subcategory already exists in this category")
         
         cursor = conn.execute(
-            "INSERT INTO subcategories (category_id, name) VALUES (?, ?)",
-            (category_id, name.strip())
+            "INSERT INTO subcategories (category_id, name, user_id) VALUES (?, ?, ?)",
+            (category_id, name.strip(), current_user.id)
         )
         conn.commit()
         return {"id": cursor.lastrowid, "category_id": category_id, "name": name.strip()}
 
 
 @app.put("/subcategories/{subcategory_id}")
-def update_subcategory(subcategory_id: int, name: str = Form(...)) -> dict:
+def update_subcategory(
+    subcategory_id: int, 
+    name: str = Form(...),
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Update a subcategory name."""
     with get_conn() as conn:
         existing = conn.execute(
-            "SELECT id, category_id FROM subcategories WHERE id = ?", (subcategory_id,)
+            "SELECT id, category_id FROM subcategories WHERE id = ? AND user_id = ?", 
+            (subcategory_id, current_user.id)
         ).fetchone()
         if not existing:
             raise HTTPException(status_code=404, detail="Subcategory not found")
         
         conn.execute(
-            "UPDATE subcategories SET name = ? WHERE id = ?", (name.strip(), subcategory_id)
+            "UPDATE subcategories SET name = ? WHERE id = ? AND user_id = ?", 
+            (name.strip(), subcategory_id, current_user.id)
         )
         conn.commit()
         return {"id": subcategory_id, "category_id": existing["category_id"], "name": name.strip()}
 
 
 @app.delete("/subcategories/{subcategory_id}")
-def delete_subcategory(subcategory_id: int) -> dict:
+def delete_subcategory(
+    subcategory_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Delete a subcategory (only if no transactions use it)."""
     with get_conn() as conn:
+        # Check if subcategory exists for user
+        existing = conn.execute(
+            "SELECT id FROM subcategories WHERE id = ? AND user_id = ?", (subcategory_id, current_user.id)
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Subcategory not found")
+
         # Check if any transactions use this subcategory
         txn_count = conn.execute(
-            "SELECT COUNT(*) as cnt FROM transactions WHERE subcategory_id = ?",
-            (subcategory_id,)
+            "SELECT COUNT(*) as cnt FROM transactions WHERE subcategory_id = ? AND user_id = ?",
+            (subcategory_id, current_user.id)
         ).fetchone()["cnt"]
         
         if txn_count > 0:
@@ -267,31 +382,41 @@ def delete_subcategory(subcategory_id: int) -> dict:
             )
         
         # Delete any rules using this subcategory
-        conn.execute("DELETE FROM rules WHERE subcategory_id = ?", (subcategory_id,))
+        conn.execute("DELETE FROM rules WHERE subcategory_id = ? AND user_id = ?", (subcategory_id, current_user.id))
         # Delete the subcategory
-        conn.execute("DELETE FROM subcategories WHERE id = ?", (subcategory_id,))
+        conn.execute("DELETE FROM subcategories WHERE id = ? AND user_id = ?", (subcategory_id, current_user.id))
         conn.commit()
         
         return {"deleted": True, "subcategory_id": subcategory_id}
 
 
 @app.get("/categories/{category_id}/stats")
-def get_category_stats(category_id: int) -> dict:
+def get_category_stats(
+    category_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Get usage stats for a category."""
     with get_conn() as conn:
+        # Check if category exists for user
+        existing = conn.execute(
+            "SELECT id FROM categories WHERE id = ? AND user_id = ?", (category_id, current_user.id)
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Category not found")
+
         txn_count = conn.execute(
-            "SELECT COUNT(*) as cnt FROM transactions WHERE category_id = ?",
-            (category_id,)
+            "SELECT COUNT(*) as cnt FROM transactions WHERE category_id = ? AND user_id = ?",
+            (category_id, current_user.id)
         ).fetchone()["cnt"]
         
         subcat_count = conn.execute(
-            "SELECT COUNT(*) as cnt FROM subcategories WHERE category_id = ?",
-            (category_id,)
+            "SELECT COUNT(*) as cnt FROM subcategories WHERE category_id = ? AND user_id = ?",
+            (category_id, current_user.id)
         ).fetchone()["cnt"]
         
         rule_count = conn.execute(
-            "SELECT COUNT(*) as cnt FROM rules WHERE category_id = ?",
-            (category_id,)
+            "SELECT COUNT(*) as cnt FROM rules WHERE category_id = ? AND user_id = ?",
+            (category_id, current_user.id)
         ).fetchone()["cnt"]
         
         return {
@@ -303,15 +428,18 @@ def get_category_stats(category_id: int) -> dict:
 
 
 @app.post("/rules")
-def create_rule(payload: schemas.RuleCreate) -> dict:
+def create_rule(
+    payload: schemas.RuleCreate,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     with get_conn() as conn:
         conn.execute(
             """
             INSERT INTO rules (
                 name, pattern, category_id, subcategory_id,
                 min_amount, max_amount, priority, account_type,
-                merchant_contains, active
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                merchant_contains, active, user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
             """,
             (
                 payload.name,
@@ -323,6 +451,7 @@ def create_rule(payload: schemas.RuleCreate) -> dict:
                 payload.priority,
                 payload.account_type,
                 payload.merchant_contains,
+                current_user.id,
             ),
         )
         conn.commit()
@@ -330,7 +459,7 @@ def create_rule(payload: schemas.RuleCreate) -> dict:
 
 
 @app.get("/rules")
-def list_rules() -> List[dict]:
+def list_rules(current_user: schemas.User = Depends(get_current_user)) -> List[dict]:
     with get_conn() as conn:
         rows = conn.execute(
             """
@@ -340,16 +469,22 @@ def list_rules() -> List[dict]:
             FROM rules r
             LEFT JOIN categories c ON c.id = r.category_id
             LEFT JOIN subcategories s ON s.id = r.subcategory_id
+            WHERE r.user_id = ?
             ORDER BY r.priority DESC, r.name
-            """
+            """,
+            (current_user.id,)
         ).fetchall()
     return [dict(row) for row in rows]
 
 
 @app.put("/rules/{rule_id}")
-def update_rule(rule_id: int, payload: schemas.RuleCreate) -> dict:
+def update_rule(
+    rule_id: int, 
+    payload: schemas.RuleCreate,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     with get_conn() as conn:
-        existing = conn.execute("SELECT id FROM rules WHERE id = ?", (rule_id,)).fetchone()
+        existing = conn.execute("SELECT id FROM rules WHERE id = ? AND user_id = ?", (rule_id, current_user.id)).fetchone()
         if not existing:
             raise HTTPException(status_code=404, detail="Rule not found")
         conn.execute(
@@ -358,7 +493,7 @@ def update_rule(rule_id: int, payload: schemas.RuleCreate) -> dict:
                 name = ?, pattern = ?, category_id = ?, subcategory_id = ?,
                 min_amount = ?, max_amount = ?, priority = ?, account_type = ?,
                 merchant_contains = ?
-            WHERE id = ?
+            WHERE id = ? AND user_id = ?
             """,
             (
                 payload.name,
@@ -371,6 +506,7 @@ def update_rule(rule_id: int, payload: schemas.RuleCreate) -> dict:
                 payload.account_type,
                 payload.merchant_contains,
                 rule_id,
+                current_user.id,
             ),
         )
         conn.commit()
@@ -378,27 +514,40 @@ def update_rule(rule_id: int, payload: schemas.RuleCreate) -> dict:
 
 
 @app.delete("/rules/{rule_id}")
-def delete_rule(rule_id: int) -> dict:
+def delete_rule(
+    rule_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     with get_conn() as conn:
-        conn.execute("DELETE FROM rules WHERE id = ?", (rule_id,))
+        # Check if rule exists for user
+        existing = conn.execute("SELECT id FROM rules WHERE id = ? AND user_id = ?", (rule_id, current_user.id)).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Rule not found")
+        conn.execute("DELETE FROM rules WHERE id = ? AND user_id = ?", (rule_id, current_user.id))
         conn.commit()
     return {"deleted": True, "rule_id": rule_id}
 
 
 @app.patch("/rules/{rule_id}/toggle")
-def toggle_rule(rule_id: int) -> dict:
+def toggle_rule(
+    rule_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     with get_conn() as conn:
-        existing = conn.execute("SELECT active FROM rules WHERE id = ?", (rule_id,)).fetchone()
+        existing = conn.execute("SELECT active FROM rules WHERE id = ? AND user_id = ?", (rule_id, current_user.id)).fetchone()
         if not existing:
             raise HTTPException(status_code=404, detail="Rule not found")
         new_active = 0 if existing["active"] else 1
-        conn.execute("UPDATE rules SET active = ? WHERE id = ?", (new_active, rule_id))
+        conn.execute("UPDATE rules SET active = ? WHERE id = ? AND user_id = ?", (new_active, rule_id, current_user.id))
         conn.commit()
     return {"rule_id": rule_id, "active": bool(new_active)}
 
 
 @app.post("/detect-account")
-def detect_account(file: UploadFile = File(...)) -> dict:
+def detect_account(
+    file: UploadFile = File(...),
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Detect which account a statement belongs to based on file content."""
     import io
     import pdfplumber
@@ -423,12 +572,10 @@ def detect_account(file: UploadFile = File(...)) -> dict:
         except Exception:
             pass
     
-    text_lower = text.lower()
-    
     # Detect account based on content
     from app.accounts.matcher import AccountMatcher
     with get_conn() as conn:
-        matcher = AccountMatcher(conn)
+        matcher = AccountMatcher(conn, user_id=current_user.id)
         matched_account = matcher.detect_account_from_text(text, file_name)
         
     detected_account_name = None
@@ -438,14 +585,14 @@ def detect_account(file: UploadFile = File(...)) -> dict:
         if matched_account["type"] == "bank":
             detected_profile = "hdfc_txt" # Fallback profile for bank statements
     
-    # Find matching account in database
+    # Find matching account in database for current user
     detected_account_id = None
     if detected_account_name:
         with get_conn() as conn:
             # Try exact match first
             row = conn.execute(
-                "SELECT id, name FROM accounts WHERE LOWER(name) = LOWER(?)", 
-                (detected_account_name,)
+                "SELECT id, name FROM accounts WHERE LOWER(name) = LOWER(?) AND user_id = ?", 
+                (detected_account_name, current_user.id)
             ).fetchone()
             if row:
                 detected_account_id = row["id"]
@@ -454,8 +601,8 @@ def detect_account(file: UploadFile = File(...)) -> dict:
                 # Try partial match
                 search_term = detected_account_name.split()[0].lower()  # First word
                 row = conn.execute(
-                    "SELECT id, name FROM accounts WHERE LOWER(name) LIKE ?",
-                    (f"%{search_term}%",)
+                    "SELECT id, name FROM accounts WHERE LOWER(name) LIKE ? AND user_id = ?",
+                    (f"%{search_term}%", current_user.id)
                 ).fetchone()
                 if row:
                     detected_account_id = row["id"]
@@ -475,6 +622,7 @@ def ingest_statement(
     source: str = Form(...),
     file: UploadFile = File(...),
     profile: Optional[str] = Form(None),
+    current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
     if source not in {"csv", "txt", "ofx", "xls", "pdf"}:
         raise HTTPException(
@@ -484,32 +632,39 @@ def ingest_statement(
     file_name = file.filename or "upload"
 
     with get_conn() as conn:
+        # Verify account belongs to user
+        account = conn.execute(
+            "SELECT id FROM accounts WHERE id = ? AND user_id = ?", (account_id, current_user.id)
+        ).fetchone()
+        if not account:
+            raise HTTPException(status_code=404, detail="Account not found")
+
         statement_id = conn.execute(
-            "INSERT INTO statements (account_id, source, file_name) VALUES (?, ?, ?)",
-            (account_id, source, file_name),
+            "INSERT INTO statements (account_id, source, file_name, user_id) VALUES (?, ?, ?, ?)",
+            (account_id, source, file_name, current_user.id),
         ).lastrowid
         conn.commit()
 
         if source == "csv":
             inserted, skipped = ingest_csv(
-                conn, account_id, statement_id, content, profile
+                conn, account_id, statement_id, content, profile, user_id=current_user.id
             )
         elif source == "xls":
             inserted, skipped = ingest_xls(
-                conn, account_id, statement_id, content, profile
+                conn, account_id, statement_id, content, profile, user_id=current_user.id
             )
         elif source == "pdf":
-            inserted, skipped = ingest_pdf(conn, account_id, statement_id, content)
+            inserted, skipped = ingest_pdf(conn, account_id, statement_id, content, user_id=current_user.id)
         else:
-            inserted, skipped = ingest_ofx(conn, account_id, statement_id, content)
+            inserted, skipped = ingest_ofx(conn, account_id, statement_id, content, user_id=current_user.id)
 
-        apply_rules(conn, account_id=account_id, statement_id=statement_id)
-        link_card_payments(conn, account_id=account_id)
+        apply_rules(conn, account_id=account_id, statement_id=statement_id, user_id=current_user.id)
+        link_card_payments(conn, account_id=account_id, user_id=current_user.id)
         conn.commit()
 
     # Refine metadata in background (AI-driven discovery)
     from app.accounts.discovery import refine_account_metadata
-    background_tasks.add_task(refine_account_metadata, get_conn().__enter__(), account_id)
+    background_tasks.add_task(refine_account_metadata, get_conn().__enter__(), account_id, current_user.id)
 
     return {
         "inserted": inserted,
@@ -521,18 +676,21 @@ def ingest_statement(
 from app.search import perform_ai_search
 
 @app.post("/transactions/search")
-# Trigger reload (v3)
-def search_transactions_ai(payload: schemas.SearchRequest) -> dict:
+def search_transactions_ai(
+    payload: schemas.SearchRequest,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """
     Natural language search for transactions using AI.
     Example: "zomato last 30 days"
     """
-    print(f"AI Search Query: {payload.query} [Page {payload.page}]")
+    print(f"AI Search Query: {payload.query} [Page {payload.page}] for User {current_user.id}")
     return perform_ai_search(
         query=payload.query,
         filters=payload.filters,
         page=payload.page,
-        page_size=payload.page_size
+        page_size=payload.page_size,
+        user_id=current_user.id
     )
 
 
@@ -544,9 +702,10 @@ def list_transactions(
     category_id: Optional[int] = None,
     subcategory_id: Optional[int] = None,
     uncertain: Optional[bool] = None,
+    current_user: schemas.User = Depends(get_current_user)
 ) -> List[schemas.Transaction]:
-    clauses = []
-    params: List[object] = []
+    clauses = ["t.user_id = ?"]
+    params: List[object] = [current_user.id]
 
     if start_date:
         clauses.append("t.posted_at >= ?")
@@ -593,10 +752,11 @@ def export_transactions(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     category_id: Optional[int] = None,
+    current_user: schemas.User = Depends(get_current_user)
 ) -> StreamingResponse:
     """Export transactions as CSV."""
-    clauses = []
-    params: List[object] = []
+    clauses = ["t.user_id = ?"]
+    params: List[object] = [current_user.id]
 
     if start_date:
         clauses.append("t.posted_at >= ?")
@@ -608,7 +768,7 @@ def export_transactions(
         clauses.append("t.category_id = ?")
         params.append(category_id)
 
-    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    where = f"WHERE {' AND '.join(clauses)}"
     query = f"""
         SELECT t.id, a.name as account_name, t.posted_at, t.amount, t.currency,
                t.description_raw, t.description_norm, c.name as category, s.name as subcategory
@@ -648,7 +808,9 @@ def export_transactions(
 
 @app.patch("/transactions/{transaction_id}")
 def update_transaction(
-    transaction_id: int, payload: schemas.TransactionUpdate
+    transaction_id: int, 
+    payload: schemas.TransactionUpdate,
+    current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
     with get_conn() as conn:
         tx = conn.execute(
@@ -656,9 +818,9 @@ def update_transaction(
             SELECT t.description_norm, t.amount, a.type as account_type 
             FROM transactions t
             JOIN accounts a ON a.id = t.account_id
-            WHERE t.id = ?
+            WHERE t.id = ? AND t.user_id = ?
             """,
-            (transaction_id,),
+            (transaction_id, current_user.id),
         ).fetchone()
         if not tx:
             raise HTTPException(status_code=404, detail="Transaction not found")
@@ -667,21 +829,22 @@ def update_transaction(
             """
             UPDATE transactions
             SET category_id = ?, subcategory_id = ?, is_uncertain = 0
-            WHERE id = ?
+            WHERE id = ? AND user_id = ?
             """,
-            (payload.category_id, payload.subcategory_id, transaction_id),
+            (payload.category_id, payload.subcategory_id, transaction_id, current_user.id),
         )
         if payload.create_mapping and payload.category_id:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO mappings
-                (description_norm, category_id, subcategory_id)
-                VALUES (?, ?, ?)
+                (description_norm, category_id, subcategory_id, user_id)
+                VALUES (?, ?, ?, ?)
                 """,
                 (
                     tx["description_norm"],
                     payload.category_id,
                     payload.subcategory_id,
+                    current_user.id,
                 ),
             )
         conn.commit()
@@ -689,7 +852,11 @@ def update_transaction(
 
 
 @app.get("/transactions/{transaction_id}/similar")
-def find_similar_transactions(transaction_id: int, pattern: Optional[str] = None) -> dict:
+def find_similar_transactions(
+    transaction_id: int, 
+    pattern: Optional[str] = None,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Find transactions with similar descriptions."""
     import re
     
@@ -699,9 +866,9 @@ def find_similar_transactions(transaction_id: int, pattern: Optional[str] = None
             SELECT t.description_norm, t.amount, a.type as account_type 
             FROM transactions t
             JOIN accounts a ON a.id = t.account_id
-            WHERE t.id = ?
+            WHERE t.id = ? AND t.user_id = ?
             """,
-            (transaction_id,),
+            (transaction_id, current_user.id),
         ).fetchone()
         if not tx:
             raise HTTPException(status_code=404, detail="Transaction not found")
@@ -730,19 +897,19 @@ def find_similar_transactions(transaction_id: int, pattern: Optional[str] = None
         
         # Get total count of matches
         total_count = conn.execute(
-            "SELECT COUNT(*) FROM transactions WHERE description_norm LIKE ?",
-            (search_pattern,),
+            "SELECT COUNT(*) FROM transactions WHERE description_norm LIKE ? AND user_id = ?",
+            (search_pattern, current_user.id),
         ).fetchone()[0]
         
         similar = conn.execute(
             """
             SELECT id, description_norm, amount, posted_at, category_id, subcategory_id
             FROM transactions
-            WHERE description_norm LIKE ?
+            WHERE description_norm LIKE ? AND user_id = ?
             ORDER BY posted_at DESC
             LIMIT 100
             """,
-            (search_pattern,),
+            (search_pattern, current_user.id),
         ).fetchall()
         
         # Also find the matching rule if it exists
@@ -750,7 +917,8 @@ def find_similar_transactions(transaction_id: int, pattern: Optional[str] = None
             conn, 
             tx["description_norm"], 
             tx["amount"], 
-            tx["account_type"]
+            tx["account_type"],
+            user_id=current_user.id
         )
         
         return {
@@ -771,6 +939,7 @@ def bulk_update_transactions(
     rule_pattern: Optional[str] = Form(None),
     rule_name: Optional[str] = Form(None),
     update_all_similar: bool = Form(False),
+    current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
     """Bulk update multiple transactions and optionally create a rule."""
     with get_conn() as conn:
@@ -784,20 +953,20 @@ def bulk_update_transactions(
                 f"""
                 UPDATE transactions
                 SET category_id = ?, subcategory_id = ?, is_uncertain = 0
-                WHERE description_norm LIKE ?
+                WHERE description_norm LIKE ? AND user_id = ?
                 """,
-                (category_id, subcategory_id, search_pattern),
+                (category_id, subcategory_id, search_pattern, current_user.id),
             )
         else:
-            # Update only specified transactions
+            # Update only specified transactions belonging to the user
             placeholders = ",".join("?" * len(transaction_ids))
             conn.execute(
                 f"""
                 UPDATE transactions
                 SET category_id = ?, subcategory_id = ?, is_uncertain = 0
-                WHERE id IN ({placeholders})
+                WHERE id IN ({placeholders}) AND user_id = ?
                 """,
-                [category_id, subcategory_id] + transaction_ids,
+                [category_id, subcategory_id] + transaction_ids + [current_user.id],
             )
         
         updated_count = conn.execute("SELECT changes()").fetchone()[0]
@@ -805,10 +974,10 @@ def bulk_update_transactions(
         # Optionally create or update a rule for future transactions
         rule_id = None
         if create_rule and rule_pattern:
-            # Check if rule already exists by pattern
+            # Check if rule already exists by pattern for this user
             existing = conn.execute(
-                "SELECT id FROM rules WHERE pattern = ?",
-                (rule_pattern,),
+                "SELECT id FROM rules WHERE pattern = ? AND user_id = ?",
+                (rule_pattern, current_user.id),
             ).fetchone()
             
             if existing:
@@ -817,19 +986,19 @@ def bulk_update_transactions(
                     """
                     UPDATE rules 
                     SET category_id = ?, subcategory_id = ?
-                    WHERE id = ?
+                    WHERE id = ? AND user_id = ?
                     """,
-                    (category_id, subcategory_id, existing["id"]),
+                    (category_id, subcategory_id, existing["id"], current_user.id),
                 )
                 rule_id = existing["id"]
             else:
                 # Create new rule
                 cursor = conn.execute(
                     """
-                    INSERT INTO rules (name, pattern, category_id, subcategory_id, priority, active)
-                    VALUES (?, ?, ?, ?, 70, 1)
+                    INSERT INTO rules (name, pattern, category_id, subcategory_id, priority, active, user_id)
+                    VALUES (?, ?, ?, ?, 70, 1, ?)
                     """,
-                    (rule_name or f"User rule: {rule_pattern[:30]}", rule_pattern, category_id, subcategory_id),
+                    (rule_name or f"User rule: {rule_pattern[:30]}", rule_pattern, category_id, subcategory_id, current_user.id),
                 )
                 rule_id = cursor.lastrowid
         
@@ -843,9 +1012,13 @@ def bulk_update_transactions(
 
 
 @app.get("/reports/summary")
-def report_summary(start_date: Optional[str] = None, end_date: Optional[str] = None) -> dict:
-    clauses = ["l.id IS NULL"]
-    params: List[object] = []
+def report_summary(
+    start_date: Optional[str] = None, 
+    end_date: Optional[str] = None,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
+    clauses = ["l.id IS NULL", "t.user_id = ?"]
+    params: List[object] = [current_user.id]
     if start_date:
         clauses.append("t.posted_at >= ?")
         params.append(start_date)
@@ -870,10 +1043,14 @@ def report_summary(start_date: Optional[str] = None, end_date: Optional[str] = N
 
 
 @app.get("/reports/by-account")
-def report_by_account(start_date: Optional[str] = None, end_date: Optional[str] = None) -> dict:
+def report_by_account(
+    start_date: Optional[str] = None, 
+    end_date: Optional[str] = None,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Get spending breakdown by account (credit card), with category breakdown and monthly totals."""
-    clauses = ["l.id IS NULL", "t.amount < 0"]  # Only expenses
-    params: List[object] = []
+    clauses = ["l.id IS NULL", "t.amount < 0", "t.user_id = ?"]  # Only expenses
+    params: List[object] = [current_user.id]
     if start_date:
         clauses.append("t.posted_at >= ?")
         params.append(start_date)
@@ -916,12 +1093,12 @@ def report_by_account(start_date: Optional[str] = None, end_date: Optional[str] 
                 LEFT JOIN transaction_links l
                   ON (l.source_transaction_id = t.id OR l.target_transaction_id = t.id)
                  AND l.link_type = 'card_payment'
-                {where} AND t.account_id = ?
+                {where} AND t.account_id = ? AND t.user_id = ?
                 GROUP BY c.id, c.name
                 ORDER BY total DESC
                 LIMIT 5
             """
-            categories = conn.execute(categories_query, cat_params).fetchall()
+            categories = conn.execute(categories_query, params + [account_id, current_user.id]).fetchall()
             
             # Get monthly breakdown for this account
             monthly_query = f"""
@@ -932,12 +1109,12 @@ def report_by_account(start_date: Optional[str] = None, end_date: Optional[str] 
                 LEFT JOIN transaction_links l
                   ON (l.source_transaction_id = t.id OR l.target_transaction_id = t.id)
                  AND l.link_type = 'card_payment'
-                {where} AND t.account_id = ?
+                {where} AND t.account_id = ? AND t.user_id = ?
                 GROUP BY substr(t.posted_at, 1, 7)
                 ORDER BY month DESC
                 LIMIT 12
             """
-            monthly = conn.execute(monthly_query, cat_params).fetchall()
+            monthly = conn.execute(monthly_query, params + [account_id, current_user.id]).fetchall()
             
             result.append({
                 "account_id": account_id,
@@ -956,6 +1133,7 @@ def report_timeseries(
     end_date: Optional[str] = None,
     granularity: str = "day",  # day, week, month
     account_id: Optional[int] = None,
+    current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
     """Get time-series data for expenses and income."""
     from datetime import datetime, timedelta
@@ -978,8 +1156,8 @@ def report_timeseries(
         date_format = "%Y-%m-%d"
         date_trunc = "date(t.posted_at)"
     
-    clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "l.id IS NULL", "(c.name IS NULL OR c.name != 'Transfers')"]
-    params: List[object] = [start_date, end_date + " 23:59:59"]
+    clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "l.id IS NULL", "(c.name IS NULL OR c.name != 'Transfers')", "t.user_id = ?"]
+    params: List[object] = [start_date, end_date + " 23:59:59", current_user.id]
 
     if account_id:
         clauses.append("t.account_id = ?")
@@ -1018,6 +1196,7 @@ def report_category_trend(
     end_date: Optional[str] = None,
     category_id: Optional[int] = None,
     account_id: Optional[int] = None,
+    current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
     """Get spending trend by category over time."""
     from datetime import datetime, timedelta
@@ -1028,8 +1207,8 @@ def report_category_trend(
         start_dt = datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=90)
         start_date = start_dt.strftime("%Y-%m-%d")
     
-    clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "l.id IS NULL", "t.amount < 0"]
-    params: List[object] = [start_date, end_date + " 23:59:59"]
+    clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "l.id IS NULL", "t.amount < 0", "t.user_id = ?"]
+    params: List[object] = [start_date, end_date + " 23:59:59", current_user.id]
     
     if category_id:
         clauses.append("t.category_id = ?")
@@ -1066,6 +1245,7 @@ def report_stats(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     account_id: Optional[int] = None,
+    current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
     """Get overall statistics for the date range."""
     from datetime import datetime, timedelta
@@ -1076,8 +1256,8 @@ def report_stats(
         start_dt = datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=30)
         start_date = start_dt.strftime("%Y-%m-%d")
     
-    clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "l.id IS NULL", "(c.name IS NULL OR c.name != 'Transfers')"]
-    params: List[object] = [start_date, end_date + " 23:59:59"]
+    clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "l.id IS NULL", "(c.name IS NULL OR c.name != 'Transfers')", "t.user_id = ?"]
+    params: List[object] = [start_date, end_date + " 23:59:59", current_user.id]
 
     if account_id:
         clauses.append("t.account_id = ?")
@@ -1103,8 +1283,8 @@ def report_stats(
         ).fetchone()
         
         # Get top spending categories
-        top_clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "t.amount < 0", "l.id IS NULL", "c.name != 'Transfers'"]
-        top_params: List[object] = [start_date, end_date + " 23:59:59"]
+        top_clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "t.amount < 0", "l.id IS NULL", "c.name != 'Transfers'", "t.user_id = ?"]
+        top_params: List[object] = [start_date, end_date + " 23:59:59", current_user.id]
         if account_id:
             top_clauses.append("t.account_id = ?")
             top_params.append(account_id)
@@ -1127,7 +1307,8 @@ def report_stats(
         
         # Get date range bounds
         date_bounds = conn.execute(
-            "SELECT MIN(posted_at) as min_date, MAX(posted_at) as max_date FROM transactions"
+            "SELECT MIN(posted_at) as min_date, MAX(posted_at) as max_date FROM transactions WHERE user_id = ?",
+            (current_user.id,)
         ).fetchone()
     
     return {
@@ -1145,7 +1326,7 @@ def report_stats(
     
 
 @app.get("/reports/card-coverage")
-def report_card_coverage() -> dict:
+def report_card_coverage(current_user: schemas.User = Depends(get_current_user)) -> dict:
     """
     Get credit card statement coverage report.
     Identifies payments from bank accounts to credit cards,
@@ -1155,19 +1336,21 @@ def report_card_coverage() -> dict:
     from collections import defaultdict
     
     with get_conn() as conn:
-        # Get all credit card accounts
+        # Get all credit card accounts for user
         card_accounts = conn.execute(
-            "SELECT id, name, upgraded_from_id FROM accounts WHERE type = 'card'"
+            "SELECT id, name, upgraded_from_id FROM accounts WHERE type = 'card' AND user_id = ?",
+            (current_user.id,)
         ).fetchall()
         
-        # Get bank accounts (for finding card payments)
+        # Get bank accounts for user (for finding card payments)
         bank_accounts = conn.execute(
-            "SELECT id FROM accounts WHERE type = 'bank'"
+            "SELECT id FROM accounts WHERE type = 'bank' AND user_id = ?",
+            (current_user.id,)
         ).fetchall()
         bank_ids = [a["id"] for a in bank_accounts]
         
         from app.accounts.matcher import AccountMatcher
-        matcher = AccountMatcher(conn)
+        matcher = AccountMatcher(conn, user_id=current_user.id)
 
         succession_rules = {a["id"]: a["upgraded_from_id"] for a in card_accounts if a["upgraded_from_id"]}
         
@@ -1177,7 +1360,14 @@ def report_card_coverage() -> dict:
         # Pre-fetch earliest statement month for each card to define active windows
         first_stmt_months = {}
         stmt_data = conn.execute(
-            "SELECT account_id, MIN(posted_at) as first_txn FROM transactions WHERE account_id IN (SELECT id FROM accounts WHERE type = 'card') GROUP BY account_id"
+            """
+            SELECT account_id, MIN(posted_at) as first_txn 
+            FROM transactions 
+            WHERE account_id IN (SELECT id FROM accounts WHERE type = 'card' AND user_id = ?) 
+              AND user_id = ?
+            GROUP BY account_id
+            """,
+            (current_user.id, current_user.id)
         ).fetchall()
         for row in stmt_data:
             first_stmt_months[row["account_id"]] = row["first_txn"][:7]
@@ -1402,6 +1592,7 @@ def report_category_detail(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     account_id: Optional[int] = None,
+    current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
     """Get detailed breakdown for a specific category."""
     from datetime import datetime, timedelta
@@ -1412,8 +1603,8 @@ def report_category_detail(
         start_dt = datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=30)
         start_date = start_dt.strftime("%Y-%m-%d")
     
-    clauses = ["t.category_id = ?", "t.posted_at >= ?", "t.posted_at <= ?", "t.amount < 0", "l.id IS NULL"]
-    params = [category_id, start_date, end_date + " 23:59:59"]
+    clauses = ["t.category_id = ?", "t.posted_at >= ?", "t.posted_at <= ?", "t.amount < 0", "l.id IS NULL", "t.user_id = ?"]
+    params = [category_id, start_date, end_date + " 23:59:59", current_user.id]
     
     if account_id:
         clauses.append("t.account_id = ?")
@@ -1422,7 +1613,8 @@ def report_category_detail(
     with get_conn() as conn:
         # Get category info
         category = conn.execute(
-            "SELECT id, name FROM categories WHERE id = ?", (category_id,)
+            "SELECT id, name FROM categories WHERE id = ? AND user_id = ?", 
+            (category_id, current_user.id)
         ).fetchone()
         
         if not category:
@@ -1519,13 +1711,16 @@ def report_category_detail(
 # ============= Transaction Linking APIs =============
 
 @app.get("/transactions/{transaction_id}/links")
-def get_transaction_links(transaction_id: int) -> dict:
+def get_transaction_links(
+    transaction_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Get all links for a transaction."""
     with get_conn() as conn:
-        # Check if transaction exists
+        # Check if transaction exists and belongs to user
         tx = conn.execute(
-            "SELECT id, amount, description_raw, posted_at FROM transactions WHERE id = ?",
-            (transaction_id,)
+            "SELECT id, amount, description_raw, posted_at FROM transactions WHERE id = ? AND user_id = ?",
+            (transaction_id, current_user.id)
         ).fetchone()
         if not tx:
             raise HTTPException(status_code=404, detail="Transaction not found")
@@ -1562,9 +1757,10 @@ def get_transaction_links(transaction_id: int) -> dict:
             JOIN transactions t2 ON t2.id = l.target_transaction_id
             JOIN accounts a1 ON a1.id = t1.account_id
             JOIN accounts a2 ON a2.id = t2.account_id
-            WHERE l.source_transaction_id = ? OR l.target_transaction_id = ?
+            WHERE (l.source_transaction_id = ? OR l.target_transaction_id = ?)
+              AND t1.user_id = ? AND t2.user_id = ?
             """,
-            (transaction_id, transaction_id, transaction_id, transaction_id, transaction_id, transaction_id, transaction_id),
+            (transaction_id, transaction_id, transaction_id, transaction_id, transaction_id, transaction_id, transaction_id, current_user.id, current_user.id),
         ).fetchall()
         
     return {
@@ -1574,7 +1770,10 @@ def get_transaction_links(transaction_id: int) -> dict:
 
 
 @app.get("/transactions/{transaction_id}/linkable")
-def get_linkable_transactions(transaction_id: int) -> dict:
+def get_linkable_transactions(
+    transaction_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Find transactions that could be linked to this one (e.g., matching CC payment to bank debit)."""
     with get_conn() as conn:
         tx = conn.execute(
@@ -1582,9 +1781,9 @@ def get_linkable_transactions(transaction_id: int) -> dict:
             SELECT t.id, t.amount, t.description_raw, t.posted_at, t.account_id, a.type as account_type
             FROM transactions t
             JOIN accounts a ON a.id = t.account_id
-            WHERE t.id = ?
+            WHERE t.id = ? AND t.user_id = ?
             """,
-            (transaction_id,)
+            (transaction_id, current_user.id)
         ).fetchone()
         if not tx:
             raise HTTPException(status_code=404, detail="Transaction not found")
@@ -1615,6 +1814,7 @@ def get_linkable_transactions(transaction_id: int) -> dict:
             LEFT JOIN transaction_links l1 ON l1.source_transaction_id = t.id
             LEFT JOIN transaction_links l2 ON l2.target_transaction_id = t.id
             WHERE t.id != ?
+              AND t.user_id = ?
               AND t.amount * ? < 0  -- Opposite sign
               AND ABS(t.amount) BETWEEN ? AND ?  -- Similar amount
               AND date(t.posted_at) BETWEEN date(?, '-7 days') AND date(?, '+7 days')  -- Within 7 days
@@ -1623,7 +1823,7 @@ def get_linkable_transactions(transaction_id: int) -> dict:
             ORDER BY amount_diff ASC, ABS(julianday(t.posted_at) - julianday(?)) ASC
             LIMIT 20
             """,
-            (amount, transaction_id, tx["amount"], min_amount, max_amount, 
+            (amount, transaction_id, current_user.id, tx["amount"], min_amount, max_amount, 
              tx["posted_at"], tx["posted_at"], tx["account_type"], tx["posted_at"]),
         ).fetchall()
         
@@ -1638,15 +1838,16 @@ def create_transaction_link(
     source_id: int = Form(...),
     target_id: int = Form(...),
     link_type: str = Form("card_payment"),
+    current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
     """Create a link between two transactions."""
     if source_id == target_id:
         raise HTTPException(status_code=400, detail="Cannot link a transaction to itself")
     
     with get_conn() as conn:
-        # Verify both transactions exist
-        source = conn.execute("SELECT id, amount FROM transactions WHERE id = ?", (source_id,)).fetchone()
-        target = conn.execute("SELECT id, amount FROM transactions WHERE id = ?", (target_id,)).fetchone()
+        # Verify both transactions exist and belong to user
+        source = conn.execute("SELECT id, amount FROM transactions WHERE id = ? AND user_id = ?", (source_id, current_user.id)).fetchone()
+        target = conn.execute("SELECT id, amount FROM transactions WHERE id = ? AND user_id = ?", (target_id, current_user.id)).fetchone()
         
         if not source or not target:
             raise HTTPException(status_code=404, detail="One or both transactions not found")
@@ -1676,19 +1877,20 @@ def create_transaction_link(
         # Optionally categorize both as Transfers if they're card payments
         if link_type == "card_payment":
             transfers_cat = conn.execute(
-                "SELECT id FROM categories WHERE name = 'Transfers'"
+                "SELECT id FROM categories WHERE name = 'Transfers' AND user_id = ?",
+                (current_user.id,)
             ).fetchone()
             cc_payment_sub = None
             if transfers_cat:
                 cc_payment_sub = conn.execute(
-                    "SELECT id FROM subcategories WHERE category_id = ? AND name = 'Credit Card Payment'",
-                    (transfers_cat["id"],)
+                    "SELECT id FROM subcategories WHERE category_id = ? AND name = 'Credit Card Payment' AND user_id = ?",
+                    (transfers_cat["id"], current_user.id)
                 ).fetchone()
             
             if transfers_cat and cc_payment_sub:
                 conn.execute(
-                    "UPDATE transactions SET category_id = ?, subcategory_id = ?, is_uncertain = 0 WHERE id IN (?, ?)",
-                    (transfers_cat["id"], cc_payment_sub["id"], source_id, target_id),
+                    "UPDATE transactions SET category_id = ?, subcategory_id = ?, is_uncertain = 0 WHERE id IN (?, ?) AND user_id = ?",
+                    (transfers_cat["id"], cc_payment_sub["id"], source_id, target_id, current_user.id),
                 )
         
         conn.commit()
@@ -1697,10 +1899,22 @@ def create_transaction_link(
 
 
 @app.delete("/transactions/link/{link_id}")
-def delete_transaction_link(link_id: int) -> dict:
+def delete_transaction_link(
+    link_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Delete a transaction link."""
     with get_conn() as conn:
-        link = conn.execute("SELECT id FROM transaction_links WHERE id = ?", (link_id,)).fetchone()
+        # Check if link involve transactions belonging to the user
+        link = conn.execute(
+            """
+            SELECT l.id 
+            FROM transaction_links l
+            JOIN transactions t ON t.id = l.source_transaction_id
+            WHERE l.id = ? AND t.user_id = ?
+            """, 
+            (link_id, current_user.id)
+        ).fetchone()
         if not link:
             raise HTTPException(status_code=404, detail="Link not found")
         
@@ -1711,7 +1925,7 @@ def delete_transaction_link(link_id: int) -> dict:
 
 
 @app.get("/transactions/unlinked-payments")
-def get_unlinked_payments() -> dict:
+def get_unlinked_payments(current_user: schemas.User = Depends(get_current_user)) -> dict:
     """Get transactions that look like credit card payments but aren't linked."""
     with get_conn() as conn:
         # Find bank account debits that look like CC payments
@@ -1729,6 +1943,7 @@ def get_unlinked_payments() -> dict:
             WHERE a.type = 'bank'
               AND t.amount < 0
               AND l.id IS NULL
+              AND t.user_id = ?
               AND (
                 UPPER(t.description_raw) LIKE '%CREDIT CARD%'
                 OR UPPER(t.description_raw) LIKE '%CC %'
@@ -1742,6 +1957,7 @@ def get_unlinked_payments() -> dict:
             ORDER BY t.posted_at DESC
             LIMIT 50
             """,
+            (current_user.id,)
         ).fetchall()
         
         # Find CC credits that look like bill payments received
@@ -1759,6 +1975,7 @@ def get_unlinked_payments() -> dict:
             WHERE a.type = 'credit_card'
               AND t.amount > 0
               AND l.id IS NULL
+              AND t.user_id = ?
               AND (
                 UPPER(t.description_raw) LIKE '%PAYMENT%'
                 OR UPPER(t.description_raw) LIKE '%THANK YOU%'
@@ -1767,6 +1984,7 @@ def get_unlinked_payments() -> dict:
             ORDER BY t.posted_at DESC
             LIMIT 50
             """,
+            (current_user.id,)
         ).fetchall()
         
     return {
@@ -1779,25 +1997,28 @@ from app.linking import find_potential_transfers, auto_categorize_linked_transfe
 
 
 @app.get("/transfers/potential")
-def get_potential_transfers(days_window: int = 7) -> dict:
+def get_potential_transfers(
+    days_window: int = 7,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """
     Find potential internal transfers that aren't already linked.
     Returns pairs of transactions that may be transfers between accounts.
     """
     with get_conn() as conn:
-        potential = find_potential_transfers(conn, days_window)
+        potential = find_potential_transfers(conn, days_window, user_id=current_user.id)
     return {"potential_transfers": potential, "count": len(potential)}
 
 
 @app.post("/transfers/auto-link")
-def auto_link_transfers() -> dict:
+def auto_link_transfers(current_user: schemas.User = Depends(get_current_user)) -> dict:
     """
     Automatically link high-confidence transfers and categorize them.
     Returns count of transactions linked.
     """
     with get_conn() as conn:
         # Find potential transfers with high confidence
-        potential = find_potential_transfers(conn, days_window=5)
+        potential = find_potential_transfers(conn, days_window=5, user_id=current_user.id)
         
         linked_count = 0
         for pair in potential:
@@ -1829,7 +2050,7 @@ def auto_link_transfers() -> dict:
         conn.commit()
         
         # Categorize all linked transactions as Transfers
-        categorized = auto_categorize_linked_transfers(conn)
+        categorized = auto_categorize_linked_transfers(conn, user_id=current_user.id)
     
     return {
         "linked": linked_count,
@@ -1839,12 +2060,16 @@ def auto_link_transfers() -> dict:
 
 
 @app.post("/transfers/link")
-def link_transfer(source_id: int, target_id: int) -> dict:
+def link_transfer(
+    source_id: int, 
+    target_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Manually link two transactions as an internal transfer."""
     with get_conn() as conn:
-        # Verify both transactions exist
-        source = conn.execute("SELECT id FROM transactions WHERE id = ?", (source_id,)).fetchone()
-        target = conn.execute("SELECT id FROM transactions WHERE id = ?", (target_id,)).fetchone()
+        # Verify both transactions exist and belong to user
+        source = conn.execute("SELECT id FROM transactions WHERE id = ? AND user_id = ?", (source_id, current_user.id)).fetchone()
+        target = conn.execute("SELECT id FROM transactions WHERE id = ? AND user_id = ?", (target_id, current_user.id)).fetchone()
         
         if not source or not target:
             raise HTTPException(status_code=404, detail="Transaction not found")
@@ -1864,7 +2089,7 @@ def link_transfer(source_id: int, target_id: int) -> dict:
             raise HTTPException(status_code=400, detail="Link already exists")
         
         # Categorize as Transfers
-        categorized = auto_categorize_linked_transfers(conn)
+        categorized = auto_categorize_linked_transfers(conn, user_id=current_user.id)
     
     return {"status": "ok", "categorized": categorized}
 
@@ -1875,7 +2100,7 @@ from app.rules.ai import ai_classify, clear_category_cache
 
 
 @app.get("/ai/status")
-def ai_status() -> dict:
+def ai_status(current_user: schemas.User = Depends(get_current_user)) -> dict:
     """Check if AI categorization is configured and available."""
     api_key = os.getenv("GEMINI_API_KEY")
     
@@ -1883,7 +2108,8 @@ def ai_status() -> dict:
     if api_key:
         with get_conn() as conn:
             result = conn.execute(
-                "SELECT COUNT(*) as cnt FROM ai_suggestions WHERE status = 'pending'"
+                "SELECT COUNT(*) as cnt FROM ai_suggestions WHERE status = 'pending' AND user_id = ?",
+                (current_user.id,)
             ).fetchone()
             pending_suggestions = result["cnt"] if result else 0
     
@@ -1901,6 +2127,7 @@ import json
 def ai_categorize_transactions(
     limit: int = Form(10),
     dry_run: bool = Form(False),
+    current_user: schemas.User = Depends(get_current_user)
 ) -> StreamingResponse:
     """
     Use AI to categorize uncategorized transactions.
@@ -1915,16 +2142,16 @@ def ai_categorize_transactions(
     
     def generate():
         with get_conn() as conn:
-            # Get uncategorized transactions
+            # Get uncategorized transactions for user
             transactions = conn.execute(
                 """
                 SELECT t.id, t.description_norm, t.amount, t.description_raw
                 FROM transactions t
-                WHERE t.category_id IS NULL OR t.is_uncertain = 1
+                WHERE (t.category_id IS NULL OR t.is_uncertain = 1) AND t.user_id = ?
                 ORDER BY t.posted_at DESC
                 LIMIT ?
                 """,
-                (limit,),
+                (current_user.id, limit),
             ).fetchall()
             
             if not transactions:
@@ -1953,6 +2180,7 @@ def ai_categorize_transactions(
                         tx["description_norm"], 
                         tx["amount"], 
                         conn if not dry_run else None,
+                        user_id=current_user.id,
                         transaction_id=tx["id"] if not dry_run else None,
                         allow_new_categories=True,
                     )

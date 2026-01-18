@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fetchWithAuth } from "../utils/api";
 import ReactDOM from "react-dom";
 import type { Category, Subcategory, Transaction } from "../App";
 import SubcategorySearch from "./SubcategorySearch";
@@ -108,7 +109,7 @@ const EditTransactionModal = ({
             ? `${apiBase}/transactions/${transaction.id}/similar?pattern=${encodeURIComponent(similarPattern)}`
             : `${apiBase}/transactions/${transaction.id}/similar`;
 
-        fetch(url)
+        fetchWithAuth(url)
             .then((res) => res.json())
             .then((data) => {
                 setSimilarTxs(data.similar || []);
@@ -180,7 +181,7 @@ const EditTransactionModal = ({
         }
 
         try {
-            const res = await fetch(`${apiBase}/transactions/bulk-update`, {
+            const res = await fetchWithAuth(`${apiBase}/transactions/bulk-update`, {
                 method: "POST",
                 body: formData,
             });

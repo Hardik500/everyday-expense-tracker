@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fetchWithAuth } from "../utils/api";
 import { useToast } from "./Toast";
 
 type Props = {
@@ -64,7 +65,7 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
     if (!potentialTransfers.length) {
       setLoading(true);
     }
-    fetch(`${apiBase}/transfers/potential?days_window=14`)
+    fetchWithAuth(`${apiBase}/transfers/potential?days_window=14`)
       .then((res) => res.json())
       .then((data) => {
         setPotentialTransfers(data.potential_transfers || []);
@@ -83,7 +84,7 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
     setHidden((prev) => new Set([...prev, key]));
 
     try {
-      const res = await fetch(
+      const res = await fetchWithAuth(
         `${apiBase}/transfers/link?source_id=${pair.source.id}&target_id=${pair.target.id}`,
         { method: "POST" }
       );
@@ -117,11 +118,11 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
   const handleAutoLink = async () => {
     setAutoLinking(true);
     try {
-      const res = await fetch(`${apiBase}/transfers/auto-link`, { method: "POST" });
+      const res = await fetchWithAuth(`${apiBase}/transfers/auto-link`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
         // Refresh the list
-        const listRes = await fetch(`${apiBase}/transfers/potential?days_window=14`);
+        const listRes = await fetchWithAuth(`${apiBase}/transfers/potential?days_window=14`);
         const listData = await listRes.json();
         setPotentialTransfers(listData.potential_transfers || []);
         onRefresh();
@@ -146,7 +147,7 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
     setHidden((prev) => new Set([...prev, key]));
 
     try {
-      await fetch(
+      await fetchWithAuth(
         `${apiBase}/transfers/ignore?source_id=${pair.source.id}&target_id=${pair.target.id}`,
         { method: "POST" }
       );

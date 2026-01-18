@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fetchWithAuth } from "../utils/api";
 import { createPortal } from "react-dom";
 import type { Category, Subcategory } from "../App";
 
@@ -160,7 +161,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/categories`);
+      const res = await fetchWithAuth(`${apiBase}/categories`);
       const data = await res.json();
 
       // Group subcategories by category
@@ -209,7 +210,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       const formData = new FormData();
       formData.append("name", newCategoryName.trim());
 
-      const res = await fetch(`${apiBase}/categories`, {
+      const res = await fetchWithAuth(`${apiBase}/categories`, {
         method: "POST",
         body: formData,
       });
@@ -243,7 +244,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       formData.append("category_id", addingSubcategoryTo.toString());
       formData.append("name", newSubcategoryName.trim());
 
-      const res = await fetch(`${apiBase}/subcategories`, {
+      const res = await fetchWithAuth(`${apiBase}/subcategories`, {
         method: "POST",
         body: formData,
       });
@@ -273,7 +274,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       const formData = new FormData();
       formData.append("name", editName.trim());
 
-      const res = await fetch(`${apiBase}/categories/${editingCategory.id}`, {
+      const res = await fetchWithAuth(`${apiBase}/categories/${editingCategory.id}`, {
         method: "PUT",
         body: formData,
       });
@@ -303,7 +304,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       const formData = new FormData();
       formData.append("name", editName.trim());
 
-      const res = await fetch(`${apiBase}/subcategories/${editingSubcategory.id}`, {
+      const res = await fetchWithAuth(`${apiBase}/subcategories/${editingSubcategory.id}`, {
         method: "PUT",
         body: formData,
       });
@@ -348,7 +349,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
 
     try {
       const endpoint = deleteItem.type === "category" ? "categories" : "subcategories";
-      const res = await fetch(`${apiBase}/${endpoint}/${deleteItem.id}`, {
+      const res = await fetchWithAuth(`${apiBase}/${endpoint}/${deleteItem.id}`, {
         method: "DELETE",
       });
 
