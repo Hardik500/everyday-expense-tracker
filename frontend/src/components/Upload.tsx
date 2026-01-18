@@ -132,6 +132,7 @@ function Upload({ apiBase, onDone }: Props) {
   // Auto-detect format and account from file content via backend
   const handleFileSelect = async (selectedFile: File) => {
     setFile(selectedFile);
+    setStatus({ type: "", message: "" });
 
     // Auto-detect format from extension
     const ext = selectedFile.name.split('.').pop()?.toLowerCase();
@@ -155,10 +156,19 @@ function Upload({ apiBase, onDone }: Props) {
         const data = await response.json();
         if (data.detected_account_id) {
           setAccountId(String(data.detected_account_id));
-          setStatus({ type: 'success', message: `Auto-detected: ${data.detected_account_name}` });
+          setStatus({ type: 'success', message: `Matched existing account: ${data.detected_account_name}` });
           if (data.detected_profile) {
             setProfile(data.detected_profile);
           }
+        } else if (data.suggested_name) {
+          // New flow: Suggest creating a new account
+          setAccountName(data.suggested_name);
+          setAccountType(data.suggested_type || "bank");
+          setShowNewAccount(true);
+          setStatus({
+            type: 'success',
+            message: `Detected ${data.suggested_name}. We've pre-filled the account details for you below.`
+          });
         }
       }
     } catch {

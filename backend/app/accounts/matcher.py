@@ -1,14 +1,27 @@
 import json
 import re
 from typing import List, Dict, Any, Optional
-
 class AccountMatcher:
-    def __init__(self, db_conn):
+    GLOBAL_SIGNATURES = [
+        {"name": "HDFC Bank Savings", "type": "bank", "markers": ["HDFC BANK", "HDFC Savings", "Statement for HDFC"]},
+        {"name": "ICICI Bank Savings", "type": "bank", "markers": ["ICICI BANK", "ICICI Savings", "ICICI Statement"]},
+        {"name": "SBI Savings", "type": "bank", "markers": ["STATE BANK OF INDIA", "SBI Statement", "SBI Savings"]},
+        {"name": "Axis Bank Savings", "type": "bank", "markers": ["AXIS BANK", "Axis Statement"]},
+        {"name": "Amazon ICICI Card", "type": "card", "markers": ["AMAZON ICICI", "ICICI CREDIT CARD", "CARD STATEMENT"], "card_suffix": "card"},
+        {"name": "OneCard", "type": "card", "markers": ["ONECARD", "FPL TECHNOLOGIES"]},
+        {"name": "Swiggy HDFC Card", "type": "card", "markers": ["SWIGGY HDFC", "HDFC CREDIT CARD"]},
+    ]
+
+    def __init__(self, db_conn, user_id: int):
         self.conn = db_conn
+        self.user_id = user_id
         self.accounts = self._load_accounts()
 
     def _load_accounts(self) -> List[Dict[str, Any]]:
-        rows = self.conn.execute("SELECT id, name, type, metadata FROM accounts").fetchall()
+        rows = self.conn.execute(
+            "SELECT id, name, type, metadata FROM accounts WHERE user_id = ?", 
+            (self.user_id,)
+        ).fetchall()
         accounts = []
         for r in rows:
             meta = json.loads(r["metadata"] or "{}")
@@ -45,6 +58,20 @@ class AccountMatcher:
                 if marker.lower() in text_lower:
                     return acc
 
+        return None
+
+    def suggest_account_details(self, text: str, file_name: str = "") -> Optional[Dict[str, str]]:
+        """Suggest an account name and type if no existing account is matched."""
+        text_lower = text.lower()
+        file_name_lower = file_name.lower()
+
+        for sig in self.GLOBAL_SIGNATURES:
+            for marker in sig["markers"]:
+                if marker.lower() in text_lower or marker.lower() in file_name_lower:
+                    return {
+                        "name": sig["name"],
+                        "type": sig["type"]
+                    }
         return None
 
     def get_payment_patterns(self, account_id: int) -> List[str]:

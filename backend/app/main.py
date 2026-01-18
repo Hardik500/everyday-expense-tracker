@@ -587,6 +587,9 @@ def detect_account(
     
     # Find matching account in database for current user
     detected_account_id = None
+    suggested_name = None
+    suggested_type = None
+
     if detected_account_name:
         with get_conn() as conn:
             # Try exact match first
@@ -608,10 +611,21 @@ def detect_account(
                     detected_account_id = row["id"]
                     detected_account_name = row["name"]
     
+    # If no existing account detected, look for a suggestion
+    if not detected_account_id:
+        with get_conn() as conn:
+            matcher = AccountMatcher(conn, user_id=current_user.id)
+            suggestion = matcher.suggest_account_details(text, file_name)
+            if suggestion:
+                suggested_name = suggestion["name"]
+                suggested_type = suggestion["type"]
+    
     return {
         "detected_account_id": detected_account_id,
         "detected_account_name": detected_account_name,
         "detected_profile": detected_profile,
+        "suggested_name": suggested_name,
+        "suggested_type": suggested_type,
     }
 
 
