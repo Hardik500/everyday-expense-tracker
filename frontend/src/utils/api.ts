@@ -9,10 +9,9 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     const response = await fetch(url, { ...options, headers });
 
     if (response.status === 401) {
-        // Optional: handle unauthorized (e.g., clear localStorage and reload)
-        // localStorage.removeItem('auth_token');
-        // localStorage.removeItem('auth_user');
-        // window.location.reload();
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        window.location.reload();
     }
 
     return response;

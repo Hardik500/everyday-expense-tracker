@@ -52,7 +52,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         raise credentials_exception
     
     with get_conn() as conn:
-        user_row = conn.execute("SELECT * FROM users WHERE username = ?", (token_data.username,)).fetchone()
+        user_row = conn.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (token_data.username,)).fetchone()
     
     if user_row is None:
         raise credentials_exception

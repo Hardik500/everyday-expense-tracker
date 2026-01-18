@@ -44,8 +44,8 @@ def health() -> dict:
 @app.post("/auth/register", response_model=schemas.User)
 def register(user: schemas.UserCreate):
     with get_conn() as conn:
-        # Check if username exists
-        existing = conn.execute("SELECT id FROM users WHERE username = ?", (user.username,)).fetchone()
+        # Check if username exists (case-insensitive)
+        existing = conn.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (user.username,)).fetchone()
         if existing:
             raise HTTPException(status_code=400, detail="Username already registered")
         
@@ -83,7 +83,8 @@ def register(user: schemas.UserCreate):
 @app.post("/auth/login", response_model=schemas.Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
     with get_conn() as conn:
-        user_row = conn.execute("SELECT * FROM users WHERE username = ?", (form_data.username,)).fetchone()
+        # Case-insensitive lookup
+        user_row = conn.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (form_data.username,)).fetchone()
         if not user_row or not verify_password(form_data.password, user_row["hashed_password"]):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -677,14 +678,19 @@ def ingest_statement(
         conn.commit()
 
     # Refine metadata in background (AI-driven discovery)
-    from app.accounts.discovery import refine_account_metadata
-    background_tasks.add_task(refine_account_metadata, get_conn().__enter__(), account_id, current_user.id)
+    background_tasks.add_task(background_refine_metadata, account_id, current_user.id)
 
     return {
         "inserted": inserted,
         "skipped": skipped,
         "statement_id": statement_id,
     }
+
+
+def background_refine_metadata(account_id: int, user_id: int):
+    from app.accounts.discovery import refine_account_metadata
+    with get_conn() as conn:
+        refine_account_metadata(conn, account_id, user_id)
 
 
 from app.search import perform_ai_search

@@ -4,13 +4,13 @@ import google.generativeai as genai
 from typing import Optional
 from datetime import datetime, timedelta
 
-def refine_account_metadata(conn, account_id: int):
+def refine_account_metadata(conn, account_id: int, user_id: int):
     """
     Uses Gemini to analyze recent transactions for an account and update its metadata.
     This helps the system 'self-heal' if statement formats or payment narrations change.
     """
     # 1. Check if we've updated recently to save on AI calls
-    acc = conn.execute("SELECT name, metadata FROM accounts WHERE id = ?", (account_id,)).fetchone()
+    acc = conn.execute("SELECT name, metadata, type FROM accounts WHERE id = ? AND user_id = ?", (account_id, user_id)).fetchone()
     if not acc:
         return
     
@@ -24,8 +24,8 @@ def refine_account_metadata(conn, account_id: int):
 
     # 2. Get samples
     txns = conn.execute(
-        "SELECT description_raw FROM transactions WHERE account_id = ? ORDER BY posted_at DESC LIMIT 50",
-        (account_id,)
+        "SELECT description_raw FROM transactions WHERE account_id = ? AND user_id = ? ORDER BY posted_at DESC LIMIT 50",
+        (account_id, user_id)
     ).fetchall()
     if not txns:
         return
@@ -80,7 +80,7 @@ def refine_account_metadata(conn, account_id: int):
             
         meta["last_ai_update"] = datetime.now().isoformat()
         
-        conn.execute("UPDATE accounts SET metadata = ? WHERE id = ?", (json.dumps(meta), account_id))
+        conn.execute("UPDATE accounts SET metadata = ? WHERE id = ? AND user_id = ?", (json.dumps(meta), account_id, user_id))
         conn.commit()
     except Exception as e:
         print(f"Error refining metadata for account {account_id}: {e}")
