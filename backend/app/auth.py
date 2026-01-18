@@ -6,7 +6,7 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from . import schemas
-import sqlite3
+from .db import get_conn
 
 # Secret key to sign JWT tokens
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
@@ -33,12 +33,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 def get_db():
-    conn = sqlite3.connect('data/expense.db')
-    conn.row_factory = sqlite3.Row
-    try:
+    with get_conn() as conn:
         yield conn
-    finally:
-        conn.close()
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
@@ -55,10 +51,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise credentials_exception
     
-    conn = sqlite3.connect('data/expense.db')
-    conn.row_factory = sqlite3.Row
-    user_row = conn.execute("SELECT * FROM users WHERE username = ?", (token_data.username,)).fetchone()
-    conn.close()
+    with get_conn() as conn:
+        user_row = conn.execute("SELECT * FROM users WHERE username = ?", (token_data.username,)).fetchone()
     
     if user_row is None:
         raise credentials_exception

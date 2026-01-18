@@ -8,13 +8,13 @@ from app.db import get_conn
 
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
-def _get_categories_json_search(conn) -> str:
+def _get_categories_json_search(conn, user_id: int) -> str:
     """Build a JSON representation of all categories and subcategories (local version)."""
     categories = conn.execute(
-        "SELECT id, name FROM categories ORDER BY name"
+        "SELECT id, name FROM categories WHERE user_id = ? ORDER BY name", (user_id,)
     ).fetchall()
     subcategories = conn.execute(
-        "SELECT id, category_id, name FROM subcategories ORDER BY name"
+        "SELECT id, category_id, name FROM subcategories WHERE user_id = ? ORDER BY name", (user_id,)
     ).fetchall()
     
     result = {}
@@ -30,7 +30,7 @@ def _get_categories_json_search(conn) -> str:
         }
     return json.dumps(result, indent=2)
 
-def parse_search_query(query: str, conn) -> Dict[str, Any]:
+def parse_search_query(query: str, conn, user_id: int) -> Dict[str, Any]:
     """
     Use Gemini to parse a natural language search query into structured filters.
     """
@@ -39,8 +39,8 @@ def parse_search_query(query: str, conn) -> Dict[str, Any]:
         return {}
 
     # Get context
-    categories_json = _get_categories_json_search(conn)
-    accounts = conn.execute("SELECT name FROM accounts").fetchall()
+    categories_json = _get_categories_json_search(conn, user_id)
+    accounts = conn.execute("SELECT name FROM accounts WHERE user_id = ?", (user_id,)).fetchall()
     account_names = [r["name"] for r in accounts]
     today = datetime.now().strftime("%Y-%m-%d")
 
@@ -107,15 +107,15 @@ Return ONLY the JSON. No markdown formatting.
     except Exception:
         return {}
 
-def perform_ai_search(query: Optional[str] = None, filters: Optional[Dict[str, Any]] = None, page: int = 1, page_size: int = 50) -> Dict[str, Any]:
+def perform_ai_search(user_id: int, query: Optional[str] = None, filters: Optional[Dict[str, Any]] = None, page: int = 1, page_size: int = 50) -> Dict[str, Any]:
     with get_conn() as conn:
         if not filters:
             if not query:
                 return {"results": [], "total": 0, "filters": {}}
-            filters = parse_search_query(query, conn)
+            filters = parse_search_query(query, conn, user_id)
         
-        clauses = []
-        params = []
+        clauses = ["t.user_id = ?"]
+        params = [user_id]
         
         # Build SQL Filters
         if filters.get("start_date"):
@@ -147,7 +147,7 @@ def perform_ai_search(query: Optional[str] = None, filters: Optional[Dict[str, A
                 clauses.append("c.name LIKE ?")
                 params.append(f"%{filters['category']}%")
                 # Resolve ID logic for initial search
-                cat_row = conn.execute("SELECT id FROM categories WHERE name LIKE ?", (f"%{filters['category']}%",)).fetchone()
+                cat_row = conn.execute("SELECT id FROM categories WHERE user_id = ? AND name LIKE ?", (user_id, f"%{filters['category']}%",)).fetchone()
                 if cat_row:
                     filters["category_id"] = cat_row["id"]
 
@@ -159,7 +159,7 @@ def perform_ai_search(query: Optional[str] = None, filters: Optional[Dict[str, A
             else:
                 clauses.append("s.name LIKE ?")
                 params.append(f"%{filters['subcategory']}%")
-                sub_row = conn.execute("SELECT id FROM subcategories WHERE name LIKE ?", (f"%{filters['subcategory']}%",)).fetchone()
+                sub_row = conn.execute("SELECT id FROM subcategories WHERE user_id = ? AND name LIKE ?", (user_id, f"%{filters['subcategory']}%",)).fetchone()
                 if sub_row:
                     filters["subcategory_id"] = sub_row["id"]
             

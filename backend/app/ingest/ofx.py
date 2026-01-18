@@ -7,7 +7,7 @@ from app.ingest.normalize import compute_hash, normalize_amount, normalize_descr
 
 
 def ingest_ofx(
-    conn, account_id: int, statement_id: int, payload: bytes
+    conn, account_id: int, statement_id: int, payload: bytes, user_id: int
 ) -> Tuple[int, int]:
     inserted = 0
     skipped = 0
@@ -18,14 +18,14 @@ def ingest_ofx(
         description_raw = tx.payee or tx.memo or ""
         description_norm = normalize_description(description_raw)
         amount = float(tx.amount)
-        tx_hash = compute_hash(posted_at, amount, description_norm)
+        tx_hash = compute_hash(posted_at, amount, description_norm, user_id=user_id)
         try:
             conn.execute(
                 """
                 INSERT INTO transactions (
                     account_id, statement_id, posted_at, amount, currency,
-                    description_raw, description_norm, hash
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    description_raw, description_norm, hash, user_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     account_id,
@@ -36,6 +36,7 @@ def ingest_ofx(
                     description_raw,
                     description_norm,
                     tx_hash,
+                    user_id,
                 ),
             )
             inserted += 1

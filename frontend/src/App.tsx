@@ -276,54 +276,6 @@ function AppContent() {
           </svg>
         </div>
 
-        {/* User Info & Logout */}
-        <div style={{
-          marginTop: 'auto',
-          marginBottom: '1rem',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 12
-        }}>
-          <div
-            title={user?.full_name || user?.username}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              background: 'var(--bg-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid var(--border-color)',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              color: 'var(--accent)'
-            }}
-          >
-            {(user?.full_name || user?.username || "?")?.[0].toUpperCase()}
-          </div>
-          <button
-            onClick={logout}
-            title="Logout"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              padding: 8,
-              borderRadius: 8,
-              transition: 'all 0.2s'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.color = 'var(--danger)'}
-            onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-          >
-            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-          </button>
-        </div>
-
         {/* Nav items */}
         <nav style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {navItems.map((item) => (
@@ -374,6 +326,53 @@ function AppContent() {
             </button>
           ))}
         </nav>
+
+        {/* User Info & Logout */}
+        <div style={{
+          marginTop: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 12
+        }}>
+          <div
+            title={user?.full_name || user?.username}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              background: 'var(--bg-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid var(--border-color)',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: 'var(--accent)'
+            }}
+          >
+            {(user?.full_name || user?.username || "?")?.[0].toUpperCase()}
+          </div>
+          <button
+            onClick={logout}
+            title="Logout"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: 8,
+              borderRadius: 8,
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.color = 'var(--danger)'}
+            onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+          >
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
+        </div>
       </aside>
 
       {/* Main content */}

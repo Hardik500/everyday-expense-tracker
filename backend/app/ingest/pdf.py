@@ -230,7 +230,7 @@ def _parse_credit_card_line(line: str, card_type: str) -> Optional[Tuple[str, st
         return _parse_sbi_line(line)
 
 
-def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes) -> Tuple[int, int]:
+def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes, user_id: int) -> Tuple[int, int]:
     inserted = 0
     skipped = 0
     
@@ -274,7 +274,7 @@ def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes) -> Tupl
                 else:
                     amount = -abs(amount)  # Debit (expense)
                 
-                tx_hash = compute_hash(posted_at, amount, description_norm)
+                tx_hash = compute_hash(posted_at, amount, description_norm, user_id=user_id)
                 
                 # Skip duplicates within this import
                 if tx_hash in seen_hashes:
@@ -286,8 +286,8 @@ def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes) -> Tupl
                         """
                         INSERT INTO transactions (
                             account_id, statement_id, posted_at, amount, currency,
-                            description_raw, description_norm, hash
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            description_raw, description_norm, hash, user_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             account_id,
@@ -298,6 +298,7 @@ def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes) -> Tupl
                             description_raw,
                             description_norm,
                             tx_hash,
+                            user_id,
                         ),
                     )
                     inserted += 1

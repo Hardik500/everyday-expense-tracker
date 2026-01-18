@@ -929,10 +929,10 @@ def find_similar_transactions(
         # Also find the matching rule if it exists
         matching_rule = find_matching_rule(
             conn, 
+            current_user.id,
             tx["description_norm"], 
             tx["amount"], 
-            tx["account_type"],
-            user_id=current_user.id
+            tx["account_type"]
         )
         
         return {

@@ -65,6 +65,7 @@ def ingest_xls(
     statement_id: int,
     payload: bytes,
     profile: Optional[str],
+    user_id: int,
 ) -> Tuple[int, int]:
     # First read without header to find the actual header row
     df_raw = pd.read_excel(io.BytesIO(payload), header=None)
@@ -141,15 +142,15 @@ def ingest_xls(
             continue
         
         currency = "INR"
-        tx_hash = compute_hash(posted_at, amount, description_norm)
+        tx_hash = compute_hash(posted_at, amount, description_norm, user_id=user_id)
 
         try:
             conn.execute(
                 """
                 INSERT INTO transactions (
                     account_id, statement_id, posted_at, amount, currency,
-                    description_raw, description_norm, hash
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    description_raw, description_norm, hash, user_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     account_id,
@@ -160,6 +161,7 @@ def ingest_xls(
                     description_raw,
                     description_norm,
                     tx_hash,
+                    user_id,
                 ),
             )
             inserted += 1

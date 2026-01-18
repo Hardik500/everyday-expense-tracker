@@ -4,15 +4,16 @@ from typing import Optional, Tuple
 from app.rules.ai import ai_classify
 
 
-def _load_rules(conn):
+def _load_rules(conn, user_id: int):
     return conn.execute(
         """
         SELECT id, name, pattern, category_id, subcategory_id, min_amount,
                max_amount, priority, account_type, merchant_contains
         FROM rules
-        WHERE active = 1
+        WHERE active = 1 AND user_id = ?
         ORDER BY priority DESC, id ASC
-        """
+        """,
+        (user_id,)
     ).fetchall()
 
 
@@ -55,8 +56,8 @@ def _score_rule(rule, description_norm: str) -> int:
     return score
 
 
-def find_matching_rule(conn, description_norm: str, amount: float, account_type: Optional[str]) -> Optional[dict]:
-    rules = _load_rules(conn)
+def find_matching_rule(conn, user_id: int, description_norm: str, amount: float, account_type: Optional[str]) -> Optional[dict]:
+    rules = _load_rules(conn, user_id)
     best_rule = None
     best_score = -1
     
@@ -72,10 +73,10 @@ def find_matching_rule(conn, description_norm: str, amount: float, account_type:
 
 
 def apply_rules(
-    conn, account_id: Optional[int] = None, statement_id: Optional[int] = None
+    conn, user_id: int, account_id: Optional[int] = None, statement_id: Optional[int] = None
 ) -> None:
-    clauses = []
-    params = []
+    clauses = ["t.user_id = ?"]
+    params = [user_id]
     if account_id is not None:
         clauses.append("t.account_id = ?")
         params.append(account_id)
@@ -94,7 +95,7 @@ def apply_rules(
         params,
     ).fetchall()
 
-    rules = _load_rules(conn)
+    rules = _load_rules(conn, user_id)
 
     for tx in transactions:
         # First check for existing mappings (user-created)
@@ -102,9 +103,9 @@ def apply_rules(
             """
             SELECT category_id, subcategory_id
             FROM mappings
-            WHERE description_norm = ?
+            WHERE description_norm = ? AND user_id = ?
             """,
-            (tx["description_norm"],),
+            (tx["description_norm"], user_id),
         ).fetchone()
         if mapping:
             conn.execute(
@@ -128,12 +129,12 @@ def apply_rules(
                 best_score = score
                 best = (rule["category_id"], rule["subcategory_id"])
 
-        # If no rule matched, try AI classification
         if not best:
             ai_match = ai_classify(
                 tx["description_norm"],
                 tx["amount"],
-                conn=conn,  # Pass connection so AI can look up categories and create rules
+                conn=conn,
+                user_id=user_id,
             )
             if ai_match:
                 best = ai_match

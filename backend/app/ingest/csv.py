@@ -74,6 +74,7 @@ def ingest_csv(
     statement_id: int,
     payload: bytes,
     profile: Optional[str],
+    user_id: int,
 ) -> Tuple[int, int]:
     mapping = resolve_profile(profile)
     decoded = payload.decode("utf-8", errors="ignore")
@@ -96,7 +97,7 @@ def ingest_csv(
     is_hdfc_cc = _is_hdfc_cc_csv(decoded, delimiter)
     
     if is_hdfc_cc:
-        return _ingest_hdfc_cc_csv(conn, account_id, statement_id, cleaned_lines, delimiter)
+        return _ingest_hdfc_cc_csv(conn, account_id, statement_id, cleaned_lines, delimiter, user_id=user_id)
     
     # Standard CSV processing
     reader = csv.DictReader(io.StringIO('\n'.join(cleaned_lines)), delimiter=delimiter)
@@ -117,15 +118,15 @@ def ingest_csv(
         description_norm = normalize_description(description_raw)
         amount = _get_amount(row, mapping)
         currency = row.get(mapping.get("currency", ""), "INR") or "INR"
-        tx_hash = compute_hash(posted_at, amount, description_norm)
+        tx_hash = compute_hash(posted_at, amount, description_norm, user_id=user_id)
 
         try:
             conn.execute(
                 """
                 INSERT INTO transactions (
                     account_id, statement_id, posted_at, amount, currency,
-                    description_raw, description_norm, hash
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    description_raw, description_norm, hash, user_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     account_id,
@@ -136,6 +137,7 @@ def ingest_csv(
                     description_raw,
                     description_norm,
                     tx_hash,
+                    user_id,
                 ),
             )
             inserted += 1
@@ -150,6 +152,7 @@ def _ingest_hdfc_cc_csv(
     statement_id: int,
     lines: list,
     delimiter: str,
+    user_id: int,
 ) -> Tuple[int, int]:
     """
     Handle HDFC Credit Card CSV format. The file may contain multiple statement sections
@@ -265,15 +268,15 @@ def _ingest_hdfc_cc_csv(
         else:
             amount = -abs(amount)
         
-        tx_hash = compute_hash(posted_at, amount, description_norm)
+        tx_hash = compute_hash(posted_at, amount, description_norm, user_id=user_id)
         
         try:
             conn.execute(
                 """
                 INSERT INTO transactions (
                     account_id, statement_id, posted_at, amount, currency,
-                    description_raw, description_norm, hash
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    description_raw, description_norm, hash, user_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     account_id,
@@ -284,6 +287,7 @@ def _ingest_hdfc_cc_csv(
                     description_raw,
                     description_norm,
                     tx_hash,
+                    user_id,
                 ),
             )
             inserted += 1
