@@ -7,9 +7,9 @@ Set DATABASE_URL environment variable:
 """
 import os
 import sqlite3
+import json
 from pathlib import Path
-from contextlib import contextmanager
-from typing import Union, Any
+from typing import Union, Any, List, Optional
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
@@ -20,37 +20,126 @@ DATABASE_URL = os.getenv(
 IS_POSTGRES = DATABASE_URL.startswith("postgresql://") or DATABASE_URL.startswith("postgres://")
 
 
-class DictRowFactory:
-    """A row factory that returns dict-like objects for PostgreSQL compatibility."""
-    def __init__(self, cursor, row):
-        self._row = row
-        self._keys = [col[0] for col in cursor.description] if cursor.description else []
+class PostgresCursorWrapper:
+    """Wrapper for psycopg2 cursor to provide SQLite-compatible interface."""
     
-    def __getitem__(self, key):
-        if isinstance(key, int):
-            return self._row[key]
-        if isinstance(key, str):
+    def __init__(self, cursor, lastrowid=None):
+        self._cursor = cursor
+        self.lastrowid = lastrowid
+        self.rowcount = cursor.rowcount
+    
+    def fetchone(self):
+        return self._cursor.fetchone()
+    
+    def fetchall(self):
+        return self._cursor.fetchall()
+    
+    def fetchmany(self, size=None):
+        return self._cursor.fetchmany(size) if size is not None else self._cursor.fetchmany()
+    
+    def close(self):
+        self._cursor.close()
+    
+    def __iter__(self):
+        return iter(self._cursor)
+    
+    def __getattr__(self, name):
+        """Proxy other attributes to the underlying cursor."""
+        return getattr(self._cursor, name)
+
+
+class PostgresConnectionWrapper:
+    """
+    Wrapper for psycopg2 connection that provides SQLite-compatible interface.
+    
+    SQLite connections have .execute() method directly on the connection,
+    but psycopg2 requires using a cursor. This wrapper provides that compatibility.
+    """
+    
+    def __init__(self, conn):
+        self._conn = conn
+    
+    def cursor(self):
+        """Return a new cursor."""
+        return self._conn.cursor()
+    
+    def execute(self, sql, params=None):
+        """Execute SQL directly on connection (SQLite-compatible interface)."""
+        cursor = self._conn.cursor()
+        
+        # Convert ? placeholders to %s for PostgreSQL
+        if params:
+            sql = sql.replace("?", "%s")
+        
+        # Handle lastrowid by appending RETURNING id to INSERT statements
+        lastrowid = None
+        sql_stripped = sql.strip()
+        is_insert = sql_stripped.upper().startswith("INSERT")
+        
+        if is_insert and "RETURNING" not in sql_stripped.upper():
+            # Append RETURNING id to get the lastrowid equivalent
+            sql_with_returning = f"{sql_stripped.rstrip(';')} RETURNING id"
             try:
-                idx = self._keys.index(key)
-                return self._row[idx]
-            except ValueError:
-                raise KeyError(key)
-        raise TypeError(f"Invalid key type: {type(key)}")
+                cursor.execute(sql_with_returning, params)
+                result = cursor.fetchone()
+                if result:
+                    # Handle both dict-like and tuple-like row results
+                    if hasattr(result, 'get'):
+                        lastrowid = result.get('id')
+                    elif isinstance(result, (list, tuple)) and len(result) > 0:
+                        lastrowid = result[0]
+            except Exception:
+                # Fallback in case RETURNING id fails (e.g. table has no 'id' column)
+                self._conn.rollback() # Important to rollback after failed execution
+                cursor = self._conn.cursor() # Get fresh cursor
+                cursor.execute(sql, params)
+        else:
+            cursor.execute(sql, params)
+            
+        return PostgresCursorWrapper(cursor, lastrowid)
     
-    def keys(self):
-        return self._keys
+    def executemany(self, sql, params_list):
+        """Execute SQL with multiple parameter sets."""
+        cursor = self._conn.cursor()
+        sql = sql.replace("?", "%s")
+        cursor.executemany(sql, params_list)
+        return PostgresCursorWrapper(cursor)
     
-    def values(self):
-        return self._row
+    def executescript(self, sql):
+        """Execute multiple SQL statements (for migrations)."""
+        # PostgreSQL doesn't have a direct equivalent to executescript, 
+        # but execute() can handle multiple statements if they are separated by semicolons.
+        cursor = self._conn.cursor()
+        cursor.execute(sql)
+        return PostgresCursorWrapper(cursor)
     
-    def items(self):
-        return zip(self._keys, self._row)
+    def commit(self):
+        """Commit the transaction."""
+        self._conn.commit()
     
-    def get(self, key, default=None):
-        try:
-            return self[key]
-        except (KeyError, IndexError):
-            return default
+    def rollback(self):
+        """Rollback the transaction."""
+        self._conn.rollback()
+    
+    def close(self):
+        """Close the connection."""
+        self._conn.close()
+    
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - commit on success, rollback on error."""
+        if exc_type is None:
+            try:
+                self.commit()
+            except Exception:
+                self.rollback()
+        else:
+            self.rollback()
+        self.close()
+        return False
 
 
 def _sqlite_path() -> Path:
@@ -65,7 +154,7 @@ def get_conn():
     Get a database connection. Works with both SQLite and PostgreSQL.
     
     For SQLite: Returns sqlite3.Connection with Row factory
-    For PostgreSQL: Returns psycopg2 connection with RealDictCursor
+    For PostgreSQL: Returns wrapped psycopg2 connection with RealDictCursor
     """
     if IS_POSTGRES:
         import psycopg2
@@ -78,7 +167,7 @@ def get_conn():
         
         conn = psycopg2.connect(conn_str, cursor_factory=RealDictCursor)
         conn.autocommit = False
-        return conn
+        return PostgresConnectionWrapper(conn)
     else:
         db_path = _sqlite_path()
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -90,16 +179,10 @@ def get_conn():
 def apply_migrations() -> None:
     """
     Apply database migrations based on the database type.
-    
-    - For SQLite: Uses migrations/ directory
-    - For PostgreSQL: Uses migrations_pg/ directory (should be run manually via Supabase SQL editor)
     """
     if IS_POSTGRES:
-        # For PostgreSQL, migrations are typically run via Supabase dashboard
-        # or a dedicated migration tool. We just ensure migrations table exists.
         with get_conn() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS migrations (
                     id SERIAL PRIMARY KEY,
                     name VARCHAR(255) NOT NULL UNIQUE,
@@ -107,7 +190,7 @@ def apply_migrations() -> None:
                 )
             """)
             conn.commit()
-        print("PostgreSQL: Migrations table ready. Run migrations via Supabase SQL editor.")
+        print("PostgreSQL: Migrations table ready.")
         return
     
     # SQLite migrations
