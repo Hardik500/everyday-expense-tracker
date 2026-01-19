@@ -17,6 +17,17 @@ class User(BaseModel):
     full_name: Optional[str] = None
     disabled: Optional[bool] = None
     created_at: Union[datetime, str]
+    # Gmail integration fields
+    gmail_enabled: bool = False
+    gmail_last_sync: Optional[datetime] = None
+    gmail_filter_query: Optional[str] = None
+
+class GmailConfigUpdate(BaseModel):
+    gmail_enabled: Optional[bool] = None
+    gmail_filter_query: Optional[str] = None
+
+class GoogleAuthUrl(BaseModel):
+    url: str
 
 class UserCreate(BaseModel):
     username: str

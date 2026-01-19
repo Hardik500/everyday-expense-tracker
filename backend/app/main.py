@@ -18,6 +18,7 @@ from app.linking import link_card_payments
 from app.rules.engine import apply_rules, find_matching_rule
 from app.seed import seed_categories_and_rules, seed_statements_from_dir
 from app.auth import get_current_user, get_password_hash, verify_password, create_access_token
+from app import gmail
 from fastapi.security import OAuth2PasswordRequestForm
 
 app = FastAPI(title="Expense Tracker API")
@@ -34,6 +35,14 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup() -> None:
     apply_migrations()
+    
+    # Start Gmail Worker in a background thread for production
+    if os.getenv("ENABLE_GMAIL_WORKER", "true").lower() == "true":
+        import threading
+        from app.worker import run_worker
+        print("Starting Gmail Sync Worker thread...")
+        worker_thread = threading.Thread(target=run_worker, daemon=True)
+        worker_thread.start()
 
 
 @app.get("/health")
@@ -44,6 +53,62 @@ def health() -> dict:
 @app.get("/auth/me", response_model=schemas.User)
 def get_me(current_user: schemas.User = Depends(get_current_user)):
     return current_user
+
+
+@app.get("/auth/google/url", response_model=schemas.GoogleAuthUrl)
+def get_google_auth_url(current_user: schemas.User = Depends(get_current_user)):
+    """Generate the Google OAuth2 authorization URL."""
+    url = gmail.get_authorization_url()
+    return {"url": url}
+
+
+@app.get("/auth/google/callback")
+def google_auth_callback(code: str, current_user: schemas.User = Depends(get_current_user)):
+    """Handle the Google OAuth2 callback and save refresh token."""
+    try:
+        refresh_token = gmail.get_refresh_token(code)
+        if not refresh_token:
+            raise HTTPException(status_code=400, detail="Failed to obtain refresh token. Try re-authorizing and ensuring you grant all permissions.")
+        
+        with get_conn() as conn:
+            conn.execute(
+                "UPDATE users SET gmail_refresh_token = ?, gmail_enabled = TRUE WHERE id = ?",
+                (refresh_token, current_user.id)
+            )
+            conn.commit()
+        return {"status": "success", "message": "Gmail account connected and sync enabled."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/user/gmail/config", response_model=schemas.User)
+def update_gmail_config(
+    payload: schemas.GmailConfigUpdate,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Update user's Gmail sync configuration."""
+    with get_conn() as conn:
+        updates = []
+        params = []
+        if payload.gmail_enabled is not None:
+            updates.append("gmail_enabled = ?")
+            params.append(payload.gmail_enabled)
+        if payload.gmail_filter_query is not None:
+            updates.append("gmail_filter_query = ?")
+            params.append(payload.gmail_filter_query)
+        
+        if not updates:
+            return current_user
+            
+        params.append(current_user.id)
+        conn.execute(
+            f"UPDATE users SET {', '.join(updates)} WHERE id = ?",
+            tuple(params)
+        )
+        conn.commit()
+        
+        user_row = conn.execute("SELECT * FROM users WHERE id = ?", (current_user.id,)).fetchone()
+        return schemas.User(**dict(user_row))
 
 
 @app.post("/accounts", response_model=schemas.Account)

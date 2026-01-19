@@ -181,7 +181,11 @@ def apply_migrations() -> None:
     Apply database migrations based on the database type.
     """
     if IS_POSTGRES:
+        migrations_dir = Path(__file__).parent / "migrations_pg"
+        migration_files = sorted(migrations_dir.glob("*.sql"))
+        
         with get_conn() as conn:
+            # 1. Ensure migrations table exists
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS migrations (
                     id SERIAL PRIMARY KEY,
@@ -190,7 +194,28 @@ def apply_migrations() -> None:
                 )
             """)
             conn.commit()
-        print("PostgreSQL: Migrations table ready.")
+            
+            # 2. Get applied migrations
+            # We fetch as a list of dicts from our wrapper
+            applied_rows = conn.execute("SELECT name FROM migrations").fetchall()
+            applied = {row["name"] for row in applied_rows}
+            
+            # 3. Apply missing migrations
+            for migration in migration_files:
+                if migration.name in applied:
+                    continue
+                
+                print(f"Applying PostgreSQL migration: {migration.name}")
+                sql = migration.read_text(encoding="utf-8")
+                # executescript is just execute in our wrapper for pg
+                conn.executescript(sql)
+                conn.execute(
+                    "INSERT INTO migrations (name) VALUES (?)",
+                    (migration.name,),
+                )
+                conn.commit()
+        
+        print("PostgreSQL: Migrations complete.")
         return
     
     # SQLite migrations
