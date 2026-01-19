@@ -8,6 +8,9 @@ from fastapi.security import OAuth2PasswordBearer
 from . import schemas
 from .db import get_conn
 
+import httpx
+import time
+
 # Legacy secret for local JWTs
 SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-it-in-production")
 ALGORITHM = "HS256"
@@ -15,6 +18,34 @@ ALGORITHM = "HS256"
 # Supabase Auth Configuration
 # This MUST be the "JWT Secret" from Supabase Dashboard -> Settings -> API
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", SECRET_KEY)
+
+# JWKS Cache
+jwks_cache = {}
+jwks_last_fetch = 0
+
+async def get_supabase_jwks():
+    global jwks_cache, jwks_last_fetch
+    # Cache for 1 hour
+    if time.time() - jwks_last_fetch < 3600 and jwks_cache:
+        return jwks_cache
+    
+    try:
+        # We try to get the project URL from env to construct JWKS URL
+        supabase_url = os.getenv("SUPABASE_URL")
+        if not supabase_url:
+            # Fallback: find it from the token issuer later if needed
+            return None
+            
+        jwks_url = f"{supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(jwks_url)
+            if resp.status_code == 200:
+                jwks_cache = resp.json()
+                jwks_last_fetch = time.time()
+                return jwks_cache
+    except Exception as e:
+        print(f"Error fetching JWKS: {e}")
+    return None
 
 # Log configuration on startup (without secrets)
 print(f"Auth initialized with SUPABASE_JWT_SECRET len: {len(SUPABASE_JWT_SECRET)}")
@@ -58,17 +89,39 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
         # Debug: Log the unverified header to see what algorithm is being used
         header = jwt.get_unverified_header(token)
+        alg = header.get("alg")
         print(f"Token Header: {header}")
 
-        # Try decoding with Supabase/Local secret
-        # Supabase uses custom claims, 'sub' is the user UUID
-        # We allow multiple algorithms because Supabase is transitioning
-        payload = jwt.decode(
-            token, 
-            SUPABASE_JWT_SECRET, 
-            algorithms=["HS256", "ES256", "RS256"], 
-            options={"verify_aud": False}
-        )
+        if alg in ["ES256", "RS256"]:
+            # Asymmetric verification using JWKS
+            project_url = os.getenv("SUPABASE_URL") # This is needed to know where to get keys
+            if project_url:
+                jwks = await get_supabase_jwks()
+                if jwks:
+                    payload = jwt.decode(
+                        token, 
+                        jwks, 
+                        algorithms=[alg], 
+                        options={"verify_aud": False}
+                    )
+                else:
+                    # If we can't get JWKS, we are stuck
+                    print("Could not fetch JWKS for asymmetric verification")
+                    raise credentials_exception
+            else:
+                print("SUPABASE_URL not set, cannot fetch JWKS")
+                # Maybe fallback to symmetric secret if that's what's actually intended?
+                # But alg says ES256, so secret won't work.
+                raise credentials_exception
+        else:
+            # Symmetric verification (HS256)
+            payload = jwt.decode(
+                token, 
+                SUPABASE_JWT_SECRET, 
+                algorithms=["HS256"], 
+                options={"verify_aud": False}
+            )
+            
         user_uuid: str = payload.get("sub")
         email: str = payload.get("email")
         if user_uuid is None:
@@ -76,7 +129,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
             raise credentials_exception
     except Exception as e:
         print(f"JWT Verification Error: {str(e)}")
-        # Fallback to local SECRET_KEY if different
+        # Fallback to local SECRET_KEY if different (legacy)
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
             username: str = payload.get("sub")
