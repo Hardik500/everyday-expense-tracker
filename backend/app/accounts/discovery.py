@@ -2,7 +2,18 @@ import json
 import os
 import google.generativeai as genai
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+
+
+def _to_datetime(val):
+    """Ensure value is a datetime object."""
+    if isinstance(val, datetime):
+        return val
+    if isinstance(val, date):
+        return datetime.combine(val, datetime.min.time())
+    if isinstance(val, str):
+        return datetime.fromisoformat(val.replace('Z', '+00:00'))
+    return val
 
 def refine_account_metadata(conn, account_id: int, user_id: int):
     """
@@ -17,7 +28,7 @@ def refine_account_metadata(conn, account_id: int, user_id: int):
     meta = json.loads(acc["metadata"] or "{}")
     last_updated = meta.get("last_ai_update")
     if last_updated:
-        last_dt = datetime.fromisoformat(last_updated)
+        last_dt = _to_datetime(last_updated)
         if datetime.now() - last_dt < timedelta(days=7):
             # Already refined within the last week
             return

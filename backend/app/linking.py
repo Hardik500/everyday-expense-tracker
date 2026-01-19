@@ -1,5 +1,17 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Optional, List, Dict
+
+
+def _to_datetime(val):
+    """Ensure value is a datetime object."""
+    if isinstance(val, datetime):
+        return val
+    if isinstance(val, date):
+        return datetime.combine(val, datetime.min.time())
+    if isinstance(val, str):
+        # Handle formats like '2024-01-01' or '2024-01-01T00:00:00'
+        return datetime.fromisoformat(val.replace('Z', '+00:00'))
+    return val
 
 
 def link_card_payments(conn, account_id: Optional[int] = None, user_id: Optional[int] = None) -> None:
@@ -36,7 +48,7 @@ def link_card_payments(conn, account_id: Optional[int] = None, user_id: Optional
     ).fetchall()
 
     for payment in bank_payments:
-        payment_date = datetime.fromisoformat(payment["posted_at"])
+        payment_date = _to_datetime(payment["posted_at"])
         window_start = (payment_date - timedelta(days=5)).date().isoformat()
         window_end = (payment_date + timedelta(days=5)).date().isoformat()
         matches = [
@@ -97,7 +109,7 @@ def find_potential_transfers(conn, days_window: int = 7, user_id: Optional[int] 
     checked_pairs = set()
 
     for tx1 in all_txs:
-        tx1_date = datetime.fromisoformat(tx1["posted_at"])
+        tx1_date = _to_datetime(tx1["posted_at"])
         
         for tx2 in all_txs:
             # Skip same transaction or same account
@@ -124,7 +136,7 @@ def find_potential_transfers(conn, days_window: int = 7, user_id: Optional[int] 
                 continue
             
             # Check if within date window
-            tx2_date = datetime.fromisoformat(tx2["posted_at"])
+            tx2_date = _to_datetime(tx2["posted_at"])
             if abs((tx1_date - tx2_date).days) > days_window:
                 continue
             
