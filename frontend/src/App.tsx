@@ -12,6 +12,8 @@ import Login from "./components/Login";
 import ResetPassword from "./components/ResetPassword";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { fetchWithAuth } from "./utils/api";
+import Profile from "./components/Profile";
+import GoogleCallback from "./components/GoogleCallback";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -40,7 +42,7 @@ export type Transaction = {
   account_name?: string;
 };
 
-type Tab = "dashboard" | "analytics" | "cards" | "accounts" | "categories" | "rules" | "upload" | "review" | "transactions";
+type Tab = "dashboard" | "analytics" | "cards" | "accounts" | "categories" | "rules" | "upload" | "review" | "transactions" | "profile" | "google-callback";
 
 const NavIcon = ({ active, children }: { active: boolean; children: React.ReactNode }) => (
   <div
@@ -64,9 +66,12 @@ function AppContent() {
   const { user, token, isLoading, logout } = useAuth();
   // Initialize from URL
   const getInitialTab = (): Tab => {
+    if (window.location.pathname === "/auth/google/callback") {
+      return "google-callback";
+    }
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab") as Tab;
-    const validTabs: Tab[] = ["dashboard", "analytics", "cards", "accounts", "categories", "rules", "upload", "review", "transactions"];
+    const validTabs: Tab[] = ["dashboard", "analytics", "cards", "accounts", "categories", "rules", "upload", "review", "transactions", "profile"];
     return validTabs.includes(tab) ? tab : "dashboard";
   };
 
@@ -222,6 +227,15 @@ function AppContent() {
       icon: (
         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+      ),
+    },
+    {
+      id: "profile",
+      label: "Profile",
+      icon: (
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
         </svg>
       ),
     },
@@ -400,6 +414,8 @@ function AppContent() {
             {activeTab === "upload" && "Import Statement"}
             {activeTab === "review" && "Review Transactions"}
             {activeTab === "transactions" && "Transaction History"}
+            {activeTab === "profile" && "Profile & Settings"}
+            {activeTab === "google-callback" && "Connecting Google"}
           </h1>
           <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
             {activeTab === "dashboard" && "Your financial overview at a glance"}
@@ -411,6 +427,7 @@ function AppContent() {
             {activeTab === "upload" && "Upload bank statements, credit card bills, or cash records"}
             {activeTab === "review" && `${reviewCount} transactions need your attention`}
             {activeTab === "transactions" && "View and filter all your transactions"}
+            {activeTab === "profile" && "Manage your account and automated integrations"}
           </p>
         </header>
 
@@ -499,6 +516,17 @@ function AppContent() {
               subcategories={subcategories}
               refreshKey={refreshKey}
               onUpdated={() => setRefreshKey((k) => k + 1)}
+            />
+          )}
+          {activeTab === "profile" && (
+            <Profile
+              key={`profile-${tabResetKey}`}
+              apiBase={API_BASE}
+            />
+          )}
+          {activeTab === "google-callback" && (
+            <GoogleCallback
+              apiBase={API_BASE}
             />
           )}
         </div>
