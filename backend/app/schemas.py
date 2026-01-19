@@ -1,5 +1,5 @@
-from datetime import date
-from typing import Optional, Dict, Any
+from datetime import date, datetime
+from typing import Optional, Dict, Any, Union
 
 from pydantic import BaseModel, Field
 
@@ -16,7 +16,7 @@ class User(BaseModel):
     email: Optional[str] = None
     full_name: Optional[str] = None
     disabled: Optional[bool] = None
-    created_at: str
+    created_at: Union[datetime, str]
 
 class UserCreate(BaseModel):
     username: str
