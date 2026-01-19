@@ -1,6 +1,6 @@
 import json
 import os
-import google.generativeai as genai
+from google import genai
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta, date
 import io
@@ -82,8 +82,7 @@ def refine_account_metadata(conn, account_id: int, user_id: int):
     if not api_key:
         return
         
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    client = genai.Client(api_key=api_key)
     
     prompt = f"""
     Analyze these transaction descriptions for the account '{acc["name"]}'. 
@@ -108,7 +107,10 @@ def refine_account_metadata(conn, account_id: int, user_id: int):
     """
     
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-3-flash-preview',
+            contents=prompt
+        )
         text = response.text
         start = text.find('{')
         end = text.rfind('}') + 1

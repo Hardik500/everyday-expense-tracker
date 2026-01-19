@@ -2140,7 +2140,7 @@ def ai_status(current_user: schemas.User = Depends(get_current_user)) -> dict:
     
     return {
         "configured": bool(api_key),
-        "model": "gemini-2.0-flash" if api_key else None,
+        "model": "gemini-3-flash-preview" if api_key else None,
         "pending_suggestions": pending_suggestions,
     }
 

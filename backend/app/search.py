@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Optional
 import httpx
 from app.db import get_conn
 
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
 
 def _get_categories_json_search(conn, user_id: int) -> str:
     """Build a JSON representation of all categories and subcategories (local version)."""
