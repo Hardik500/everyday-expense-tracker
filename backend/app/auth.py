@@ -8,10 +8,16 @@ from fastapi.security import OAuth2PasswordBearer
 from . import schemas
 from .db import get_conn
 
+# Legacy secret for local JWTs
+SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-it-in-production")
+ALGORITHM = "HS256"
+
 # Supabase Auth Configuration
-# If SECRET_KEY is the Supabase JWT Secret, this works.
-# In production, this should be set to the value from the Supabase Dashboard -> Settings -> API.
+# This MUST be the "JWT Secret" from Supabase Dashboard -> Settings -> API
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", SECRET_KEY)
+
+# Log configuration on startup (without secrets)
+print(f"Auth initialized with SUPABASE_JWT_SECRET len: {len(SUPABASE_JWT_SECRET)}")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
@@ -46,20 +52,33 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         headers={"WWW-Authenticate": "Bearer"},
     )
     if not token:
+        print("No token provided")
         raise credentials_exception
 
     try:
+        # Debug: Log the unverified header to see what algorithm is being used
+        header = jwt.get_unverified_header(token)
+        print(f"Token Header: {header}")
+
         # Try decoding with Supabase/Local secret
         # Supabase uses custom claims, 'sub' is the user UUID
-        payload = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=[ALGORITHM], options={"verify_aud": False})
+        # We allow multiple algorithms because Supabase is transitioning
+        payload = jwt.decode(
+            token, 
+            SUPABASE_JWT_SECRET, 
+            algorithms=["HS256", "ES256", "RS256"], 
+            options={"verify_aud": False}
+        )
         user_uuid: str = payload.get("sub")
         email: str = payload.get("email")
         if user_uuid is None:
+            print("Token sub claim missing")
             raise credentials_exception
-    except JWTError:
+    except Exception as e:
+        print(f"JWT Verification Error: {str(e)}")
         # Fallback to local SECRET_KEY if different
         try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
             username: str = payload.get("sub")
             if username is None:
                 raise credentials_exception
