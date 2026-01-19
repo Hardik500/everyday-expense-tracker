@@ -1064,7 +1064,17 @@ def report_summary(
     """
     with get_conn() as conn:
         rows = conn.execute(query, params).fetchall()
-    return {"items": [dict(row) for row in rows]}
+    # Ensure totals are numeric to prevent frontend NaN issues
+    items = [
+        {
+            "category_id": row["category_id"],
+            "category_name": row["category_name"],
+            "total": float(row["total"]) if row["total"] is not None else 0.0
+        }
+        for row in rows
+    ]
+    return {"items": items}
+
 
 
 @app.get("/reports/by-account")
