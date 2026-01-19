@@ -2,6 +2,13 @@ from datetime import datetime, timedelta, date
 from typing import Optional, List, Dict
 
 
+def _to_float(val):
+    """Ensure value is a float."""
+    if val is None:
+        return 0.0
+    return float(val)
+
+
 def _to_datetime(val):
     """Ensure value is a datetime object."""
     if isinstance(val, datetime):
@@ -127,12 +134,14 @@ def find_potential_transfers(conn, days_window: int = 7, user_id: Optional[int] 
                 continue
             
             # Check if amounts are opposite (one debit, one credit)
-            if tx1["amount"] * tx2["amount"] >= 0:  # Same sign
+            tx1_amount = _to_float(tx1["amount"])
+            tx2_amount = _to_float(tx2["amount"])
+            if tx1_amount * tx2_amount >= 0:  # Same sign
                 continue
             
             # Check if amounts match (within 1%)
-            amount_diff = abs(abs(tx1["amount"]) - abs(tx2["amount"]))
-            if amount_diff > max(1, abs(tx1["amount"]) * 0.01):
+            amount_diff = abs(abs(tx1_amount) - abs(tx2_amount))
+            if amount_diff > max(1, abs(tx1_amount) * 0.01):
                 continue
             
             # Check if within date window
@@ -154,7 +163,7 @@ def find_potential_transfers(conn, days_window: int = 7, user_id: Optional[int] 
                     "source": dict(source),
                     "target": dict(target),
                     "confidence": confidence,
-                    "amount": abs(source["amount"]),
+                    "amount": abs(_to_float(source["amount"])),
                 })
     
     # Sort by confidence, then amount
@@ -167,11 +176,15 @@ def calculate_transfer_confidence(tx1: Dict, tx2: Dict) -> int:
     score = 50  # Base score for matching amount + opposite signs + date proximity
     
     # Exact amount match
-    if abs(tx1["amount"]) == abs(tx2["amount"]):
+    tx1_amount = _to_float(tx1["amount"])
+    tx2_amount = _to_float(tx2["amount"])
+    if abs(tx1_amount) == abs(tx2_amount):
         score += 15
     
     # Same day
-    if tx1["posted_at"][:10] == tx2["posted_at"][:10]:
+    tx1_dt = _to_datetime(tx1["posted_at"])
+    tx2_dt = _to_datetime(tx2["posted_at"])
+    if tx1_dt.date() == tx2_dt.date():
         score += 15
     
     # Keywords suggesting transfers
