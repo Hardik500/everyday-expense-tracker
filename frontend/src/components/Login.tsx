@@ -30,7 +30,8 @@ const Login: React.FC<LoginProps> = ({ apiBase }) => {
                     options: {
                         data: {
                             full_name: fullName,
-                        }
+                        },
+                        emailRedirectTo: `${window.location.origin}`,
                     }
                 });
                 if (signUpError) throw signUpError;
