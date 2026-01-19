@@ -7,6 +7,7 @@ import io
 import pdfplumber
 from app.accounts.matcher import AccountMatcher
 
+
 def detect_statement_account(conn, file_name: str, content: bytes, user_id: int) -> Optional[dict]:
     """
     Detect which account a statement belongs to based on file content and metadata.
@@ -112,6 +113,8 @@ def refine_account_metadata(conn, account_id: int, user_id: int):
             contents=prompt
         )
         text = response.text
+
+
         start = text.find('{')
         end = text.rfind('}') + 1
         new_meta = json.loads(text[start:end])
