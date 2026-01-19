@@ -26,7 +26,10 @@ app = FastAPI(title="Expense Tracker API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://www.everydayexpensetracker.online",
+        "https://everydayexpensetracker.online"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1327,6 +1330,8 @@ def report_stats(
             """,
             top_params,
         ).fetchall()
+        # Ensure totals are numeric (float) for frontend safety
+        top_categories = [{"name": r["name"], "total": float(r["total"]) if r["total"] is not None else 0.0} for r in top_categories]
         
         # Get date range bounds
         date_bounds = conn.execute(
