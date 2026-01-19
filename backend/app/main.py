@@ -9,7 +9,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body, Backgr
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import schemas
-from app.db import apply_migrations, get_conn
+from app.db import apply_migrations, get_conn, IS_POSTGRES
 from app.ingest.csv import ingest_csv
 from app.ingest.ofx import ingest_ofx
 from app.ingest.pdf import ingest_pdf
@@ -1131,16 +1131,17 @@ def report_by_account(
             categories = conn.execute(categories_query, params + [account_id, current_user.id]).fetchall()
             
             # Get monthly breakdown for this account
+            month_fragment = "TO_CHAR(t.posted_at, 'YYYY-MM')" if IS_POSTGRES else "substr(t.posted_at, 1, 7)"
             monthly_query = f"""
                 SELECT 
-                    substr(t.posted_at, 1, 7) as month,
+                    {month_fragment} as month,
                     SUM(ABS(t.amount)) as total
                 FROM transactions t
                 LEFT JOIN transaction_links l
                   ON (l.source_transaction_id = t.id OR l.target_transaction_id = t.id)
                  AND l.link_type = 'card_payment'
                 {where} AND t.account_id = ? AND t.user_id = ?
-                GROUP BY substr(t.posted_at, 1, 7)
+                GROUP BY {month_fragment}
                 ORDER BY month DESC
                 LIMIT 12
             """
@@ -1178,13 +1179,13 @@ def report_timeseries(
     # Determine grouping based on granularity
     if granularity == "month":
         date_format = "%Y-%m"
-        date_trunc = "substr(t.posted_at, 1, 7)"
+        date_trunc = "TO_CHAR(t.posted_at, 'YYYY-MM')" if IS_POSTGRES else "substr(t.posted_at, 1, 7)"
     elif granularity == "week":
         date_format = "%Y-%W"
-        date_trunc = "strftime('%Y-%W', t.posted_at)"
+        date_trunc = "TO_CHAR(t.posted_at, 'IYYY-IW')" if IS_POSTGRES else "strftime('%Y-%W', t.posted_at)"
     else:  # day
         date_format = "%Y-%m-%d"
-        date_trunc = "date(t.posted_at)"
+        date_trunc = "CAST(t.posted_at AS DATE)" if IS_POSTGRES else "date(t.posted_at)"
     
     clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "l.id IS NULL", "(c.name IS NULL OR c.name != 'Transfers')", "t.user_id = ?"]
     params: List[object] = [start_date, end_date + " 23:59:59", current_user.id]
@@ -1472,12 +1473,13 @@ def report_card_coverage(current_user: schemas.User = Depends(get_current_user))
                         payments_by_month[month].append(payment_obj)
             
             # Get all transaction months for this card
+            month_expr = "TO_CHAR(posted_at, 'YYYY-MM')" if IS_POSTGRES else "substr(posted_at, 1, 7)"
             txn_months_rows = conn.execute(
-                """
-                SELECT substr(posted_at, 1, 7) as month, COUNT(*) as txn_count
+                f"""
+                SELECT {month_expr} as month, COUNT(*) as txn_count
                 FROM transactions
                 WHERE account_id = ?
-                GROUP BY month
+                GROUP BY {month_expr}
                 ORDER BY month DESC
                 """,
                 (card_id,)
@@ -1591,14 +1593,15 @@ def report_card_coverage(current_user: schemas.User = Depends(get_current_user))
             if not bank_ids:
                 continue
             placeholders = ",".join("?" * len(bank_ids))
+            month_expr = "TO_CHAR(posted_at, 'YYYY-MM')" if IS_POSTGRES else "substr(posted_at, 1, 7)"
             payments = conn.execute(
                 f"""
-                SELECT DISTINCT substr(posted_at, 1, 7) as month, COUNT(*) as cnt, SUM(ABS(amount)) as total
+                SELECT DISTINCT {month_expr} as month, COUNT(*) as cnt, SUM(ABS(amount)) as total
                 FROM transactions
                 WHERE account_id IN ({placeholders})
                 AND description_norm LIKE ?
                 AND amount < 0
-                GROUP BY month
+                GROUP BY {month_expr}
                 ORDER BY month DESC
                 """,
                 (*bank_ids, pattern)
