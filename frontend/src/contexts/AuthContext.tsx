@@ -64,7 +64,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         // 2. Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'PASSWORD_RECOVERY') {
+                // If we detect a recovery event, force user to reset password page
+                window.location.href = '/reset-password';
+                return;
+            }
+
             if (session) {
                 syncWithBackend(session.access_token);
             } else {

@@ -48,7 +48,7 @@ const Login: React.FC<LoginProps> = ({ apiBase }) => {
                 if (signInError) throw signInError;
             } else if (mode === 'forgot') {
                 const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-                    redirectTo: `${window.location.origin}/reset-password`,
+                    redirectTo: `${window.location.origin.replace(/\/$/, '')}/reset-password`,
                 });
                 if (resetError) throw resetError;
                 setMessage('Password reset email sent');
