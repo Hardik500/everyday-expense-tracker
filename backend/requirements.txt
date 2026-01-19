@@ -33,3 +33,6 @@ httpx==0.28.1
 
 # Environment
 python-dotenv==1.0.1
+
+# Supabase SDK
+supabase==2.11.0

@@ -9,6 +9,7 @@ import AccountManager from "./components/AccountManager";
 import RulesManager from "./components/RulesManager";
 import CategoryManager from "./components/CategoryManager";
 import Login from "./components/Login";
+import ResetPassword from "./components/ResetPassword";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { fetchWithAuth } from "./utils/api";
 
@@ -235,6 +236,10 @@ function AppContent() {
   }
 
   if (!token) {
+    // Basic routing for reset-password
+    if (window.location.pathname === '/reset-password') {
+      return <ResetPassword />;
+    }
     return <Login apiBase={API_BASE} />;
   }
 

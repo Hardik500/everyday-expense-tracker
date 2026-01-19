@@ -1,4 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../utils/supabase';
+import { User as SupabaseUser } from '@supabase/supabase-js';
+
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 interface User {
     id: number;
@@ -11,7 +15,6 @@ interface AuthContextType {
     user: User | null;
     token: string | null;
     isLoading: boolean;
-    login: (token: string, user: User) => void;
     logout: () => void;
 }
 
@@ -22,26 +25,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        // Check for saved token and user on mount
-        const savedToken = localStorage.getItem('auth_token');
-        const savedUser = localStorage.getItem('auth_user');
-
-        if (savedToken && savedUser) {
-            setToken(savedToken);
-            setUser(JSON.parse(savedUser));
+    const syncWithBackend = async (supabaseToken: string) => {
+        try {
+            const resp = await fetch(`${API_BASE}/auth/me`, {
+                headers: {
+                    'Authorization': `Bearer ${supabaseToken}`
+                }
+            });
+            if (resp.ok) {
+                const userData = await resp.json();
+                setUser(userData);
+                setToken(supabaseToken);
+                localStorage.setItem('auth_token', supabaseToken);
+                localStorage.setItem('auth_user', JSON.stringify(userData));
+            } else if (resp.status === 401) {
+                // Token invalid or user not linked yet
+                console.error('Backend sync failed: Unauthorized');
+                logout();
+            }
+        } catch (err) {
+            console.error('Error syncing with backend:', err);
         }
-        setIsLoading(false);
-    }, []);
-
-    const login = (newToken: string, newUser: User) => {
-        setToken(newToken);
-        setUser(newUser);
-        localStorage.setItem('auth_token', newToken);
-        localStorage.setItem('auth_user', JSON.stringify(newUser));
     };
 
-    const logout = () => {
+    useEffect(() => {
+        // 1. Check for initial session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+                syncWithBackend(session.access_token);
+            }
+            setIsLoading(false);
+        });
+
+        // 2. Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session) {
+                syncWithBackend(session.access_token);
+            } else {
+                setUser(null);
+                setToken(null);
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('auth_user');
+            }
+            setIsLoading(false);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const logout = async () => {
+        await supabase.auth.signOut();
         setToken(null);
         setUser(null);
         localStorage.removeItem('auth_token');
@@ -49,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
+        <AuthContext.Provider value={{ user, token, isLoading, logout }}>
             {children}
         </AuthContext.Provider>
     );
