@@ -8,12 +8,12 @@ from fastapi.security import OAuth2PasswordBearer
 from . import schemas
 from .db import get_conn
 
-import httpx
-import time
-
-# Legacy secret for local JWTs
+# Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-it-in-production")
 ALGORITHM = "HS256"
+
+import httpx
+import time
 
 # Supabase Auth Configuration
 # This MUST be the "JWT Secret" from Supabase Dashboard -> Settings -> API

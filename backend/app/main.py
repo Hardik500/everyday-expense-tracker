@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -819,7 +820,7 @@ def export_transactions(
     writer.writerow(["Date", "Account", "Description", "Amount", "Currency", "Category", "Subcategory"])
     for row in rows:
         writer.writerow([
-            row["posted_at"][:10],
+            str(row["posted_at"])[:10],
             row["account_name"] or "",
             row["description_raw"],
             row["amount"],
@@ -1351,8 +1352,8 @@ def report_stats(
         "top_categories": [{"name": r["name"], "total": r["total"]} for r in top_categories],
         "start_date": start_date,
         "end_date": end_date,
-        "data_min_date": date_bounds["min_date"][:10] if date_bounds["min_date"] else None,
-        "data_max_date": date_bounds["max_date"][:10] if date_bounds["max_date"] else None,
+        "data_min_date": str(date_bounds["min_date"])[:10] if date_bounds["min_date"] else None,
+        "data_max_date": str(date_bounds["max_date"])[:10] if date_bounds["max_date"] else None,
     }
     
 
@@ -1465,7 +1466,7 @@ def report_card_coverage(current_user: schemas.User = Depends(get_current_user))
 
                     month = p["posted_at"][:7]  # YYYY-MM
                     payment_obj = {
-                        "date": p["posted_at"][:10],
+                        "date": str(p["posted_at"])[:10],
                         "amount": abs(p["amount"]),
                         "description": p["description_norm"][:50]
                     }
