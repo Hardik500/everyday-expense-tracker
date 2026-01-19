@@ -235,7 +235,7 @@ function AppContent() {
     );
   }
 
-  if (!token) {
+  if (!token || !user) {
     // Basic routing for reset-password
     if (window.location.pathname === '/reset-password') {
       return <ResetPassword />;

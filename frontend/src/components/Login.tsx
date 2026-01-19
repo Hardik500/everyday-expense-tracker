@@ -54,7 +54,9 @@ const Login: React.FC<LoginProps> = ({ apiBase }) => {
                 setMessage('Password reset email sent');
             }
         } catch (err: any) {
-            setError(err.message);
+            // Handle Supabase error objects correctly
+            const msg = err.message || err.error_description || 'An unexpected error occurred';
+            setError(msg);
         } finally {
             setIsLoading(false);
         }

@@ -26,6 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoading, setIsLoading] = useState(true);
 
     const syncWithBackend = async (supabaseToken: string) => {
+        setIsLoading(true);
         try {
             const resp = await fetch(`${API_BASE}/auth/me`, {
                 headers: {
@@ -40,11 +41,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 localStorage.setItem('auth_user', JSON.stringify(userData));
             } else if (resp.status === 401) {
                 // Token invalid or user not linked yet
-                console.error('Backend sync failed: Unauthorized');
-                logout();
+                console.warn('Backend sync failed: Unauthorized. User may not be linked yet.');
+                // We don't force logout here because the Supabase session might still be valid
+                // and the user might just need to reload or wait for auto-linking.
+                // However, we clear the local user so we don't show stale data.
+                setUser(null);
             }
         } catch (err) {
             console.error('Error syncing with backend:', err);
+        } finally {
+            setIsLoading(false);
         }
     };
 
