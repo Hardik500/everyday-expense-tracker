@@ -1,8 +1,42 @@
 import json
 import os
 import google.generativeai as genai
-from typing import Optional
+from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta, date
+import io
+import pdfplumber
+from app.accounts.matcher import AccountMatcher
+
+def detect_statement_account(conn, file_name: str, content: bytes, user_id: int) -> Optional[dict]:
+    """
+    Detect which account a statement belongs to based on file content and metadata.
+    Returns the account dict if matched, else None.
+    """
+    ext = file_name.rsplit('.', 1)[-1].lower() if '.' in file_name else ""
+    
+    # Extract text based on file type
+    text = ""
+    if ext == "pdf":
+        try:
+            with pdfplumber.open(io.BytesIO(content)) as pdf:
+                for page in pdf.pages[:2]:  # Read first 2 pages
+                    text += (page.extract_text() or "") + "\n"
+        except Exception:
+            pass
+    else:
+        # Text-based files (csv, txt, etc.)
+        try:
+            text = content[:10000].decode('utf-8', errors='ignore')
+        except Exception:
+            pass
+            
+    matcher = AccountMatcher(conn, user_id=user_id)
+    matched_account = matcher.detect_account_from_text(text, file_name)
+    
+    if matched_account:
+        return matched_account
+        
+    return None
 
 
 def _to_datetime(val):

@@ -9,7 +9,7 @@ from app.ingest.pdf import ingest_pdf
 from app.ingest.xls import ingest_xls
 from app.rules.engine import apply_rules
 from app.linking import link_card_payments
-from app.accounts.discovery import detect_account
+from app.accounts.discovery import detect_statement_account
 
 def process_user_sync(conn, user):
     """Sync Gmail for a single user."""
@@ -66,8 +66,8 @@ def process_user_sync(conn, user):
                     print(f"Processing attachment: {filename}")
                     
                     # Detect which account this belongs to
-                    account_suggestion = detect_account(conn, filename, data, user_id=user_id)
-                    account_id = account_suggestion.get("account_id")
+                    matched_acc = detect_statement_account(conn, filename, data, user_id=user_id)
+                    account_id = matched_acc["id"] if matched_acc else None
                     
                     if not account_id:
                         print(f"Skipping {filename}: Could not determine account.")

@@ -35,15 +35,27 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup() -> None:
-    apply_migrations()
+    print(f"Server starting up... IS_POSTGRES={IS_POSTGRES}")
+    try:
+        apply_migrations()
+        print("Migrations applied successfully.")
+    except Exception as e:
+        print(f"FAILED to apply migrations: {e}")
+        raise
     
     # Start Gmail Worker in a background thread for production
-    if os.getenv("ENABLE_GMAIL_WORKER", "true").lower() == "true":
+    enable_worker = os.getenv("ENABLE_GMAIL_WORKER", "true").lower() == "true"
+    print(f"ENABLE_GMAIL_WORKER: {enable_worker}")
+    
+    if enable_worker:
         import threading
         from app.worker import run_worker
         print("Starting Gmail Sync Worker thread...")
         worker_thread = threading.Thread(target=run_worker, daemon=True)
         worker_thread.start()
+        print("Gmail Sync Worker thread started.")
+    
+    print("Application startup complete.")
 
 
 @app.get("/health")
@@ -561,34 +573,13 @@ def detect_account(
     current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
     """Detect which account a statement belongs to based on file content."""
-    import io
-    import pdfplumber
+    from app.accounts.discovery import detect_statement_account
     
     content = file.file.read()
     file_name = file.filename or ""
-    ext = file_name.rsplit('.', 1)[-1].lower() if '.' in file_name else ""
     
-    # Extract text based on file type
-    text = ""
-    if ext == "pdf":
-        try:
-            with pdfplumber.open(io.BytesIO(content)) as pdf:
-                for page in pdf.pages[:2]:  # Read first 2 pages
-                    text += (page.extract_text() or "") + "\n"
-        except Exception:
-            pass
-    else:
-        # Text-based files (csv, txt, etc.)
-        try:
-            text = content[:10000].decode('utf-8', errors='ignore')
-        except Exception:
-            pass
-    
-    # Detect account based on content
-    from app.accounts.matcher import AccountMatcher
     with get_conn() as conn:
-        matcher = AccountMatcher(conn, user_id=current_user.id)
-        matched_account = matcher.detect_account_from_text(text, file_name)
+        matched_account = detect_statement_account(conn, file_name, content, current_user.id)
         
     detected_account_name = None
     detected_profile = None
@@ -1402,7 +1393,7 @@ def report_card_coverage(current_user: schemas.User = Depends(get_current_user))
             (current_user.id, current_user.id)
         ).fetchall()
         for row in stmt_data:
-            first_stmt_months[row["account_id"]] = row["first_txn"][:7]
+            first_stmt_months[row["account_id"]] = str(row["first_txn"])[:7]
             
         # Helper to find the absolute start of an account chain
         def get_chain_start(acc_id):
@@ -1464,7 +1455,7 @@ def report_card_coverage(current_user: schemas.User = Depends(get_current_user))
                     if not matcher.is_payment_for_account(p["description_norm"], card_id):
                         continue
 
-                    month = p["posted_at"][:7]  # YYYY-MM
+                    month = str(p["posted_at"])[:7]  # YYYY-MM
                     payment_obj = {
                         "date": str(p["posted_at"])[:10],
                         "amount": abs(p["amount"]),
