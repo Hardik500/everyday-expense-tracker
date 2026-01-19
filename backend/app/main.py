@@ -41,61 +41,6 @@ def health() -> dict:
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
 
 
-@app.post("/auth/register", response_model=schemas.User)
-def register(user: schemas.UserCreate):
-    with get_conn() as conn:
-        # Check if username exists (case-insensitive)
-        existing = conn.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (user.username,)).fetchone()
-        if existing:
-            raise HTTPException(status_code=400, detail="Username already registered")
-        
-        hashed_password = get_password_hash(user.password)
-        cursor = conn.execute(
-            "INSERT INTO users (username, hashed_password, email, full_name) VALUES (?, ?, ?, ?)",
-            (user.username, hashed_password, user.email, user.full_name)
-        )
-        conn.commit()
-        user_id = cursor.lastrowid
-        
-        # Migration: If this is the first user, assign all standalone data to them
-        count = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()["cnt"]
-        if count == 1:
-            print(f"First user created ({user.username}). Migrating existing data...")
-            tables = [
-                'accounts', 'transactions', 'categories', 'subcategories', 
-                'rules', 'statements', 'ai_suggestions', 'transaction_links', 'mappings'
-            ]
-            for table in tables:
-                conn.execute(f"UPDATE {table} SET user_id = ? WHERE user_id IS NULL", (user_id,))
-            conn.commit()
-            print("Migration successful.")
-        else:
-            # Seed default categories and rules for NOT the first user
-            # (First user already has them from migration or had them globally)
-            from app.seed import seed_categories_and_rules
-            seed_categories_and_rules(conn, user_id)
-            conn.commit()
-
-        row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-    return schemas.User(**dict(row))
-
-
-@app.post("/auth/login", response_model=schemas.Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    with get_conn() as conn:
-        # Case-insensitive lookup
-        user_row = conn.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (form_data.username,)).fetchone()
-        if not user_row or not verify_password(form_data.password, user_row["hashed_password"]):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        
-        access_token = create_access_token(data={"sub": user_row["username"]})
-    return {"access_token": access_token, "token_type": "bearer"}
-
-
 @app.get("/auth/me", response_model=schemas.User)
 def get_me(current_user: schemas.User = Depends(get_current_user)):
     return current_user
