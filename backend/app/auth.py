@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from typing import Optional
-from jose import JWTError, jwt
+from jose import JWTError, jwt, jwk
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -94,24 +94,34 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
         if alg in ["ES256", "RS256"]:
             # Asymmetric verification using JWKS
-            project_url = os.getenv("SUPABASE_URL") # This is needed to know where to get keys
+            project_url = os.getenv("SUPABASE_URL")
             if project_url:
                 jwks = await get_supabase_jwks()
                 if jwks:
-                    payload = jwt.decode(
-                        token, 
-                        jwks, 
-                        algorithms=[alg], 
-                        options={"verify_aud": False}
-                    )
+                    # Find the specific key used to sign this token
+                    kid = header.get("kid")
+                    key_data = next((k for k in jwks.get('keys', []) if k.get('kid') == kid), None)
+                    if not key_data:
+                        print(f"Key with kid {kid} not found in JWKS, trying first key")
+                        key_data = jwks['keys'][0] if jwks.get('keys') else None
+                    
+                    if key_data:
+                        # Construct a public key object from JWKS data
+                        public_key = jwk.construct(key_data)
+                        payload = jwt.decode(
+                            token, 
+                            public_key, 
+                            algorithms=[alg], 
+                            options={"verify_aud": False}
+                        )
+                    else:
+                        print("JWKS is empty or missing 'keys'")
+                        raise credentials_exception
                 else:
-                    # If we can't get JWKS, we are stuck
-                    print("Could not fetch JWKS for asymmetric verification")
+                    print("Could not fetch JWKS from Supabase URL")
                     raise credentials_exception
             else:
-                print("SUPABASE_URL not set, cannot fetch JWKS")
-                # Maybe fallback to symmetric secret if that's what's actually intended?
-                # But alg says ES256, so secret won't work.
+                print("SUPABASE_URL not set in environment variables")
                 raise credentials_exception
         else:
             # Symmetric verification (HS256)
