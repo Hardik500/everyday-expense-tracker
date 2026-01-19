@@ -24,7 +24,14 @@ class AccountMatcher:
         ).fetchall()
         accounts = []
         for r in rows:
-            meta = json.loads(r["metadata"] or "{}")
+            # Handle both SQLite (string) and PostgreSQL (dict) metadata
+            raw_meta = r["metadata"]
+            if raw_meta is None:
+                meta = {}
+            elif isinstance(raw_meta, dict):
+                meta = raw_meta  # PostgreSQL JSONB returns as dict
+            else:
+                meta = json.loads(raw_meta)  # SQLite returns as string
             accounts.append({
                 "id": r["id"],
                 "name": r["name"],
@@ -32,6 +39,7 @@ class AccountMatcher:
                 "metadata": meta
             })
         return accounts
+
 
     def detect_account_from_text(self, text: str, file_name: str = "") -> Optional[Dict[str, Any]]:
         text_lower = text.lower()

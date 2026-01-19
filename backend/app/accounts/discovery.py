@@ -60,7 +60,15 @@ def refine_account_metadata(conn, account_id: int, user_id: int):
     if not acc:
         return
     
-    meta = json.loads(acc["metadata"] or "{}")
+    # Handle both SQLite (string) and PostgreSQL (dict) metadata
+    raw_meta = acc["metadata"]
+    if raw_meta is None:
+        meta = {}
+    elif isinstance(raw_meta, dict):
+        meta = raw_meta  # PostgreSQL JSONB returns as dict
+    else:
+        meta = json.loads(raw_meta)  # SQLite returns as string
+
     last_updated = meta.get("last_ai_update")
     if last_updated:
         last_dt = _to_datetime(last_updated)
