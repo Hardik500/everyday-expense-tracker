@@ -24,12 +24,15 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 app = FastAPI(title="Expense Tracker API")
 
+# Read CORS origins from environment variable
+cors_origins_str = os.getenv("CORS_ORIGINS", "https://www.everydayexpensetracker.online,https://everydayexpensetracker.online")
+cors_origins = [origin.strip() for origin in cors_origins_str.split(",")]
+
+print(f"CORS enabled for origins: {cors_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://www.everydayexpensetracker.online",
-        "https://everydayexpensetracker.online"
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
