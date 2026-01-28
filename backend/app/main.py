@@ -1037,7 +1037,7 @@ def bulk_update_transactions(
                 cursor = conn.execute(
                     """
                     INSERT INTO rules (name, pattern, category_id, subcategory_id, priority, active, user_id)
-                    VALUES (?, ?, ?, ?, 70, 1, ?)
+                    VALUES (?, ?, ?, ?, 70, TRUE, ?)
                     """,
                     (rule_name or f"User rule: {rule_pattern[:30]}", rule_pattern, category_id, subcategory_id, current_user.id),
                 )
