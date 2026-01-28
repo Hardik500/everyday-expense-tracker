@@ -10,7 +10,7 @@ def _load_rules(conn, user_id: int):
         SELECT id, name, pattern, category_id, subcategory_id, min_amount,
                max_amount, priority, account_type, merchant_contains
         FROM rules
-        WHERE active = 1 AND user_id = ?
+        WHERE active = TRUE AND user_id = ?
         ORDER BY priority DESC, id ASC
         """,
         (user_id,)
@@ -111,7 +111,7 @@ def apply_rules(
             conn.execute(
                 """
                 UPDATE transactions
-                SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+                SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
                 WHERE id = ?
                 """,
                 (mapping["category_id"], mapping["subcategory_id"], tx["id"]),
@@ -142,7 +142,7 @@ def apply_rules(
 
         if best:
             # Mark as certain if score is high enough
-            is_uncertain = 0 if best_score >= 50 else 1
+            is_uncertain = False if best_score >= 50 else True
             conn.execute(
                 """
                 UPDATE transactions

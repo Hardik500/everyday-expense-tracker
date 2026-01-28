@@ -568,7 +568,7 @@ def toggle_rule(
         existing = conn.execute("SELECT active FROM rules WHERE id = ? AND user_id = ?", (rule_id, current_user.id)).fetchone()
         if not existing:
             raise HTTPException(status_code=404, detail="Rule not found")
-        new_active = 0 if existing["active"] else 1
+        new_active = False if existing["active"] else True
         conn.execute("UPDATE rules SET active = ? WHERE id = ? AND user_id = ?", (new_active, rule_id, current_user.id))
         conn.commit()
     return {"rule_id": rule_id, "active": bool(new_active)}
@@ -755,7 +755,7 @@ def list_transactions(
         params.append(subcategory_id)
     if uncertain is not None:
         clauses.append("t.is_uncertain = ?")
-        params.append(1 if uncertain else 0)
+        params.append(True if uncertain else False)
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     query = f"""
@@ -862,7 +862,7 @@ def update_transaction(
         conn.execute(
             """
             UPDATE transactions
-            SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+            SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
             WHERE id = ? AND user_id = ?
             """,
             (payload.category_id, payload.subcategory_id, transaction_id, current_user.id),
@@ -986,7 +986,7 @@ def bulk_update_transactions(
             conn.execute(
                 f"""
                 UPDATE transactions
-                SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+                SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
                 WHERE description_norm LIKE ? AND user_id = ?
                 """,
                 (category_id, subcategory_id, search_pattern, current_user.id),
@@ -997,7 +997,7 @@ def bulk_update_transactions(
             conn.execute(
                 f"""
                 UPDATE transactions
-                SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+                SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
                 WHERE id IN ({placeholders}) AND user_id = ?
                 """,
                 [category_id, subcategory_id] + transaction_ids + [current_user.id],
@@ -1938,7 +1938,7 @@ def create_transaction_link(
             
             if transfers_cat and cc_payment_sub:
                 conn.execute(
-                    "UPDATE transactions SET category_id = ?, subcategory_id = ?, is_uncertain = 0 WHERE id IN (?, ?) AND user_id = ?",
+                    "UPDATE transactions SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE WHERE id IN (?, ?) AND user_id = ?",
                     (transfers_cat["id"], cc_payment_sub["id"], source_id, target_id, current_user.id),
                 )
         
@@ -1994,14 +1994,14 @@ def get_unlinked_payments(current_user: schemas.User = Depends(get_current_user)
               AND l.id IS NULL
               AND t.user_id = ?
               AND (
-                UPPER(t.description_raw) LIKE '%CREDIT CARD%'
-                OR UPPER(t.description_raw) LIKE '%CC %'
-                OR UPPER(t.description_raw) LIKE '%AUTOPAY%'
-                OR UPPER(t.description_raw) LIKE '%CARD BILL%'
-                OR UPPER(t.description_raw) LIKE '%HDFC CARD%'
-                OR UPPER(t.description_raw) LIKE '%ICICI CARD%'
-                OR UPPER(t.description_raw) LIKE '%SBI CARD%'
-                OR UPPER(t.description_raw) LIKE '%AMEX%'
+                UPPER(t.description_raw) LIKE '%%CREDIT CARD%%'
+                OR UPPER(t.description_raw) LIKE '%%CC %%'
+                OR UPPER(t.description_raw) LIKE '%%AUTOPAY%%'
+                OR UPPER(t.description_raw) LIKE '%%CARD BILL%%'
+                OR UPPER(t.description_raw) LIKE '%%HDFC CARD%%'
+                OR UPPER(t.description_raw) LIKE '%%ICICI CARD%%'
+                OR UPPER(t.description_raw) LIKE '%%SBI CARD%%'
+                OR UPPER(t.description_raw) LIKE '%%AMEX%%'
               )
             ORDER BY t.posted_at DESC
             LIMIT 50
@@ -2026,9 +2026,9 @@ def get_unlinked_payments(current_user: schemas.User = Depends(get_current_user)
               AND l.id IS NULL
               AND t.user_id = ?
               AND (
-                UPPER(t.description_raw) LIKE '%PAYMENT%'
-                OR UPPER(t.description_raw) LIKE '%THANK YOU%'
-                OR UPPER(t.description_raw) LIKE '%RECEIVED%'
+                UPPER(t.description_raw) LIKE '%%PAYMENT%%'
+                OR UPPER(t.description_raw) LIKE '%%THANK YOU%%'
+                OR UPPER(t.description_raw) LIKE '%%RECEIVED%%'
               )
             ORDER BY t.posted_at DESC
             LIMIT 50
@@ -2254,7 +2254,7 @@ def ai_categorize_transactions(
                             conn.execute(
                                 """
                                 UPDATE transactions
-                                SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+                                SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
                                 WHERE id = ?
                                 """,
                                 (cat_id, subcat_id, tx["id"]),
@@ -2287,7 +2287,7 @@ def ai_categorize_transactions(
             rules_created = 0
             if not dry_run:
                 new_rules = conn.execute(
-                    "SELECT COUNT(*) as cnt FROM rules WHERE name LIKE 'AI:%'"
+                    "SELECT COUNT(*) as cnt FROM rules WHERE name LIKE 'AI:%%'"
                 ).fetchone()
                 rules_created = new_rules["cnt"] if new_rules else 0
                 
@@ -2368,7 +2368,7 @@ def ai_categorize_single(transaction_id: int) -> dict:
         conn.execute(
             """
             UPDATE transactions
-            SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+            SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
             WHERE id = ?
             """,
             (cat_id, subcat_id, transaction_id),
@@ -2389,7 +2389,7 @@ def ai_categorize_single(transaction_id: int) -> dict:
             cursor = conn.execute(
                 """
                 UPDATE transactions
-                SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+                SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
                 WHERE id != ? 
                   AND description_norm LIKE ?
                   AND is_uncertain = TRUE
@@ -2424,7 +2424,7 @@ def get_ai_rules() -> List[dict]:
             FROM rules r
             LEFT JOIN categories c ON c.id = r.category_id
             LEFT JOIN subcategories s ON s.id = r.subcategory_id
-            WHERE r.name LIKE 'AI:%'
+            WHERE r.name LIKE 'AI:%%'
             ORDER BY r.id DESC
             """
         ).fetchall()
@@ -2497,7 +2497,7 @@ def approve_ai_suggestion(suggestion_id: int) -> dict:
         conn.execute(
             """
             UPDATE transactions
-            SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+            SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
             WHERE id = ?
             """,
             (category_id, subcategory_id, suggestion["transaction_id"])
@@ -2510,8 +2510,9 @@ def approve_ai_suggestion(suggestion_id: int) -> dict:
                 re.compile(suggestion["regex_pattern"])
                 conn.execute(
                     """
-                    INSERT OR IGNORE INTO rules (name, pattern, category_id, subcategory_id, priority, active)
-                    VALUES (?, ?, ?, ?, 55, 1)
+                    INSERT INTO rules (name, pattern, category_id, subcategory_id, priority, active)
+                    VALUES (?, ?, ?, ?, 55, TRUE)
+                    ON CONFLICT DO NOTHING
                     """,
                     (
                         f"AI: {suggestion['suggested_category']} - {suggestion['suggested_subcategory'][:20]}",
@@ -2620,7 +2621,7 @@ def approve_all_suggestions() -> dict:
                 conn.execute(
                     """
                     UPDATE transactions
-                    SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+                    SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
                     WHERE id = ?
                     """,
                     (category_id, subcategory_id, suggestion["transaction_id"])
@@ -2648,9 +2649,10 @@ def ignore_transfer(source_id: int, target_id: int) -> dict:
     with get_conn() as conn:
         conn.execute(
             """
-            INSERT OR IGNORE INTO transaction_links
+            INSERT INTO transaction_links
             (source_transaction_id, target_transaction_id, link_type)
             VALUES (?, ?, 'ignored')
+            ON CONFLICT DO NOTHING
             """,
             (source_id, target_id),
         )

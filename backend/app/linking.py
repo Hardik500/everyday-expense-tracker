@@ -23,36 +23,75 @@ def _to_datetime(val):
 
 def link_card_payments(conn, account_id: Optional[int] = None, user_id: Optional[int] = None) -> None:
     """Link credit card bill payments from bank to card accounts."""
-    clauses = []
-    params = []
-    if account_id is not None:
-        clauses.append("t.account_id = ?")
-        params.append(account_id)
+    
+    # Bank payments query - only filter by user, not account_id
     if user_id is not None:
-        clauses.append("t.user_id = ?")
-        params.append(user_id)
-    where = f"AND {' AND '.join(clauses)}" if clauses else ""
+        bank_payments = conn.execute(
+            """
+            SELECT t.id, t.posted_at, t.amount, t.description_norm
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            WHERE a.type = 'bank'
+              AND t.description_norm LIKE '%%CARD%%PAYMENT%%'
+              AND t.user_id = ?
+            """,
+            (user_id,),
+        ).fetchall()
+    else:
+        bank_payments = conn.execute(
+            """
+            SELECT t.id, t.posted_at, t.amount, t.description_norm
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            WHERE a.type = 'bank'
+              AND t.description_norm LIKE '%%CARD%%PAYMENT%%'
+            """
+        ).fetchall()
 
-    bank_payments = conn.execute(
-        f"""
-        SELECT t.id, t.posted_at, t.amount, t.description_norm
-        FROM transactions t
-        JOIN accounts a ON a.id = t.account_id
-        WHERE a.type = 'bank'
-          AND t.description_norm LIKE '%CARD%PAYMENT%'
-          {where}
-        """,
-        params,
-    ).fetchall()
-
-    card_transactions = conn.execute(
-        """
-        SELECT t.id, t.posted_at, t.amount
-        FROM transactions t
-        JOIN accounts a ON a.id = t.account_id
-        WHERE a.type = 'card'
-        """ + (f" AND t.user_id = {user_id}" if user_id is not None else "")
-    ).fetchall()
+    # Card transactions query - filter by both account_id and user_id if provided
+    if account_id is not None and user_id is not None:
+        card_transactions = conn.execute(
+            """
+            SELECT t.id, t.posted_at, t.amount
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            WHERE a.type = 'card'
+              AND t.account_id = ?
+              AND t.user_id = ?
+            """,
+            (account_id, user_id),
+        ).fetchall()
+    elif account_id is not None:
+        card_transactions = conn.execute(
+            """
+            SELECT t.id, t.posted_at, t.amount
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            WHERE a.type = 'card'
+              AND t.account_id = ?
+            """,
+            (account_id,),
+        ).fetchall()
+    elif user_id is not None:
+        card_transactions = conn.execute(
+            """
+            SELECT t.id, t.posted_at, t.amount
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            WHERE a.type = 'card'
+              AND t.user_id = ?
+            """,
+            (user_id,),
+        ).fetchall()
+    else:
+        card_transactions = conn.execute(
+            """
+            SELECT t.id, t.posted_at, t.amount
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            WHERE a.type = 'card'
+            """
+        ).fetchall()
 
     for payment in bank_payments:
         payment_date = _to_datetime(payment["posted_at"])
@@ -67,9 +106,10 @@ def link_card_payments(conn, account_id: Optional[int] = None, user_id: Optional
         for match in matches:
             conn.execute(
                 """
-                INSERT OR IGNORE INTO transaction_links
+                INSERT INTO transaction_links
                 (source_transaction_id, target_transaction_id, link_type)
                 VALUES (?, ?, 'card_payment')
+                ON CONFLICT DO NOTHING
                 """,
                 (payment["id"], match["id"]),
             )
@@ -224,7 +264,7 @@ def auto_categorize_linked_transfers(conn, user_id: Optional[int] = None) -> int
         return 0
     
     cc_payment_sub = conn.execute(
-        "SELECT id FROM subcategories WHERE category_id = ? AND name LIKE '%Credit Card%'" + user_clause,
+        "SELECT id FROM subcategories WHERE category_id = ? AND name LIKE '%%Credit Card%%'" + user_clause,
         [transfers_cat["id"]] + user_params
     ).fetchone()
     
@@ -234,7 +274,7 @@ def auto_categorize_linked_transfers(conn, user_id: Optional[int] = None) -> int
     result = conn.execute(
         f"""
         UPDATE transactions
-        SET category_id = ?, subcategory_id = ?, is_uncertain = 0
+        SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
         WHERE id IN (
             SELECT source_transaction_id FROM transaction_links WHERE link_type != 'ignored'
             UNION

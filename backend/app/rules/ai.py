@@ -203,7 +203,7 @@ def ai_classify(
             else:
                 # Try to find first subcategory in this category, or use "Other"
                 subcategory = conn.execute(
-                    "SELECT id FROM subcategories WHERE category_id = ? AND name LIKE '%Other%' AND user_id = ? LIMIT 1",
+                    "SELECT id FROM subcategories WHERE category_id = ? AND name LIKE '%%Other%%' AND user_id = ? LIMIT 1",
                     (category["id"], user_id)
                 ).fetchone()
                 if not subcategory:
