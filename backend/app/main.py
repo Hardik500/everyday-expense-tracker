@@ -1202,8 +1202,8 @@ def report_timeseries(
         date_format = "%Y-%m"
         date_trunc = "TO_CHAR(t.posted_at, 'YYYY-MM')" if IS_POSTGRES else "substr(t.posted_at, 1, 7)"
     elif granularity == "week":
-        date_format = "%Y-%W"
-        date_trunc = "TO_CHAR(t.posted_at, 'IYYY-IW')" if IS_POSTGRES else "strftime('%Y-%W', t.posted_at)"
+        date_format = "%Y-%m-%d"
+        date_trunc = "TO_CHAR(DATE_TRUNC('week', t.posted_at), 'YYYY-MM-DD')" if IS_POSTGRES else "date(t.posted_at, 'weekday 0', '-6 days')"
     else:  # day
         date_format = "%Y-%m-%d"
         date_trunc = "CAST(t.posted_at AS DATE)" if IS_POSTGRES else "date(t.posted_at)"
