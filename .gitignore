@@ -52,3 +52,11 @@ htmlcov/
 
 # Statements
 statements/
+# Supabase local development
+.branches/
+supabase/.branches/
+supabase/.temp/
+supabase/functions/.vscode/
+
+# Development logs
+logs/
