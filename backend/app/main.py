@@ -1218,8 +1218,8 @@ def report_timeseries(
     query = f"""
         SELECT 
             {date_trunc} as period,
-            SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as expenses,
-            SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as income,
+            CAST(SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) AS FLOAT) as expenses,
+            CAST(SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) AS FLOAT) as income,
             COUNT(*) as transaction_count
         FROM transactions t
         LEFT JOIN categories c ON c.id = t.category_id
