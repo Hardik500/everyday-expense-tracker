@@ -95,8 +95,8 @@ def link_card_payments(conn, account_id: Optional[int] = None, user_id: Optional
 
     for payment in bank_payments:
         payment_date = _to_datetime(payment["posted_at"])
-        window_start = (payment_date - timedelta(days=5)).date().isoformat()
-        window_end = (payment_date + timedelta(days=5)).date().isoformat()
+        window_start = (payment_date - timedelta(days=5)).date()
+        window_end = (payment_date + timedelta(days=5)).date()
         matches = [
             tx
             for tx in card_transactions

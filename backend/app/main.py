@@ -930,10 +930,11 @@ def find_similar_transactions(
             search_pattern = f"%{display_pattern}%"
         
         # Get total count of matches
-        total_count = conn.execute(
-            "SELECT COUNT(*) FROM transactions WHERE description_norm LIKE ? AND user_id = ?",
+        row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM transactions WHERE description_norm LIKE ? AND user_id = ?",
             (search_pattern, current_user.id),
-        ).fetchone()[0]
+        ).fetchone()
+        total_count = row["cnt"] if row else 0
         
         similar = conn.execute(
             """
