@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { fetchWithAuth } from "./utils/api";
 import Profile from "./components/Profile";
 import GoogleCallback from "./components/GoogleCallback";
+import { CategoriesProvider, useCategories } from "./contexts/CategoriesContext";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -75,8 +76,7 @@ function AppContent() {
     return validTabs.includes(tab) ? tab : "dashboard";
   };
 
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const { categories, subcategories, refreshCategories } = useCategories();
   const [refreshKey, setRefreshKey] = useState(0);
   const [tabResetKey, setTabResetKey] = useState(0);
   const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);
@@ -126,19 +126,6 @@ function AppContent() {
     setActiveTab("transactions");
   };
 
-  useEffect(() => {
-    if (!token) return;
-    fetchWithAuth(`${API_BASE}/categories`)
-      .then((res) => res.json())
-      .then((data) => {
-        setCategories(data.categories || []);
-        setSubcategories(data.subcategories || []);
-      })
-      .catch(() => {
-        setCategories([]);
-        setSubcategories([]);
-      });
-  }, [refreshKey]);
 
   useEffect(() => {
     if (!token) return;
@@ -474,7 +461,10 @@ function AppContent() {
               key={`categories-${tabResetKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
-              onRefresh={() => setRefreshKey((k) => k + 1)}
+              onRefresh={() => {
+                setRefreshKey((k) => k + 1);
+                refreshCategories();
+              }}
               onViewTransactions={handleTransactionsFilter}
             />
           )}
@@ -538,7 +528,9 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <CategoriesProvider>
+        <AppContent />
+      </CategoriesProvider>
     </AuthProvider>
   );
 }
