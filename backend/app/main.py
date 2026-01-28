@@ -870,9 +870,13 @@ def update_transaction(
         if payload.create_mapping and payload.category_id:
             conn.execute(
                 """
-                INSERT OR REPLACE INTO mappings
+                INSERT INTO mappings
                 (description_norm, category_id, subcategory_id, user_id)
                 VALUES (?, ?, ?, ?)
+                ON CONFLICT (description_norm, user_id)
+                DO UPDATE SET 
+                    category_id = EXCLUDED.category_id,
+                    subcategory_id = EXCLUDED.subcategory_id
                 """,
                 (
                     tx["description_norm"],
@@ -984,7 +988,7 @@ def bulk_update_transactions(
             if "%" not in rule_pattern and "_" not in rule_pattern:
                 search_pattern = f"%{rule_pattern}%"
                 
-            conn.execute(
+            cursor = conn.execute(
                 f"""
                 UPDATE transactions
                 SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
@@ -992,10 +996,11 @@ def bulk_update_transactions(
                 """,
                 (category_id, subcategory_id, search_pattern, current_user.id),
             )
+            updated_count = cursor.rowcount
         else:
             # Update only specified transactions belonging to the user
             placeholders = ",".join("?" * len(transaction_ids))
-            conn.execute(
+            cursor = conn.execute(
                 f"""
                 UPDATE transactions
                 SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
@@ -1003,8 +1008,9 @@ def bulk_update_transactions(
                 """,
                 [category_id, subcategory_id] + transaction_ids + [current_user.id],
             )
+            updated_count = cursor.rowcount
         
-        updated_count = conn.execute("SELECT changes()").fetchone()[0]
+        # updated_count set above via cursor.rowcount
         
         # Optionally create or update a rule for future transactions
         rule_id = None
