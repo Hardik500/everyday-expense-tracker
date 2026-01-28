@@ -90,7 +90,7 @@ def apply_rules(
         SELECT t.id, t.description_norm, t.amount, t.account_id, a.type as account_type
         FROM transactions t
         JOIN accounts a ON a.id = t.account_id
-        WHERE t.is_uncertain = 1 {where}
+        WHERE t.is_uncertain = TRUE {where}
         """,
         params,
     ).fetchall()

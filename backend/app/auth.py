@@ -90,7 +90,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         # Debug: Log the unverified header to see what algorithm is being used
         header = jwt.get_unverified_header(token)
         alg = header.get("alg")
-        print(f"Token Header: {header}")
 
         if alg in ["ES256", "RS256"]:
             # Asymmetric verification using JWKS

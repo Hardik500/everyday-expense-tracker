@@ -19,6 +19,7 @@ from app.linking import link_card_payments
 from app.rules.engine import apply_rules, find_matching_rule
 from app.seed import seed_categories_and_rules, seed_statements_from_dir
 from app.auth import get_current_user, get_password_hash, verify_password, create_access_token
+from app.accounts.matcher import AccountMatcher
 from app import gmail
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -624,7 +625,12 @@ def detect_account(
     if not detected_account_id:
         with get_conn() as conn:
             matcher = AccountMatcher(conn, user_id=current_user.id)
-            suggestion = matcher.suggest_account_details(text, file_name)
+            # Decode bytes to string for matching
+            try:
+                content_str = content.decode('utf-8', errors='ignore')
+            except:
+                content_str = ""
+            suggestion = matcher.suggest_account_details(content_str, file_name)
             if suggestion:
                 suggested_name = suggestion["name"]
                 suggested_type = suggestion["type"]
@@ -2190,7 +2196,7 @@ def ai_categorize_transactions(
                 """
                 SELECT t.id, t.description_norm, t.amount, t.description_raw
                 FROM transactions t
-                WHERE (t.category_id IS NULL OR t.is_uncertain = 1) AND t.user_id = ?
+                WHERE (t.category_id IS NULL OR t.is_uncertain = TRUE) AND t.user_id = ?
                 ORDER BY t.posted_at DESC
                 LIMIT ?
                 """,
@@ -2386,7 +2392,7 @@ def ai_categorize_single(transaction_id: int) -> dict:
                 SET category_id = ?, subcategory_id = ?, is_uncertain = 0
                 WHERE id != ? 
                   AND description_norm LIKE ?
-                  AND is_uncertain = 1
+                  AND is_uncertain = TRUE
                 """,
                 (cat_id, subcat_id, transaction_id, f"%{pattern}%"),
             )
