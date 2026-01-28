@@ -5,6 +5,7 @@ from typing import Optional, Tuple, List
 import pdfplumber
 
 from app.ingest.normalize import compute_hash, normalize_description, parse_amount, parse_date
+from app.ingest.ai_parser import parse_with_gemini
 
 
 # Date patterns
@@ -53,6 +54,9 @@ def _detect_card_type(pdf) -> str:
         return "sbi"
     if "hdfc" in text_lower:
         return "hdfc"
+    # Added detection for Ixigo / AU Bank
+    if "ixigo" in text_lower or "au credit" in text_lower or "au bank" in text_lower or "aubl" in text_lower:
+        return "ixigo"
     
     return "generic"
 
@@ -230,6 +234,67 @@ def _parse_credit_card_line(line: str, card_type: str) -> Optional[Tuple[str, st
         return _parse_sbi_line(line)
 
 
+def _parse_ixigo_page(text: str) -> List[Tuple[str, str, float, bool]]:
+    """
+    Parse a page of Ixigo/AU Bank statement.
+    Format is multi-line:
+    Line 1: Description
+    Line 2: DD ₹AMOUNT
+    Line 3: Mon YY Dr/Cr [Points]
+    
+    Example:
+    MC DONALDS BENGALURU IN
+    12 ₹798.48
+    Jan 26 Dr 1015 RP
+    """
+    transactions = []
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    
+    i = 0
+    while i < len(lines) - 2:
+        # Check standard 3-line pattern first
+        line1 = lines[i]
+        line2 = lines[i+1]
+        line3 = lines[i+2]
+        
+        # Line 2 should match "DD ₹AMOUNT"
+        # strict check: start with digit, contains symbol/amount
+        line2_match = re.match(r"^(\d{1,2})\s+(?:₹|Rs\.?)\s*([0-9,]+\.\d{2})$", line2)
+        
+        # Line 3 should match "Mon YY Dr/Cr"
+        # Example: Jan 26 Dr
+        line3_match = re.match(r"^([A-Za-z]{3}\s+\d{2})\s+(Dr|Cr)(?:.*)?$", line3, re.IGNORECASE)
+        
+        if line2_match and line3_match:
+            day = line2_match.group(1)
+            amount_str = line2_match.group(2)
+            mon_year = line3_match.group(1)
+            drcr = line3_match.group(2).lower()
+            
+            # Reconstruct date: "12 Jan 26"
+            full_date_str = f"{day} {mon_year}"
+            
+            description = line1
+            amount = parse_amount(amount_str)
+            is_credit = drcr == "cr" or "cr" in drcr # Handle "cr" or "credit" if needed, usually just "Dr" or "Cr"
+            
+            # Convert date to DD/MM/YYYY
+            try:
+                from dateutil import parser as date_parser
+                parsed_date = date_parser.parse(full_date_str, dayfirst=True)
+                date_fmt = parsed_date.strftime("%d/%m/%Y")
+                transactions.append((date_fmt, description, amount, is_credit))
+                i += 3
+                continue
+            except Exception:
+                pass
+        
+        # Try finding the pattern starting at current line
+        i += 1
+        
+    return transactions
+
+
 def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes, user_id: int) -> Tuple[int, int]:
     inserted = 0
     skipped = 0
@@ -249,6 +314,70 @@ def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes, user_id
         
         for page in pdf.pages:
             text = page.extract_text() or ""
+            
+            # Special handling for Ixigo/AU which is multi-line
+            parsed_txs = []
+            if card_type == "ixigo":
+                parsed_txs = _parse_ixigo_page(text)
+            
+            # --- AI FALLBACK START ---
+            # If explicit parsing failed (empty list) AND card_type is generic/unknown,
+            # OR if we want to try AI for everything (optional),
+            # Let's try AI if we haven't found anything yet.
+            if not parsed_txs and card_type == "generic":
+                 print("Attempting AI parsing for generic statement...")
+                 parsed_txs = parse_with_gemini(text)
+                 if parsed_txs:
+                     print(f"AI found {len(parsed_txs)} transactions on page.")
+            # --- AI FALLBACK END ---
+
+            # If we used a page parser (Regex or AI), process results
+            if parsed_txs:
+                for date_str, description_raw, amount, is_credit in parsed_txs:
+                    posted_at = parse_date(date_str)
+                    if not posted_at:
+                        skipped += 1
+                        continue
+                    
+                    description_norm = normalize_description(description_raw)
+                    
+                    if is_credit:
+                        amount = abs(amount)
+                    else:
+                        amount = -abs(amount)
+                    
+                    tx_hash = compute_hash(posted_at, amount, description_norm, user_id=user_id)
+                    
+                    if tx_hash in seen_hashes:
+                        continue
+                    seen_hashes.add(tx_hash)
+                    
+                    try:
+                        conn.execute(
+                            """
+                            INSERT INTO transactions (
+                                account_id, statement_id, posted_at, amount, currency,
+                                description_raw, description_norm, hash, user_id
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                account_id,
+                                statement_id,
+                                posted_at,
+                                amount,
+                                "INR",
+                                description_raw,
+                                description_norm,
+                                tx_hash,
+                                user_id,
+                            ),
+                        )
+                        inserted += 1
+                    except Exception as e:
+                        skipped += 1
+                continue # Skip line loop for this page
+            
+            # Fallback to line-by-line for other types
             for line in text.splitlines():
                 line = line.strip()
                 if not line:
