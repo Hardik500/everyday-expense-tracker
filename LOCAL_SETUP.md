@@ -24,7 +24,7 @@ This guide helps you configure your local development environment to mirror prod
 
 Look at `backend/.env`:
 ```
-DATABASE_URL=postgresql://postgres.wljvvrwsgakfflflexbv:...@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres
+DATABASE_URL=postgresql://postgres.****.pooler.supabase.com:5432/postgres
 ```
 
 This means **local changes affect production data**. We should fix this!
