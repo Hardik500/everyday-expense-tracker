@@ -85,69 +85,78 @@ def apply_rules(
         params.append(statement_id)
     where = f"AND {' AND '.join(clauses)}" if clauses else ""
 
-    transactions = conn.execute(
-        f"""
-        SELECT t.id, t.description_norm, t.amount, t.account_id, a.type as account_type
-        FROM transactions t
-        JOIN accounts a ON a.id = t.account_id
-        WHERE t.is_uncertain = TRUE {where}
-        """,
-        params,
-    ).fetchall()
+    try:
+        transactions = conn.execute(
+            f"""
+            SELECT t.id, t.description_norm, t.amount, t.account_id, a.type as account_type
+            FROM transactions t
+            JOIN accounts a ON a.id = t.account_id
+            WHERE t.is_uncertain = TRUE {where}
+            """,
+            params,
+        ).fetchall()
+    except Exception as e:
+        print(f"Warning: Failed to fetch transactions for rule application: {e}")
+        return
 
     rules = _load_rules(conn, user_id)
 
     for tx in transactions:
-        # First check for existing mappings (user-created)
-        mapping = conn.execute(
-            """
-            SELECT category_id, subcategory_id
-            FROM mappings
-            WHERE description_norm = ? AND user_id = ?
-            """,
-            (tx["description_norm"], user_id),
-        ).fetchone()
-        if mapping:
-            conn.execute(
+        try:
+            # First check for existing mappings (user-created)
+            mapping = conn.execute(
                 """
-                UPDATE transactions
-                SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
-                WHERE id = ?
+                SELECT category_id, subcategory_id
+                FROM mappings
+                WHERE description_norm = ? AND user_id = ?
                 """,
-                (mapping["category_id"], mapping["subcategory_id"], tx["id"]),
-            )
-            continue
-
-        # Try to match against rules
-        best: Optional[Tuple[int, int]] = None
-        best_score = -1
-        for rule in rules:
-            if not _match_rule(rule, tx["description_norm"], tx["amount"], tx["account_type"]):
+                (tx["description_norm"], user_id),
+            ).fetchone()
+            if mapping:
+                conn.execute(
+                    """
+                    UPDATE transactions
+                    SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
+                    WHERE id = ?
+                    """,
+                    (mapping["category_id"], mapping["subcategory_id"], tx["id"]),
+                )
                 continue
-            score = _score_rule(rule, tx["description_norm"])
-            if score > best_score:
-                best_score = score
-                best = (rule["category_id"], rule["subcategory_id"])
 
-        if not best:
-            ai_match = ai_classify(
-                tx["description_norm"],
-                tx["amount"],
-                conn=conn,
-                user_id=user_id,
-            )
-            if ai_match:
-                best = ai_match
-                best_score = 55  # AI matches have medium confidence
+            # Try to match against rules
+            best: Optional[Tuple[int, int]] = None
+            best_score = -1
+            for rule in rules:
+                if not _match_rule(rule, tx["description_norm"], tx["amount"], tx["account_type"]):
+                    continue
+                score = _score_rule(rule, tx["description_norm"])
+                if score > best_score:
+                    best_score = score
+                    best = (rule["category_id"], rule["subcategory_id"])
 
-        if best:
-            # Mark as certain if score is high enough
-            is_uncertain = False if best_score >= 50 else True
-            conn.execute(
-                """
-                UPDATE transactions
-                SET category_id = ?, subcategory_id = ?, is_uncertain = ?
-                WHERE id = ?
-                """,
-                (best[0], best[1], is_uncertain, tx["id"]),
-            )
+            if not best:
+                ai_match = ai_classify(
+                    tx["description_norm"],
+                    tx["amount"],
+                    conn=conn,
+                    user_id=user_id,
+                )
+                if ai_match:
+                    best = ai_match
+                    best_score = 55  # AI matches have medium confidence
+
+            if best:
+                # Mark as certain if score is high enough
+                is_uncertain = False if best_score >= 50 else True
+                conn.execute(
+                    """
+                    UPDATE transactions
+                    SET category_id = ?, subcategory_id = ?, is_uncertain = ?
+                    WHERE id = ?
+                    """,
+                    (best[0], best[1], is_uncertain, tx["id"]),
+                )
+        except Exception as e:
+            print(f"Warning: Failed to apply rules to transaction {tx['id']}: {e}")
+            # Continue with next transaction, don't fail the entire batch
+            continue

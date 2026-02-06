@@ -706,8 +706,20 @@ def ingest_statement(
                 except Exception:
                     pass
 
-        apply_rules(conn, account_id=account_id, statement_id=statement_id, user_id=current_user.id)
-        link_card_payments(conn, account_id=account_id, user_id=current_user.id)
+        # Apply rules with error handling to prevent transaction failure
+        try:
+            apply_rules(conn, account_id=account_id, statement_id=statement_id, user_id=current_user.id)
+        except Exception as e:
+            print(f"Warning: apply_rules failed: {e}")
+            conn.rollback()
+
+        # Link card payments with error handling
+        try:
+            link_card_payments(conn, account_id=account_id, user_id=current_user.id)
+        except Exception as e:
+            print(f"Warning: link_card_payments failed: {e}")
+            conn.rollback()
+
         conn.commit()
 
     # Refine metadata in background (AI-driven discovery)
