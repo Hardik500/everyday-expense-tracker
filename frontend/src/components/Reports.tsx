@@ -147,23 +147,46 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
 
   if (items.length === 0) {
     return (
-      <div style={{ padding: "4rem 2rem", textAlign: "center", background: "var(--bg-card)", borderRadius: "var(--radius-lg)", border: "1px dashed var(--border-color)" }}>
-        <div style={{ width: 64, height: 64, background: "var(--accent-glow)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem", color: "var(--accent)" }}>
-          <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
+      <div style={{ display: "grid", gap: "1.5rem" }}>
+        {/* Month Selector - Always visible */}
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <Select
+            label="Period"
+            value={selectedMonth || ""}
+            onChange={(val) => setSelectedMonth(String(val))}
+            options={[
+              { value: "", label: "All Time" },
+              ...getMonthOptions()
+            ]}
+            style={{ minWidth: 200 }}
+          />
         </div>
-        <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem", color: "var(--text-primary)" }}>Welcome to Expense Tracker!</h2>
-        <p style={{ color: "var(--text-secondary)", marginBottom: "2rem", maxWidth: 400, margin: "0 auto 2rem", lineHeight: 1.5 }}>
-          It looks like you haven't imported any transactions yet. Start by uploading a bank statement to see your financial analytics.
-        </p>
-        <button
-          className="primary"
-          onClick={() => (window as any).showTab("upload")}
-          style={{ padding: "0.75rem 2rem", fontSize: "1rem" }}
-        >
-          Import Your First Statement
-        </button>
+
+        <div style={{ padding: "4rem 2rem", textAlign: "center", background: "var(--bg-card)", borderRadius: "var(--radius-lg)", border: "1px dashed var(--border-color)" }}>
+          <div style={{ width: 64, height: 64, background: "var(--accent-glow)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem", color: "var(--accent)" }}>
+            <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          </div>
+          <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem", color: "var(--text-primary)" }}>
+            {selectedMonth ? "No transactions in this period" : "Welcome to Expense Tracker!"}
+          </h2>
+          <p style={{ color: "var(--text-secondary)", marginBottom: "2rem", maxWidth: 400, margin: "0 auto 2rem", lineHeight: 1.5 }}>
+            {selectedMonth
+              ? "Try selecting a different month from the dropdown above, or view All Time to see your complete transaction history."
+              : "It looks like you haven't imported any transactions yet. Start by uploading a bank statement to see your financial analytics."
+            }
+          </p>
+          {!selectedMonth && (
+            <button
+              className="primary"
+              onClick={() => (window as any).showTab("upload")}
+              style={{ padding: "0.75rem 2rem", fontSize: "1rem" }}
+            >
+              Import Your First Statement
+            </button>
+          )}
+        </div>
       </div>
     );
   }
