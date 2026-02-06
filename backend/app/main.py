@@ -13,7 +13,7 @@ from app import schemas
 from app.db import apply_migrations, get_conn, IS_POSTGRES
 from app.ingest.csv import ingest_csv
 from app.ingest.ofx import ingest_ofx
-from app.ingest.pdf import ingest_pdf
+from app.ingest.pdf import ingest_pdf, ingest_text
 from app.ingest.xls import ingest_xls
 from app.linking import link_card_payments
 from app.rules.engine import apply_rules, find_matching_rule
@@ -684,8 +684,27 @@ def ingest_statement(
             )
         elif source == "pdf":
             inserted, skipped = ingest_pdf(conn, account_id, statement_id, content, user_id=current_user.id)
+        elif source == "txt":
+            # 1. Try Delimiter Parser (for structured text/CSV)
+            inserted, skipped = ingest_csv(
+                conn, account_id, statement_id, content, profile, user_id=current_user.id
+            )
+            # 2. Fallback to AI Parser (for unstructured text)
+            if inserted == 0:
+                print("Delimiter parser yielded 0 results - attempting AI text parsing...")
+                inserted, skipped = ingest_text(conn, account_id, statement_id, content, user_id=current_user.id)
         else:
-            inserted, skipped = ingest_ofx(conn, account_id, statement_id, content, user_id=current_user.id)
+            # "OFX/QFX" or Generic text source -> Try Delimiter First
+            inserted, skipped = ingest_csv(
+                conn, account_id, statement_id, content, profile, user_id=current_user.id
+            )
+            
+            # Fallback to OFX parser
+            if inserted == 0:
+                try:
+                    inserted, skipped = ingest_ofx(conn, account_id, statement_id, content, user_id=current_user.id)
+                except Exception:
+                    pass
 
         apply_rules(conn, account_id=account_id, statement_id=statement_id, user_id=current_user.id)
         link_card_payments(conn, account_id=account_id, user_id=current_user.id)
@@ -1233,9 +1252,47 @@ def report_timeseries(
     
     with get_conn() as conn:
         rows = conn.execute(query, params).fetchall()
+        
+    # Zero-fill missing periods
+    from dateutil.relativedelta import relativedelta
+    
+    data_map = {row['period']: dict(row) for row in rows}
+    filled_data = []
+    
+    curr = datetime.strptime(start_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+    
+    # Align start date to beginning of period
+    if granularity == "week":
+        curr = curr - timedelta(days=curr.weekday())
+    elif granularity == "month":
+        curr = curr.replace(day=1)
+        
+    while curr <= end:
+        if granularity == "month":
+            period_key = curr.strftime("%Y-%m")
+            next_step = relativedelta(months=1)
+        elif granularity == "week":
+            period_key = curr.strftime("%Y-%m-%d")
+            next_step = timedelta(weeks=1)
+        else:
+            period_key = curr.strftime("%Y-%m-%d")
+            next_step = timedelta(days=1)
+            
+        if period_key in data_map:
+            filled_data.append(data_map[period_key])
+        else:
+            filled_data.append({
+                "period": period_key,
+                "expenses": 0.0,
+                "income": 0.0,
+                "transaction_count": 0
+            })
+            
+        curr += next_step
     
     return {
-        "data": [dict(row) for row in rows],
+        "data": filled_data,
         "start_date": start_date,
         "end_date": end_date,
         "granularity": granularity,
