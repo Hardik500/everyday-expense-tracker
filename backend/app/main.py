@@ -1290,7 +1290,22 @@ def report_timeseries(
     # Zero-fill missing periods
     from dateutil.relativedelta import relativedelta
     
-    data_map = {row['period']: dict(row) for row in rows}
+    # Convert period to string for consistent key matching
+    data_map = {}
+    for row in rows:
+        period_val = row['period']
+        # Convert date/datetime objects to string
+        if hasattr(period_val, 'strftime'):
+            if granularity == "month":
+                period_key = period_val.strftime("%Y-%m") if hasattr(period_val, 'strftime') else str(period_val)[:7]
+            else:
+                period_key = period_val.strftime("%Y-%m-%d") if hasattr(period_val, 'strftime') else str(period_val)[:10]
+        else:
+            period_key = str(period_val)
+        data_map[period_key] = dict(row)
+        # Update the period in the dict to be a string too
+        data_map[period_key]['period'] = period_key
+    
     filled_data = []
     
     curr = datetime.strptime(start_date, "%Y-%m-%d")

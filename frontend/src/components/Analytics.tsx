@@ -324,11 +324,17 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
 
   // Auto-adjust granularity based on date range
   useEffect(() => {
-    if (dateRange === "7d") setGranularity("day");
-    else if (dateRange === "30d") setGranularity("day");
-    else if (dateRange === "90d") setGranularity("week");
-    else if (dateRange === "year" || dateRange === "all") setGranularity("month");
-  }, [dateRange]);
+    let targetGranularity: "day" | "week" | "month" = "month";
+
+    if (dateRange === "7d" || dateRange === "30d") targetGranularity = "day";
+    else if (dateRange === "90d") targetGranularity = "week";
+    else if (dateRange === "year" || dateRange === "all" || dateRange === "2yr" || dateRange === "3yr" || dateRange === "5yr") targetGranularity = "month";
+
+    // Only update if it actually changed to prevent double-render
+    if (targetGranularity !== granularity) {
+      setGranularity(targetGranularity);
+    }
+  }, [dateRange, granularity]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -791,8 +797,8 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
-                    <Bar dataKey="expenses" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="expenses" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                    <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} isAnimationActive={false} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
