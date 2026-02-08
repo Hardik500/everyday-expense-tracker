@@ -658,7 +658,8 @@ def process_page_text(
     # 4. AI FALLBACK
     # If no transactions were inserted by Regex/Page/Enhanced parsers, try AI.
     # This handles "generic" types AND cases where specific parsers failed (misclassification or format change)
-    if not parsed_txs and inserted == 0:
+    # NOTE: Skip AI for "generic" type as it's likely a bank statement that won't parse well with AI
+    if not parsed_txs and inserted == 0 and card_type != "generic":
         print("No transactions found by regex/enhanced - attempting AI parsing...")
         parsed_txs = parse_with_gemini(text)
         if parsed_txs:

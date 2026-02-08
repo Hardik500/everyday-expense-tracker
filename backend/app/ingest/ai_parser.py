@@ -16,6 +16,9 @@ def parse_with_gemini(text: str) -> List[Tuple[str, str, float, bool]]:
         print("Gemini API key not found. Skipping AI parsing.")
         return []
 
+    print(f"Sending to AI parser - text length: {len(text)} chars")
+    print(f"First 200 chars: {text[:200]!r}")
+
     # Limit text length to avoid token limits (though Gemini has large context, stay safe)
     # 100k chars is usually plenty for a statement page
     text_chunk = text[:100000]
@@ -95,4 +98,6 @@ def parse_with_gemini(text: str) -> List[Tuple[str, str, float, bool]]:
 
     except Exception as e:
         print(f"AI Parsing failed: {e}")
+        import traceback
+        traceback.print_exc()
         return []

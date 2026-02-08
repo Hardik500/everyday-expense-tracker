@@ -675,55 +675,62 @@ def ingest_statement(
         conn.commit()
 
         if source == "csv":
-            inserted, skipped = ingest_csv(
+            inserted, skipped, _ = ingest_csv(
                 conn, account_id, statement_id, content, profile, user_id=current_user.id
             )
         elif source == "xls":
-            inserted, skipped = ingest_xls(
+            inserted, skipped, _ = ingest_xls(
                 conn, account_id, statement_id, content, profile, user_id=current_user.id
             )
         elif source == "pdf":
             inserted, skipped = ingest_pdf(conn, account_id, statement_id, content, user_id=current_user.id)
         elif source == "txt":
             # 1. Try Delimiter Parser (for structured text/CSV)
-            inserted, skipped = ingest_csv(
+            print(f"Starting CSV parsing for txt file, file_name={file_name}, profile={profile}")
+            inserted, skipped, duplicates = ingest_csv(
                 conn, account_id, statement_id, content, profile, user_id=current_user.id
             )
+            print(f"CSV parsing completed: inserted={inserted}, skipped={skipped}, duplicates={duplicates}")
             # 2. Fallback to AI Parser (for unstructured text)
-            if inserted == 0:
-                print("Delimiter parser yielded 0 results - attempting AI text parsing...")
-                inserted, skipped = ingest_text(conn, account_id, statement_id, content, user_id=current_user.id)
+            # Only call AI if CSV returned 0 inserted AND 0 skipped AND 0 duplicates
+            # AND the file is not a bank statement (bank statements are detected as "generic"
+            # and will just timeout on AI parsing)
+            if inserted == 0 and skipped == 0 and duplicates == 0:
+                # Check if this is a bank statement by looking for bank indicators in content
+                text_lower = content.decode('utf-8', errors='ignore').lower()
+                is_bank_statement = any(ind in text_lower for ind in [
+                    'hdfc bank', 'icici bank', 'sbi bank', 'axis bank',
+                    'account branch', 'withdrawal amt', 'deposit amt',
+                    'closing balance'
+                ])
+
+                if not is_bank_statement:
+                    print("Delimiter parser yielded 0 results - attempting AI text parsing...")
+                    inserted, skipped = ingest_text(conn, account_id, statement_id, content, user_id=current_user.id)
+                else:
+                    print("Delimiter parser yielded 0 results - file appears to be a bank statement, skipping AI parsing")
         else:
             # "OFX/QFX" or Generic text source -> Try Delimiter First
-            inserted, skipped = ingest_csv(
+            inserted, skipped, _ = ingest_csv(
                 conn, account_id, statement_id, content, profile, user_id=current_user.id
             )
-            
+            print(f"CSV parsing completed: inserted={inserted}, skipped={skipped}")
+
             # Fallback to OFX parser
             if inserted == 0:
                 try:
-                    inserted, skipped = ingest_ofx(conn, account_id, statement_id, content, user_id=current_user.id)
+                    inserted, skipped, _ = ingest_ofx(conn, account_id, statement_id, content, user_id=current_user.id)
                 except Exception:
                     pass
 
-        # Apply rules with error handling to prevent transaction failure
-        try:
-            apply_rules(conn, account_id=account_id, statement_id=statement_id, user_id=current_user.id)
-        except Exception as e:
-            print(f"Warning: apply_rules failed: {e}")
-            conn.rollback()
-
-        # Link card payments with error handling
-        try:
-            link_card_payments(conn, account_id=account_id, user_id=current_user.id)
-        except Exception as e:
-            print(f"Warning: link_card_payments failed: {e}")
-            conn.rollback()
-
+        # Commit the transactions first so the API can return immediately
+        # This prevents the frontend from hanging while rules are being applied
         conn.commit()
 
-    # Refine metadata in background (AI-driven discovery)
-    background_tasks.add_task(background_refine_metadata, account_id, current_user.id)
+    # Apply rules in background (async) to avoid blocking the response
+    # Need a new connection since we're outside the with block
+    background_tasks.add_task(apply_rules_background, account_id, statement_id, current_user.id)
+    background_tasks.add_task(link_card_payments_background, account_id, current_user.id)
 
     return {
         "inserted": inserted,
@@ -732,10 +739,25 @@ def ingest_statement(
     }
 
 
-def background_refine_metadata(account_id: int, user_id: int):
-    from app.accounts.discovery import refine_account_metadata
-    with get_conn() as conn:
-        refine_account_metadata(conn, account_id, user_id)
+def apply_rules_background(account_id: int, statement_id: int, user_id: int):
+    """Background task to apply rules without blocking the API response."""
+    from app.rules.engine import apply_rules
+    try:
+        with get_conn() as conn:
+            apply_rules(conn, account_id=account_id, statement_id=statement_id, user_id=user_id)
+            conn.commit()
+    except Exception as e:
+        print(f"Warning: apply_rules failed: {e}")
+
+
+def link_card_payments_background(account_id: int, user_id: int):
+    """Background task to link card payments without blocking the API response."""
+    try:
+        with get_conn() as conn:
+            link_card_payments(conn, account_id=account_id, user_id=user_id)
+            conn.commit()
+    except Exception as e:
+        print(f"Warning: link_card_payments failed: {e}")
 
 
 from app.search import perform_ai_search

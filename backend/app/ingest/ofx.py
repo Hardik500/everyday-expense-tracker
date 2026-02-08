@@ -8,9 +8,10 @@ from app.ingest.normalize import compute_hash, normalize_amount, normalize_descr
 
 def ingest_ofx(
     conn, account_id: int, statement_id: int, payload: bytes, user_id: int
-) -> Tuple[int, int]:
+) -> Tuple[int, int, int]:
     inserted = 0
     skipped = 0
+    duplicates = 0
     ofx = OfxParser.parse(io.BytesIO(payload))
     currency = ofx.account.statement.currency or "INR"
     for tx in ofx.account.statement.transactions:
@@ -40,6 +41,10 @@ def ingest_ofx(
                 ),
             )
             inserted += 1
-        except Exception:
-            skipped += 1
-    return inserted, skipped
+        except Exception as e:
+            error_msg = str(e)
+            if "UNIQUE" in error_msg.upper() or "duplicate" in error_msg.lower():
+                duplicates += 1
+            else:
+                skipped += 1
+    return inserted, skipped, duplicates

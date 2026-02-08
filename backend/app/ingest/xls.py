@@ -13,6 +13,14 @@ from app.ingest.normalize import (
 from app.ingest.profiles import resolve_profile, detect_profile
 
 
+def _is_duplicate_error(e: Exception) -> bool:
+    """Check if exception is a duplicate/unique constraint violation."""
+    error_msg = str(e)
+    # SQLite uses "UNIQUE constraint failed"
+    # PostgreSQL uses "duplicate key value violates unique constraint"
+    return "UNIQUE" in error_msg.upper() or "duplicate" in error_msg.lower()
+
+
 def _find_header_row(df: pd.DataFrame) -> int:
     """
     Find the row containing column headers in a bank statement.
@@ -66,7 +74,7 @@ def ingest_xls(
     payload: bytes,
     profile: Optional[str],
     user_id: int,
-) -> Tuple[int, int]:
+) -> Tuple[int, int, int]:
     # First read without header to find the actual header row
     df_raw = pd.read_excel(io.BytesIO(payload), header=None)
     header_row = _find_header_row(df_raw)
@@ -165,7 +173,11 @@ def ingest_xls(
                 ),
             )
             inserted += 1
-        except Exception:
-            skipped += 1
-    
-    return inserted, skipped
+        except Exception as e:
+            if _is_duplicate_error(e):
+                print(f"  -> Duplicate transaction (hash already exists)")
+            else:
+                skipped += 1
+
+    # Return inserted, skipped, duplicates (duplicates not counted in skipped)
+    return inserted, skipped, 0  # Return 0 for duplicates as XLS parsing doesn't have same issue

@@ -104,8 +104,8 @@ PROFILE_DEFINITIONS: Dict[str, Dict[str, str]] = {
 COLUMN_ALIASES = {
     "date": ["date", "txn date", "transaction date", "posting date", "tran date", "value date"],
     "description": ["description", "narration", "particulars", "transaction details", "remarks", "transaction remarks", "transaction description"],
-    "debit": ["debit", "debit amount", "withdrawal", "withdrawal amt", "withdrawal amt.", "withdrawal amount", "dr"],
-    "credit": ["credit", "credit amount", "deposit", "deposit amt", "deposit amt.", "deposit amount", "cr"],
+    "debit": ["debit", "debit amount", "withdrawal", "withdrawal amt", "withdrawal amt.", "withdrawal amount", "dr", "drcr"],
+    "credit": ["credit", "credit amount", "deposit", "deposit amt", "deposit amt.", "deposit amount", "cr", "cr dr"],
     "amount": ["amount", "transaction amount", "amount (in rs.)", "amount(inr)"],
     "balance": ["balance", "closing balance", "running balance", "available balance"],
 }
@@ -138,14 +138,15 @@ def detect_profile(columns: list) -> Dict[str, str]:
     """
     columns_lower = [str(c).lower().strip() for c in columns]
     mapping = {}
-    
+
     for field, aliases in COLUMN_ALIASES.items():
         for alias in aliases:
             for i, col in enumerate(columns_lower):
                 if alias in col:
-                    mapping[field] = columns[i]  # Use original column name
+                    original_col = columns[i]
+                    mapping[field] = original_col  # Use original column name
                     break
             if field in mapping:
                 break
-    
+
     return mapping

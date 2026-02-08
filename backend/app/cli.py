@@ -33,11 +33,11 @@ def main() -> None:
         conn.commit()
 
         if args.source == "csv":
-            inserted, skipped = ingest_csv(
+            inserted, skipped, _ = ingest_csv(
                 conn, args.account_id, statement_id, payload, args.profile
             )
         elif args.source == "xls":
-            inserted, skipped = ingest_xls(
+            inserted, skipped, _ = ingest_xls(
                 conn, args.account_id, statement_id, payload, args.profile
             )
         elif args.source == "pdf":

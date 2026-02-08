@@ -79,10 +79,10 @@ def main():
             if f.suffix.lower() == '.pdf':
                 inserted, skipped = ingest_pdf(conn, account_id, statement_id, content)
             elif f.suffix.lower() == '.csv':
-                inserted, skipped = ingest_csv(conn, account_id, statement_id, content, profile='generic')
+                inserted, skipped, _ = ingest_csv(conn, account_id, statement_id, content, profile='generic')
             elif f.suffix.lower() == '.txt':
                 # HDFC savings account TXT statements
-                inserted, skipped = ingest_csv(conn, account_id, statement_id, content, profile='hdfc_txt')
+                inserted, skipped, _ = ingest_csv(conn, account_id, statement_id, content, profile='hdfc_txt')
             else:
                 print(f"Format not supported for auto-import: {f.suffix}")
                 continue

@@ -93,13 +93,13 @@ def process_user_sync(conn, user):
                     
                     inserted, skipped = 0, 0
                     if source == "csv":
-                        inserted, skipped = ingest_csv(conn, account_id, statement_id, data, user_id=user_id)
+                        inserted, skipped, _ = ingest_csv(conn, account_id, statement_id, data, user_id=user_id)
                     elif source == "xls":
-                        inserted, skipped = ingest_xls(conn, account_id, statement_id, data, user_id=user_id)
+                        inserted, skipped, _ = ingest_xls(conn, account_id, statement_id, data, user_id=user_id)
                     elif source == "pdf":
                         inserted, skipped = ingest_pdf(conn, account_id, statement_id, data, user_id=user_id)
                     elif source == "ofx":
-                        inserted, skipped = ingest_ofx(conn, account_id, statement_id, data, user_id=user_id)
+                        inserted, skipped, _ = ingest_ofx(conn, account_id, statement_id, data, user_id=user_id)
                         
                     if inserted > 0:
                         print(f"Successfully ingested {inserted} transactions from {filename}")

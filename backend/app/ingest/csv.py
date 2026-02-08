@@ -7,6 +7,14 @@ from app.ingest.normalize import compute_hash, normalize_amount, normalize_descr
 from app.ingest.profiles import resolve_profile, detect_profile
 
 
+def _is_duplicate_error(e: Exception) -> bool:
+    """Check if exception is a duplicate/unique constraint violation."""
+    error_msg = str(e)
+    # SQLite uses "UNIQUE constraint failed"
+    # PostgreSQL uses "duplicate key value violates unique constraint"
+    return "UNIQUE" in error_msg.upper() or "duplicate" in error_msg.lower()
+
+
 def _detect_delimiter(content: str) -> str:
     """Detect delimiter using csv.Sniffer or fallback."""
     try:
@@ -27,22 +35,48 @@ def _detect_delimiter(content: str) -> str:
 
 def _find_header_index(lines: List[str], delimiter: str) -> int:
     """Find the index of the header row based on common keywords."""
-    for i, line in enumerate(lines[:30]): # Check first 30 lines
+    # Check first 50 lines for header (increased from 30 for statements with longer preambles)
+    for i, line in enumerate(lines[:50]):  # Changed from 30 to 50
         # Split by delimiter
         if delimiter not in line:
             continue
-            
+
         parts = [p.strip().lower() for p in line.split(delimiter)]
-        
+
         # Check for critical column names
         # Must have Date AND (Amount OR Debit OR Credit OR Description)
         has_date = any('date' in p for p in parts)
         has_money = any(x in p for p in parts for x in ['amount', 'debit', 'credit', 'bal', 'value'])
         has_desc = any(x in p for p in parts for x in ['desc', 'narration', 'particulars', 'remarks'])
-        
+
         if has_date and (has_money or has_desc):
+            print(f"Found header at line {i}: {line[:100]}...")
             return i
-            
+
+    # Fallback: if no header found with strict matching, try looser patterns
+    print("No strict header found, trying looser patterns...")
+    for i, line in enumerate(lines[:100]):  # Check first 100 lines with loose pattern
+        if delimiter not in line:
+            continue
+
+        parts = [p.strip().lower() for p in line.split(delimiter)]
+
+        # Loose pattern: look for individual keywords
+        # HDFC statements often have specific column names
+        loose_patterns = [
+            # Date must be present, and at least one other keyword
+            (['date'], ['amount', 'debit', 'credit', 'bal', 'value', 'narration', 'desc', 'particulars']),
+        ]
+
+        for date_keywords, other_keywords in loose_patterns:
+            has_date = any(any(d in p for d in date_keywords) for p in parts)
+            has_other = any(any(o in p for o in other_keywords) for p in parts)
+
+            if has_date and has_other:
+                print(f"Found header (loose match) at line {i}: {line[:100]}...")
+                return i
+
+    print("No header found in first 100 lines")
     return 0
 
 
@@ -225,6 +259,38 @@ def _parse_unstructured_csv_row(row_values: List[str]) -> Optional[Tuple[str, st
     return None
 
 
+def _validate_mapping(mapping: Dict[str, str], fieldnames: List[str]) -> bool:
+    """
+    Check if the mapping has column names that exist in the actual fieldnames.
+    Returns True if at least date and one amount field are found.
+    """
+    if not mapping.get('date'):
+        return False
+
+    # Check if the mapped date column exists in fieldnames (case-insensitive)
+    mapped_date = mapping['date']
+    fieldnames_lower = {f.lower().strip(): f for f in fieldnames}
+
+    # Check if the exact mapped column name exists
+    if mapped_date.lower() not in fieldnames_lower:
+        return False
+
+    # Verify amount columns exist
+    if mapping.get('debit') or mapping.get('credit'):
+        has_debit = mapping.get('debit', '').lower() in fieldnames_lower
+        has_credit = mapping.get('credit', '').lower() in fieldnames_lower
+        if not has_debit and not has_credit:
+            return False
+    elif not mapping.get('amount'):
+        return False
+    else:
+        # Check if amount column exists
+        if mapping.get('amount', '').lower() not in fieldnames_lower:
+            return False
+
+    return True
+
+
 def ingest_csv(
     conn,
     account_id: int,
@@ -238,19 +304,25 @@ def ingest_csv(
         decoded = payload.decode("utf-8")
     except UnicodeDecodeError:
         decoded = payload.decode("latin-1", errors="ignore")
-        
+
+    # Normalize line endings (handle \r\n, \r, \n)
+    decoded = decoded.replace("\r\n", "\n").replace("\r", "\n")
+
     delimiter = _detect_delimiter(decoded)
-    
+    print(f"Detected delimiter: '{delimiter}'")
+
     # Pre-process lines (skip empty)
     lines = [line.strip() for line in decoded.splitlines() if line.strip()]
-    
+    print(f"Total lines after stripping: {len(lines)}")
+
     # Locate header row using keywords (robust against preamble)
     header_idx = _find_header_index(lines, delimiter)
     if header_idx > 0:
         lines = lines[header_idx:]
+        print(f"Skipping {header_idx} preamble lines")
 
     if not lines:
-        return 0, 0
+        return 0, 0, 0
             
     # Parse
     # skipinitialspace=True is crucial for "Date ,Narration" type headers
@@ -258,46 +330,70 @@ def ingest_csv(
     raw_fieldnames = reader.fieldnames or []
     # FIX: Clean fieldnames to match row key cleaning
     fieldnames = [f.strip() for f in raw_fieldnames if f]
+    print(f"Parsed fieldnames: {fieldnames}")
     
     # Determine Mapping
     if profile:
         mapping = resolve_profile(profile)
+        # Verify the mapping has valid column names by checking against actual fieldnames
+        # If not, fall back to auto-detection
+        if not _validate_mapping(mapping, fieldnames):
+            print(f"Specified profile '{profile}' has columns that don't match CSV, trying auto-detection...")
+            mapping = _auto_map_columns(fieldnames)
     else:
         mapping = _auto_map_columns(fieldnames)
         
     # Check if we have minimum requirements
     if not mapping.get('date'):
         print(f"Auto-mapping failed: No date column found in {fieldnames}")
-        return 0, 0
-        
+        print(f"Auto-mapping result: {mapping}")
+        return 0, 0, 0
+
     if not (mapping.get('amount') or (mapping.get('debit') and mapping.get('credit'))):
         print(f"Auto-mapping failed: No amount/debit+credit columns found in {fieldnames}")
-        return 0, 0
+        print(f"Auto-mapping result: {mapping}")
+        return 0, 0, 0
+
+    print(f"Using mapping: {mapping}")
 
     inserted = 0
     skipped = 0
-    
-    for row in reader:
+    duplicates = 0
+    rows_processed = 0  # Track total rows that were attempted
+
+    print(f"Starting row parsing with mapping: {mapping}")
+
+    for i, row in enumerate(reader):
         # Clean row keys/values - this matches the stripped fieldnames
         row = {k.strip(): v for k, v in row.items() if k}
-        
+
+        # Debug: print first 5 rows
+        if i < 5:
+            print(f"Row {i}: {row}")
+
         # Extract Date
         date_col = mapping['date']
-        posted_at = parse_date(row.get(date_col))
+        date_val = row.get(date_col)
+        posted_at = parse_date(date_val)
         if not posted_at:
             skipped += 1
             continue
-            
+
         # Extract Description
         desc_col = mapping.get('description')
         description_raw = row.get(desc_col, "Transaction") if desc_col else "Transaction"
         description_norm = normalize_description(description_raw)
-        
+
         # Extract Amount
         amount = _get_amount(row, mapping)
+        print(f"  -> Amount: {amount}")
         if amount == 0:
+            print(f"  -> Skipped (amount is 0)")
             skipped += 1
             continue
+
+        # Track that we processed this row (regardless of insert success)
+        rows_processed += 1
 
         tx_hash = compute_hash(posted_at, amount, description_norm, user_id=user_id)
 
@@ -322,16 +418,22 @@ def ingest_csv(
                 ),
             )
             inserted += 1
-        except Exception:
-            skipped += 1
+        except Exception as e:
+            if _is_duplicate_error(e):
+                # Transaction already exists - track separately from parsing failures
+                duplicates += 1
+                print(f"  -> Duplicate transaction (hash already exists)")
+            else:
+                skipped += 1
 
     # Fallback: If no transactions inserted and auto-mapping failed,
     # try to parse raw data (unstructured CSV)
     if inserted == 0 and profile is None:
         print("Standard CSV parsing yielded 0 results - attempting raw data parsing...")
-        for line in lines:
+        print(f"Lines to parse (starting from index {header_idx + 1}): {len(lines)}")
+        for i, line in enumerate(lines):
             # Skip header-like lines
-            if header_idx > 0 and lines.index(line) <= header_idx:
+            if header_idx > 0 and i <= header_idx:
                 continue
 
             # Skip empty lines and lines that look like headers
@@ -345,6 +447,7 @@ def ingest_csv(
             if len(row_values) >= 2:
                 parsed = _parse_unstructured_csv_row(row_values)
                 if parsed:
+                    print(f"Parsed transaction: {parsed}")
                     date_str, description, amount, is_credit = parsed
 
                     if amount == 0:
@@ -374,10 +477,17 @@ def ingest_csv(
                             ),
                         )
                         inserted += 1
+                        print(f"Inserted: {description[:30]}... {amount}")
                     except Exception:
                         skipped += 1
 
         if inserted > 0:
             print(f"Raw data parsing found {inserted} transactions")
+        else:
+            print("Raw data parsing found no transactions")
 
-    return inserted, skipped
+    # Return inserted, skipped, duplicates
+    # - inserted: number of new transactions inserted
+    # - skipped: number of parsing failures (not duplicates)
+    # - duplicates: number of transactions that already existed (unique constraint violation)
+    return inserted, skipped, duplicates
