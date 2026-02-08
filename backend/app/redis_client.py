@@ -25,10 +25,11 @@ def get_redis_client() -> Optional[Redis]:
         return _redis_client
     
     # Check if Redis is configured
-    redis_url = os.getenv("REDIS_PUBLIC_URL") or os.getenv("REDIS_URL")  # Fallback for backward compatibility
+    redis_url = os.getenv("REDIS_URL")
     redis_host = os.getenv("REDIS_HOST")
     redis_port = os.getenv("REDIS_PORT", "6379")
     redis_password = os.getenv("REDIS_PASSWORD")
+
     
     if not redis_url and not redis_host:
         logger.warning("Redis not configured. Caching will be disabled.")
