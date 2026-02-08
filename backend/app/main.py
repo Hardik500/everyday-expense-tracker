@@ -21,6 +21,8 @@ from app.seed import seed_categories_and_rules, seed_statements_from_dir
 from app.auth import get_current_user, get_password_hash, verify_password, create_access_token
 from app.accounts.matcher import AccountMatcher
 from app import gmail
+from app.cache import cached
+from app.redis_client import invalidate_user_cache
 from fastapi.security import OAuth2PasswordRequestForm
 
 app = FastAPI(title="Expense Tracker API")
@@ -939,6 +941,10 @@ def update_transaction(
                 ),
             )
         conn.commit()
+    
+    # Invalidate user's report caches
+    invalidate_user_cache(current_user.id, "reports")
+    
     return {"status": "ok"}
 
 
@@ -1098,6 +1104,9 @@ def bulk_update_transactions(
         
         conn.commit()
         
+    # Invalidate user's report caches after bulk update
+    invalidate_user_cache(current_user.id, "reports")
+    
     return {
         "status": "ok",
         "updated_count": updated_count,
@@ -1106,7 +1115,8 @@ def bulk_update_transactions(
 
 
 @app.get("/reports/summary")
-def report_summary(
+@cached(ttl=180, key_prefix="reports")
+async def report_summary(
     start_date: Optional[str] = None, 
     end_date: Optional[str] = None,
     current_user: schemas.User = Depends(get_current_user)
@@ -1147,7 +1157,8 @@ def report_summary(
 
 
 @app.get("/reports/by-account")
-def report_by_account(
+@cached(ttl=300, key_prefix="reports")
+async def report_by_account(
     start_date: Optional[str] = None, 
     end_date: Optional[str] = None,
     current_user: schemas.User = Depends(get_current_user)
@@ -1233,7 +1244,8 @@ def report_by_account(
 
 
 @app.get("/reports/timeseries")
-def report_timeseries(
+@cached(ttl=300, key_prefix="reports")
+async def report_timeseries(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     granularity: str = "day",  # day, week, month
@@ -1399,7 +1411,8 @@ def report_category_trend(
 
 
 @app.get("/reports/stats")
-def report_stats(
+@cached(ttl=300, key_prefix="reports")
+async def report_stats(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     account_id: Optional[int] = None,
@@ -1749,7 +1762,8 @@ def report_card_coverage(current_user: schemas.User = Depends(get_current_user))
 
 
 @app.get("/reports/category/{category_id}")
-def report_category_detail(
+@cached(ttl=600, key_prefix="reports")
+async def report_category_detail(
     category_id: int,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,

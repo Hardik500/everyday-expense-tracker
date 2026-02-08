@@ -42,3 +42,7 @@ google-auth==2.47.0
 google-auth-oauthlib==1.2.1
 google-api-python-client==2.155.0
 google-auth-httplib2==0.2.0
+
+# Caching
+redis==5.0.1
+hiredis==2.3.2
