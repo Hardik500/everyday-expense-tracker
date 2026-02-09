@@ -472,7 +472,7 @@ def create_rule(
                 name, pattern, category_id, subcategory_id,
                 min_amount, max_amount, priority, account_type,
                 merchant_contains, active, user_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)
             """,
             (
                 payload.name,
@@ -1972,12 +1972,14 @@ def get_linkable_transactions(
         # - From different account types (bank vs credit card)
         
         amount = abs(tx["amount"])
-        min_amount = amount * 0.95
-        max_amount = amount * 1.05
+        # Use Decimal for calculations to avoid TypeError
+        from decimal import Decimal
+        min_amount = amount * Decimal("0.95")
+        max_amount = amount * Decimal("1.05")
         
         linkable = conn.execute(
             """
-            SELECT 
+            SELECT
                 t.id,
                 t.amount,
                 t.description_raw,
@@ -1993,13 +1995,13 @@ def get_linkable_transactions(
               AND t.user_id = ?
               AND t.amount * ? < 0  -- Opposite sign
               AND ABS(t.amount) BETWEEN ? AND ?  -- Similar amount
-              AND date(t.posted_at) BETWEEN date(?, '-7 days') AND date(?, '+7 days')  -- Within 7 days
+              AND t.posted_at BETWEEN ? - INTERVAL '7 days' AND ? + INTERVAL '7 days'  -- Within 7 days
               AND l1.id IS NULL AND l2.id IS NULL  -- Not already linked
               AND a.type != ?  -- Different account type
-            ORDER BY amount_diff ASC, ABS(julianday(t.posted_at) - julianday(?)) ASC
+            ORDER BY amount_diff ASC, ABS(t.posted_at - ?) ASC
             LIMIT 20
             """,
-            (amount, transaction_id, current_user.id, tx["amount"], min_amount, max_amount, 
+            (amount, transaction_id, current_user.id, tx["amount"], min_amount, max_amount,
              tx["posted_at"], tx["posted_at"], tx["account_type"], tx["posted_at"]),
         ).fetchall()
         
