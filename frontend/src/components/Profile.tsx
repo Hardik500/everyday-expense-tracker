@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { fetchWithAuth } from "../utils/api";
+import { PageLoading } from "./ui/Loading";
 
 type Props = {
     apiBase: string;
@@ -21,6 +22,10 @@ function Profile({ apiBase }: Props) {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
     const [filterQuery, setFilterQuery] = useState("");
+
+    // Username edit states
+    const [editingUsername, setEditingUsername] = useState(false);
+    const [newUsername, setNewUsername] = useState("");
 
     const fetchProfile = async () => {
         try {
@@ -73,6 +78,7 @@ function Profile({ apiBase }: Props) {
                 const data = await res.json();
                 setUser(data);
                 setSuccess("Settings updated successfully");
+                setTimeout(() => setSuccess(""), 3000);
             } else {
                 setError("Failed to update settings");
             }
@@ -83,7 +89,54 @@ function Profile({ apiBase }: Props) {
         }
     };
 
-    if (loading) return <div style={{ padding: 20, color: "var(--text-muted)" }}>Loading profile...</div>;
+    const handleStartEditUsername = () => {
+        setNewUsername(user?.username || "");
+        setEditingUsername(true);
+        setError("");
+        setSuccess("");
+    };
+
+    const handleCancelEditUsername = () => {
+        setEditingUsername(false);
+        setNewUsername("");
+        setError("");
+    };
+
+    const handleSaveUsername = async () => {
+        if (!newUsername.trim()) {
+            setError("Username cannot be empty");
+            return;
+        }
+
+        setSaving(true);
+        setError("");
+        setSuccess("");
+        try {
+            const res = await fetchWithAuth(`${apiBase}/user/profile`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: newUsername.trim() }),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setUser(data);
+                setSuccess("Username updated successfully");
+                setEditingUsername(false);
+                setNewUsername("");
+                setTimeout(() => setSuccess(""), 3000);
+            } else {
+                const data = await res.json();
+                setError(data.detail || "Failed to update username");
+            }
+        } catch (err) {
+            setError("Network error updating username");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) return <PageLoading text="Loading profile..." />;
 
     return (
         <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 20px" }}>
@@ -96,8 +149,65 @@ function Profile({ apiBase }: Props) {
             <section className="dashboard-card" style={{ marginBottom: 30 }}>
                 <h2>Account Information</h2>
                 <div style={{ marginTop: 20 }}>
-                    <p><strong>Username:</strong> {user?.username}</p>
-                    <p><strong>Email:</strong> {user?.email || "Not provided"}</p>
+                    <div style={{ marginBottom: 15 }}>
+                        <label style={{ display: "block", fontWeight: 500, marginBottom: 5, color: "var(--text-secondary)" }}>
+                            Username
+                        </label>
+                        {editingUsername ? (
+                            <div style={{ display: "flex", gap: 10, alignItems: "center", maxWidth: 400 }}>
+                                <input
+                                    type="text"
+                                    value={newUsername}
+                                    onChange={(e) => setNewUsername(e.target.value)}
+                                    placeholder="Enter new username"
+                                    className="input-field"
+                                    style={{ flex: 1 }}
+                                    autoFocus
+                                    onKeyDown={(e) => e.key === "Enter" && handleSaveUsername()}
+                                />
+                                <button
+                                    onClick={handleSaveUsername}
+                                    disabled={saving}
+                                    className="btn btn-primary"
+                                    style={{ padding: "8px 16px", fontSize: "0.875rem" }}
+                                >
+                                    {saving ? "Saving..." : "Save"}
+                                </button>
+                                <button
+                                    onClick={handleCancelEditUsername}
+                                    className="btn btn-secondary"
+                                    style={{ padding: "8px 16px", fontSize: "0.875rem" }}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        ) : (
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <span style={{ fontSize: "1rem", color: "var(--text)" }}>{user?.username}</span>
+                                <button
+                                    onClick={handleStartEditUsername}
+                                    style={{
+                                        background: "transparent",
+                                        border: "1px solid var(--border)",
+                                        color: "var(--text-muted)",
+                                        padding: "4px 10px",
+                                        borderRadius: 4,
+                                        cursor: "pointer",
+                                        fontSize: "0.75rem"
+                                    }}
+                                    title="Edit username"
+                                >
+                                    Edit
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    <div>
+                        <label style={{ display: "block", fontWeight: 500, marginBottom: 5, color: "var(--text-secondary)" }}>
+                            Email
+                        </label>
+                        <p style={{ color: "var(--text)" }}>{user?.email || "Not provided"}</p>
+                    </div>
                 </div>
             </section>
 
@@ -195,6 +305,87 @@ function Profile({ apiBase }: Props) {
             border-radius: 8px;
             color: var(--text);
             font-size: 1rem;
+            outline: none;
+        .input-field:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: none;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: var(--accent-hover);
+        }
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover {
+            background: var(--bg-card);
+            border-color: var(--accent);
+        }
+        .btn-danger {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+        }
+        .input-field:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: none;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: var(--accent-hover);
+        }
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover {
+            background: var(--bg-card);
+            border-color: var(--accent);
+        }
+        .btn-danger {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.1);
         }
         .success-message {
             background: rgba(34, 197, 94, 0.1);

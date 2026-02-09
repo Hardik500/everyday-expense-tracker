@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchWithAuth } from "../utils/api";
 import { createPortal } from "react-dom";
 import type { Category, Subcategory } from "../App";
+import { PageLoading } from "./ui/Loading";
 
 type Props = {
   apiBase: string;
@@ -380,11 +381,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
   };
 
   if (loading) {
-    return (
-      <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
-        <div style={{ fontSize: "1.5rem", color: "var(--text-muted)" }}>Loading...</div>
-      </div>
-    );
+    return <PageLoading text="Loading categories..." />;
   }
 
   const totalSubcategories = categories.reduce((sum, c) => sum + c.subcategories.length, 0);

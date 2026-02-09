@@ -15,6 +15,8 @@ import { fetchWithAuth } from "./utils/api";
 import Profile from "./components/Profile";
 import GoogleCallback from "./components/GoogleCallback";
 import { CategoriesProvider, useCategories } from "./contexts/CategoriesContext";
+import { PageLoading } from "./components/ui/Loading";
+import LandingPage from "./components/LandingPage";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -83,15 +85,16 @@ function AppContent() {
   const [reviewCount, setReviewCount] = useState(0);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
 
-  // Sync tab to URL
+  // Sync tab to URL - only when logged in
   useEffect(() => {
+    if (!token) return; // Don't sync URL when not logged in
+    
     const params = new URLSearchParams(window.location.search);
     if (params.get("tab") !== activeTab) {
       params.set("tab", activeTab);
       window.history.pushState({}, "", "?" + params.toString());
     }
-  }, [activeTab]);
-
+  }, [activeTab, token]);
   // Handle back/forward navigation
   useEffect(() => {
     const handlePopState = () => {
@@ -229,18 +232,24 @@ function AppContent() {
   ];
 
   if (isLoading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
-        <div className="spinner"></div>
-      </div>
-    );
+    return <PageLoading text="Authenticating..." />;
   }
 
   if (!token || !user) {
-    // Basic routing for reset-password
-    if (window.location.pathname === '/reset-password') {
+    // Show Landing Page on root URL, Login for login page or when explicitly accessing with tab
+    const params = new URLSearchParams(window.location.search);
+    const hasTab = params.get("tab");
+    const isRootUrl = window.location.pathname === "/" || window.location.pathname === "";
+    
+    if (window.location.pathname === "/reset-password") {
       return <ResetPassword />;
     }
+    
+    // Show landing page on root URL without tab parameter
+    if (isRootUrl && !hasTab) {
+      return <LandingPage />;
+    }
+    
     return <Login apiBase={API_BASE} />;
   }
 
@@ -419,7 +428,7 @@ function AppContent() {
         </header>
 
         {/* Tab content */}
-        <div className="animate-in">
+        <div className="page-transition">
           {activeTab === "dashboard" && (
             <Reports
               key={`dashboard-${tabResetKey}`}

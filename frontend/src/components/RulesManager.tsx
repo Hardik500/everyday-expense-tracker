@@ -4,6 +4,7 @@ import ReactDOM from "react-dom";
 import Select from "./ui/Select";
 import { Category, Subcategory } from "../App";
 import SubcategorySearch from "./SubcategorySearch";
+import { PageLoading } from "./ui/Loading";
 
 type Props = {
   apiBase: string;
@@ -163,11 +164,7 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
   };
 
   if (loading) {
-    return (
-      <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
-        <div style={{ fontSize: "1.5rem", color: "var(--text-muted)" }}>Loading rules...</div>
-      </div>
-    );
+    return <PageLoading text="Loading rules..." />;
   }
 
   return (

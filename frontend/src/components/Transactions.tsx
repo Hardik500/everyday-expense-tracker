@@ -5,6 +5,7 @@ import LinkTransactionModal from "./LinkTransactionModal";
 import EditTransactionModal from "./EditTransactionModal";
 import SubcategorySearch from "./SubcategorySearch";
 import Select from "./ui/Select";
+import { PageLoading } from "./ui/Loading";
 
 type Props = {
   apiBase: string;
@@ -597,11 +598,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       {/* Transactions Table */}
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         {loading ? (
-          <div style={{ padding: "3rem", textAlign: "center" }}>
-            <div className="loading" style={{ color: "var(--text-muted)" }}>
-              Loading transactions...
-            </div>
-          </div>
+          <PageLoading text="Loading transactions..." />
         ) : filteredTransactions.length === 0 ? (
           <div className="empty-state" style={{ padding: "3rem" }}>
             <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">

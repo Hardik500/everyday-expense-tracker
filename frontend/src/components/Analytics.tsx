@@ -20,6 +20,7 @@ import {
 import type { Category, Subcategory, Transaction as BaseTransaction } from "../App";
 import EditTransactionModal from "./EditTransactionModal";
 import Select from "./ui/Select";
+import { PageLoading } from "./ui/Loading";
 
 type Transaction = BaseTransaction & {
   subcategory_name?: string | null;
@@ -361,11 +362,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
   };
 
   if (loading && !stats) {
-    return (
-      <div className="card" style={{ padding: "3rem", textAlign: "center" }}>
-        <div className="loading" style={{ color: "var(--text-muted)" }}>Loading analytics...</div>
-      </div>
-    );
+    return <PageLoading text="Loading analytics..." />;
   }
 
   return (

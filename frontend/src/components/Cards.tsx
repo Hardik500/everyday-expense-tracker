@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchWithAuth } from "../utils/api";
+import { PageLoading } from "./ui/Loading";
 
 type Props = {
     apiBase: string;
@@ -129,11 +130,7 @@ function Cards({ apiBase, refreshKey }: Props) {
     };
 
     if (loading) {
-        return (
-            <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
-                Loading card data...
-            </div>
-        );
+        return <PageLoading text="Loading card data..." />;
     }
 
     return (

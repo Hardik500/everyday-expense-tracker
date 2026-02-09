@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { fetchWithAuth } from "../utils/api";
 import Select from "./ui/Select";
-
+import { PageLoading } from "./ui/Loading";
 type Props = {
-  apiBase: string;
-  refreshKey: number;
-  onRefresh: () => void;
+apiBase: string;
+refreshKey: number;
+onRefresh: () => void;
 };
 
 type Account = {
@@ -83,7 +83,7 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
       const url = editingAccount
         ? `${apiBase}/accounts/${editingAccount.id}`
         : `${apiBase}/accounts`;
-      const method = editingAccount ? "PUT" : "POST";
+      const method = editingAccount ? "PATCH" : "POST";
 
       const res = await fetchWithAuth(url, {
         method,
@@ -131,11 +131,7 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
   };
 
   if (loading) {
-    return (
-      <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
-        <div style={{ fontSize: "1.5rem", color: "var(--text-muted)" }}>Loading...</div>
-      </div>
-    );
+    return <PageLoading text="Loading accounts..." />;
   }
 
   return (
