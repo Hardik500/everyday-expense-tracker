@@ -9,8 +9,8 @@
 /* --- Variables --- */
 .container {
     --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --glass-bg: rgba(255, 255, 255, 0.03);
-    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
     --section-padding: 6rem 2rem;
     --max-width: 1200px;
@@ -278,6 +278,7 @@
     font-size: 1.75rem;
     margin-bottom: 1.5rem;
     color: #8b9ff7;
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.15);
 }
 
 .featureTitle {
@@ -377,15 +378,13 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    filter: grayscale(100%);
+    filter: grayscale(100%) opacity(0.7);
     transition: all 0.3s;
-    opacity: 0.6;
 }
 
 .trustedLogo:hover {
-    filter: grayscale(0%);
-    opacity: 1;
-    transform: scale(1.05);
+    filter: grayscale(0%) opacity(1);
+    transform: translateY(-2px);
 }
 
 .trustedLogo svg {
@@ -394,13 +393,60 @@
 }
 
 .trustedLogo span {
-    font-weight: 600;
+    font-weight: 700;
     color: #fff;
-    font-size: 1.125rem;
+    font-size: 1.25rem;
+    letter-spacing: -0.02em;
+}
+
+/* --- Footer Minimal --- */
+.footer {
+    padding: 3rem 2rem;
+    border-top: 1px solid var(--glass-border);
+    background: #0b0f19;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2rem;
+    max-width: var(--max-width);
+    margin: 0 auto;
+    width: 100%;
+}
+
+.footerBrand {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.footerLogo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.footerTagline {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.footerCopyright {
+    color: var(--text-muted);
+    font-size: 0.875rem;
 }
 
 /* --- Mobile Responsiveness --- */
 @media (max-width: 768px) {
+    .footer {
+        flex-direction: column;
+        text-align: center;
+        padding-bottom: 2rem;
+    }
+
     .hero {
         flex-direction: column;
         text-align: center;

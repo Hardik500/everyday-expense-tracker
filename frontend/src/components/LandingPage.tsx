@@ -160,6 +160,7 @@ const HeroSection = ({ isLoaded }: { isLoaded: boolean }) => {
           aspectRatio: "4/3",
           zIndex: 10
         }}>
+// ... existing Dashboard mockup ...
           {/* Main Dashboard Card */}
           <div style={{
             position: "absolute",
@@ -167,10 +168,10 @@ const HeroSection = ({ isLoaded }: { isLoaded: boolean }) => {
             left: 0,
             right: 0,
             bottom: 0,
-            background: "rgba(22, 30, 46, 0.8)",
+            background: "rgba(22, 30, 46, 0.9)", // Increased opacity
             backdropFilter: "blur(20px)",
             borderRadius: "1.5rem",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
+            border: "1px solid rgba(255, 255, 255, 0.12)", // Slightly brighter border
             boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
             overflow: "hidden",
             display: "flex",
@@ -179,7 +180,7 @@ const HeroSection = ({ isLoaded }: { isLoaded: boolean }) => {
             {/* Header */}
             <div style={{
               padding: "1rem 1.5rem",
-              borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.08)", // Brighter separator
               display: "flex",
               alignItems: "center",
               gap: "0.75rem"
@@ -416,10 +417,19 @@ const CTASection = () => {
 };
 
 const Footer = () => (
-  <footer className={styles.footer}>
-    <div className={styles.footerLogo}>💰 ExpenseTracker</div>
-    <p>© 2025 ExpenseTracker. All rights reserved.</p>
-  </footer>
+  <div style={{ borderTop: "1px solid var(--glass-border)", background: "#0b0f19", width: "100%" }}>
+    <footer className={styles.footer}>
+      <div className={styles.footerBrand}>
+        <div className={styles.footerLogo}>💰 ExpenseTracker</div>
+        <div className={styles.footerTagline}>
+          Take control of your financial future.
+        </div>
+      </div>
+      <div className={styles.footerCopyright}>
+        © 2025 ExpenseTracker. All rights reserved.
+      </div>
+    </footer>
+  </div>
 );
 
 export default function LandingPage() {
