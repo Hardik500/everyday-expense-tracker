@@ -314,7 +314,13 @@ const useScrollAnimation = () => {
 
   useEffect(() => {
     const observer = new IntersectionObserver(entries => {
-      entries.forEach(entry => setIsVisible(entry.isIntersecting));
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          // Unobserve after triggering once
+          if (domRef.current) observer.unobserve(domRef.current);
+        }
+      });
     });
 
     const current = domRef.current;
@@ -381,22 +387,33 @@ const TrustedSection = () => (
   </section>
 );
 
-const CTASection = () => (
-  <section className={styles.ctaSection}>
-    <div className={styles.ctaCard}>
-      <h2 className={styles.sectionTitle}>Ready to Start?</h2>
-      <p className={styles.sectionDesc} style={{ marginBottom: "2rem" }}>
-        Join thousands of users who are already tracking their expenses with ease.
-      </p>
-      <button
-        onClick={() => window.location.href = "/login"}
-        className={styles.primaryButton}
+const CTASection = () => {
+  const [isVisible, domRef] = useScrollAnimation();
+
+  return (
+    <section className={styles.ctaSection} ref={domRef}>
+      <div
+        className={`${styles.ctaCard} ${isVisible ? styles.featureCardVisible : ''}`}
+        style={{
+          opacity: isVisible ? 1 : 0,
+          transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
+          transition: 'all 0.6s ease'
+        }}
       >
-        Get Started Now
-      </button>
-    </div>
-  </section>
-);
+        <h2 className={styles.sectionTitle}>Ready to Start?</h2>
+        <p className={styles.sectionDesc} style={{ marginBottom: "2rem" }}>
+          Join thousands of users who are already tracking their expenses with ease.
+        </p>
+        <button
+          onClick={() => window.location.href = "/login"}
+          className={styles.primaryButton}
+        >
+          Get Started Now
+        </button>
+      </div>
+    </section>
+  );
+};
 
 const Footer = () => (
   <footer className={styles.footer}>
