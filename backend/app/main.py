@@ -2486,6 +2486,8 @@ def ai_categorize_single(
     current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
     """Use AI to categorize a single transaction."""
+    import traceback
+    
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(
@@ -2506,14 +2508,23 @@ def ai_categorize_single(
         if tx["user_id"] != current_user.id:
             raise HTTPException(status_code=403, detail="Not authorized to categorize this transaction")
         
-        result = ai_classify(
-            tx["description_norm"], 
-            tx["amount"], 
-            conn,
-            user_id=current_user.id,
-            transaction_id=transaction_id,
-            allow_new_categories=True,
-        )
+        try:
+            result = ai_classify(
+                tx["description_norm"], 
+                tx["amount"], 
+                conn,
+                user_id=current_user.id,
+                transaction_id=transaction_id,
+                allow_new_categories=True,
+            )
+        except Exception as e:
+            print(f"AI classify error: {e}")
+            print(traceback.format_exc())
+            return {
+                "status": "error",
+                "message": f"AI classify exception: {str(e)}",
+                "transaction_id": transaction_id,
+            }
         
         if not result:
             # Check if a suggestion was created
@@ -2534,7 +2545,7 @@ def ai_categorize_single(
             
             return {
                 "status": "error",
-                "message": "AI could not categorize this transaction",
+                "message": "AI could not categorize this transaction - check server logs for details",
                 "transaction_id": transaction_id,
             }
         

@@ -112,19 +112,28 @@ def ai_classify(
     
     Also creates a rule from the AI's suggestion to avoid future API calls.
     """
+    import traceback
+    
     api_key = os.getenv("GEMINI_API_KEY")
+    print(f"[AI] api_key exists: {bool(api_key)}, user_id: {user_id}, tx_id: {transaction_id}")
+    
     if not api_key:
+        print("[AI] No API key, returning None")
         return None
     
     if not conn:
+        print("[AI] No conn, returning None")
         return None
     
     try:
         if not user_id:
+            print("[AI] No user_id, returning None")
             return None
             
         categories_json = _get_categories_json(conn, user_id)
+        print(f"[AI] Categories JSON length: {len(categories_json)}")
         prompt = _build_prompt(description_norm, amount, categories_json, allow_new=allow_new_categories)
+        print(f"[AI] Prompt built, length: {len(prompt)}")
         
         response = httpx.post(
             f"{GEMINI_API_URL}?key={api_key}",
@@ -140,15 +149,20 @@ def ai_classify(
             timeout=10.0,
         )
         
+        print(f"[AI] Response status: {response.status_code}")
+        
         if response.status_code != 200:
+            print(f"[AI] Non-200 response: {response.text}")
             return None
         
         data = response.json()
         text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        print(f"[AI] Response text: {text[:200]}...")
         
         # Extract JSON from response (handle markdown code blocks)
         json_match = re.search(r'\{[^{}]*\}', text, re.DOTALL)
         if not json_match:
+            print(f"[AI] No JSON match in response")
             return None
         
         result = json.loads(json_match.group())
@@ -159,7 +173,10 @@ def ai_classify(
         is_new_subcategory = result.get("is_new_subcategory", False)
         confidence = result.get("confidence", "medium")
         
+        print(f"[AI] Parsed: category={category_name}, subcategory={subcategory_name}")
+        
         if not category_name or not subcategory_name:
+            print(f"[AI] Missing category/subcategory in response")
             return None
         
         # Look up category
@@ -168,14 +185,18 @@ def ai_classify(
             (category_name, user_id)
         ).fetchone()
         
+        print(f"[AI] Category lookup: {category}")
+        
         # If category doesn't exist and AI suggested new one
         if not category:
+            print(f"[AI] Category '{category_name}' not found")
             if is_new_category and allow_new_categories and transaction_id:
                 # Create a suggestion for user approval
                 _create_suggestion(
                     conn, transaction_id, user_id, category_name, subcategory_name,
                     None, None, regex_pattern, confidence
                 )
+                print(f"[AI] Created suggestion for new category")
                 return None  # Don't categorize yet, wait for approval
             else:
                 # Fall back to Miscellaneous
@@ -184,7 +205,10 @@ def ai_classify(
                     (user_id,)
                 ).fetchone()
                 if not category:
+                    print(f"[AI] 'Miscellaneous' category not found for user {user_id}")
                     return None
+                else:
+                    print(f"[AI] Using 'Miscellaneous' category: {category['id']}")
         
         # Look up subcategory
         subcategory = conn.execute(
@@ -192,13 +216,17 @@ def ai_classify(
             (category["id"], subcategory_name, user_id)
         ).fetchone()
         
+        print(f"[AI] Subcategory lookup: {subcategory}")
+        
         if not subcategory:
+            print(f"[AI] Subcategory '{subcategory_name}' not found")
             if is_new_subcategory and allow_new_categories and transaction_id:
                 # Create a suggestion for new subcategory
                 _create_suggestion(
                     conn, transaction_id, user_id, category_name, subcategory_name,
                     category["id"], None, regex_pattern, confidence
                 )
+                print(f"[AI] Created suggestion for new subcategory")
                 return None  # Don't categorize yet, wait for approval
             else:
                 # Try to find first subcategory in this category, or use "Other"
@@ -212,7 +240,10 @@ def ai_classify(
                         (category["id"], user_id)
                     ).fetchone()
                 if not subcategory:
+                    print(f"[AI] No subcategory found in category {category['id']}")
                     return None
+                else:
+                    print(f"[AI] Using fallback subcategory: {subcategory['id']}")
         
         # Create a rule from the AI's suggestion to avoid future API calls
         if regex_pattern and regex_pattern != "null":
