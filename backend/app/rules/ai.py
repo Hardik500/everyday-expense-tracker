@@ -290,6 +290,11 @@ def ai_classify(
         return (category["id"], subcategory["id"])
         
     except Exception:
+        # Rollback to clear the failed transaction state in PostgreSQL
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         return None
 
 
@@ -325,7 +330,10 @@ def _create_suggestion(
              existing_category_id, existing_subcategory_id, regex_pattern, confidence),
         )
     except Exception:
-        pass
+        try:
+            conn.rollback()
+        except Exception:
+            pass
 
 
 def _create_rule_from_ai(
@@ -360,7 +368,10 @@ def _create_rule_from_ai(
             (rule_name, regex_pattern, category_id, subcategory_id, 55, user_id),
         )
     except (re.error, Exception):
-        pass
+        try:
+            conn.rollback()
+        except Exception:
+            pass
 
 
 def clear_category_cache() -> None:
