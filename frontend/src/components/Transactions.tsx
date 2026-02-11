@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { fetchWithAuth } from "../utils/api";
 import type { Category, Subcategory, Transaction } from "../App";
 import LinkTransactionModal from "./LinkTransactionModal";
 import EditTransactionModal from "./EditTransactionModal";
-import SubcategorySearch from "./SubcategorySearch";
-import Select from "./ui/Select";
+import SmartFilters, { type FilterState } from "./SmartFilters";
 import { PageLoading } from "./ui/Loading";
+import { createPortal } from "react-dom";
 
 type Props = {
   apiBase: string;
@@ -98,10 +98,6 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  const [categoryFilter, setCategoryFilter] = useState<string>(() => getParams().get("cat") || "");
-  const [subcategoryFilter, setSubcategoryFilter] = useState<string>(() => getParams().get("sub") || "");
-  const [searchQuery, setSearchQuery] = useState(() => getParams().get("q") || "");
-
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(() => {
     const p = parseInt(getParams().get("page") || "1");
@@ -109,21 +105,39 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
   });
   const pageSize = 25;
 
+  // Feature 8: Bulk Edit State
+  const [selectedTransactions, setSelectedTransactions] = useState<Set<number>>(new Set());
+  const [showBulkCategoryModal, setShowBulkCategoryModal] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [bulkCategoryId, setBulkCategoryId] = useState<string>("");
+  const [bulkSubcategoryId, setBulkSubcategoryId] = useState<string>("");
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [bulkActionError, setBulkActionError] = useState("");
+
   // AI Search State
   const [isAIMode, setIsAIMode] = useState(false);
   const [aiFilters, setAIFilters] = useState<any>(null);
   const [rawAIFilters, setRawAIFilters] = useState<any>(null);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Date range state
-  const [dateRange, setDateRange] = useState<DateRange>(() => {
+  // Feature 7: Smart Search - Enhanced Filter State
+  const [filters, setFilters] = useState<FilterState>(() => {
     const p = getParams();
-    if (p.get("start") || p.get("end")) return "custom";
-    if (p.get("range")) return p.get("range") as DateRange;
-    return "30d";
+    const pRange = p.get("range") as FilterState["dateRange"];
+    return {
+      searchQuery: p.get("q") || "",
+      categoryId: p.get("cat") || "",
+      subcategoryId: p.get("sub") || "",
+      dateRange: (pRange || "30d") as FilterState["dateRange"],
+      customStartDate: p.get("start") || "",
+      customEndDate: p.get("end") || "",
+      minAmount: p.get("minAmount") || "",
+      maxAmount: p.get("maxAmount") || "",
+      transactionType: (p.get("type") as FilterState["transactionType"]) || "all",
+      sortBy: (p.get("sort") as FilterState["sortBy"]) || "date",
+      sortOrder: (p.get("order") as FilterState["sortOrder"]) || "desc",
+    };
   });
-  const [customStartDate, setCustomStartDate] = useState(() => getParams().get("start") || "");
-  const [customEndDate, setCustomEndDate] = useState(() => getParams().get("end") || "");
 
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
@@ -137,17 +151,22 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
     // Function to set/delete param
     const update = (key: string, val: string | null) => val ? params.set(key, val) : params.delete(key);
 
-    update("cat", categoryFilter);
-    update("sub", subcategoryFilter);
-    update("q", searchQuery);
+    update("cat", filters.categoryId);
+    update("sub", filters.subcategoryId);
+    update("q", filters.searchQuery);
     update("page", (page + 1).toString());
+    update("type", filters.transactionType === "all" ? null : filters.transactionType);
+    update("sort", filters.sortBy === "date" ? null : filters.sortBy);
+    update("order", filters.sortOrder === "desc" ? null : filters.sortOrder);
+    update("minAmount", filters.minAmount);
+    update("maxAmount", filters.maxAmount);
 
-    if (dateRange !== "30d") update("range", dateRange);
+    if (filters.dateRange !== "30d") update("range", filters.dateRange);
     else params.delete("range");
 
-    if (dateRange === "custom") {
-      update("start", customStartDate);
-      update("end", customEndDate);
+    if (filters.dateRange === "custom") {
+      update("start", filters.customStartDate);
+      update("end", filters.customEndDate);
     } else {
       params.delete("start");
       params.delete("end");
@@ -157,33 +176,18 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
     params.set("tab", "transactions");
 
     window.history.replaceState({}, "", "?" + params.toString());
-  }, [categoryFilter, subcategoryFilter, searchQuery, page, dateRange, customStartDate, customEndDate]);
+  }, [filters, page, isAIMode]);
 
-  // Reset subcategory when category changes (only if user interaction? No, simplistic is fine for now)
-  // But wait, if URL loads both cat & sub, this effect might clear sub?
-  // We need to avoid clearing sub on initial load.
-  // We can track previous category.
-  useEffect(() => {
-    // If subcategory is set and valid for category... 
-    // For now, let's skip auto-reset to support deep linking better. 
-    // If user changes category, subcategory persists until they change it or it becomes invalid (backend filters).
-    // Ideally we want to clear key if it doesn't match?
-    // Let's assume user knows what they are doing or standard UI handles it.
-    // Removing this effect allows URL ?cat=1&sub=2 to work.
-  }, [categoryFilter]);
+  // Reset page when filters change
 
   useEffect(() => {
-    if (isAIMode) {
-      // In AI mode, we use executeAISearch for refresh too
-      executeAISearch(page, true);
-      return;
-    }
+    if (isAIMode) return; // AI mode uses executeAISearch
 
     setLoading(true);
     const params = new URLSearchParams();
 
-    // Add date range params
-    const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
+    // Add date range params using filters
+    const { startDate, endDate } = getDateRange(filters.dateRange, filters.customStartDate, filters.customEndDate);
     if (startDate) {
       params.append("start_date", startDate);
     }
@@ -191,12 +195,13 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       params.append("end_date", endDate + " 23:59:59");
     }
 
-    if (categoryFilter) {
-      params.append("category_id", categoryFilter);
+    if (filters.categoryId) {
+      params.append("category_id", filters.categoryId);
     }
-    if (subcategoryFilter) {
-      params.append("subcategory_id", subcategoryFilter);
+    if (filters.subcategoryId) {
+      params.append("subcategory_id", filters.subcategoryId);
     }
+    
     fetchWithAuth(`${apiBase}/transactions?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
@@ -207,12 +212,101 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
         setTransactions([]);
         setLoading(false);
       });
-  }, [apiBase, categoryFilter, subcategoryFilter, refreshKey, dateRange, customStartDate, customEndDate, isAIMode]);
+  }, [apiBase, filters.categoryId, filters.subcategoryId, refreshKey, filters.dateRange, filters.customStartDate, filters.customEndDate, isAIMode]);
 
   // Reset page when filters change (but not on refreshKey)
   useEffect(() => {
     setPage(0);
-  }, [categoryFilter, subcategoryFilter, searchQuery, dateRange, customStartDate, customEndDate]);
+    // Clear selection when filters change
+    setSelectedTransactions(new Set());
+  }, [filters]);
+
+  // Feature 8: Bulk Edit Helpers
+  const toggleTransactionSelection = (txId: number) => {
+    setSelectedTransactions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(txId)) {
+        newSet.delete(txId);
+      } else {
+        newSet.add(txId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllVisible = () => {
+    const newSet = new Set(selectedTransactions);
+    pagedTransactions.forEach(tx => newSet.add(tx.id));
+    setSelectedTransactions(newSet);
+  };
+
+  const selectNone = () => {
+    setSelectedTransactions(new Set());
+  };
+
+  const handleBulkCategorize = async () => {
+    if (!bulkCategoryId || selectedTransactions.size === 0) return;
+    
+    setBulkActionLoading(true);
+    setBulkActionError("");
+    
+    try {
+      const formData = new FormData();
+      formData.append("transaction_ids", JSON.stringify(Array.from(selectedTransactions)));
+      formData.append("category_id", bulkCategoryId);
+      if (bulkSubcategoryId) {
+        formData.append("subcategory_id", bulkSubcategoryId);
+      }
+      
+      const res = await fetchWithAuth(`${apiBase}/transactions/bulk-update`, {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || "Failed to categorize transactions");
+      }
+      
+      setShowBulkCategoryModal(false);
+      setSelectedTransactions(new Set());
+      onUpdated?.();
+    } catch (err) {
+      setBulkActionError(err instanceof Error ? err.message : "Failed to categorize");
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedTransactions.size === 0) return;
+    
+    setBulkActionLoading(true);
+    setBulkActionError("");
+    
+    try {
+      const formData = new FormData();
+      formData.append("transaction_ids", JSON.stringify(Array.from(selectedTransactions)));
+      
+      const res = await fetchWithAuth(`${apiBase}/transactions/bulk-delete`, {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || "Failed to delete transactions");
+      }
+      
+      setShowBulkDeleteModal(false);
+      setSelectedTransactions(new Set());
+      onUpdated?.();
+    } catch (err) {
+      setBulkActionError(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
 
   const executeAISearch = async (targetPage: number, useExistingFilters: boolean) => {
     setLoading(true);
@@ -225,7 +319,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       if (useExistingFilters && rawAIFilters) {
         payload.filters = rawAIFilters;
       } else {
-        payload.query = searchQuery;
+        payload.query = filters.searchQuery;
       }
 
       const res = await fetchWithAuth(`${apiBase}/transactions/search`, {
@@ -241,36 +335,38 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
       if (!useExistingFilters) {
         // Map standard filters to UI state (only on initial search)
-        const filters = data.filters || {};
-        const remainingFilters: any = { ...filters };
-        setRawAIFilters(filters); // Store full filters for pagination reuse
+        const aiFiltersData = data.filters || {};
+        const remainingFilters: any = { ...aiFiltersData };
+        setRawAIFilters(aiFiltersData); // Store full filters for pagination reuse
+
+        const newFilters: Partial<FilterState> = {};
 
         // 1. Date Range
-        if (filters.start_date || filters.end_date) {
-          setDateRange("custom");
-          if (filters.start_date) setCustomStartDate(filters.start_date);
-          if (filters.end_date) setCustomEndDate(filters.end_date);
-          delete remainingFilters.start_date;
-          delete remainingFilters.end_date;
+        if (aiFiltersData.start_date || aiFiltersData.end_date) {
+          newFilters.dateRange = "custom";
+          newFilters.customStartDate = aiFiltersData.start_date || "";
+          newFilters.customEndDate = aiFiltersData.end_date || "";
         } else {
-          // Default to All Time if AI didn't specify a date to avoid hiding historical matches
-          setDateRange("all");
+          newFilters.dateRange = "all";
         }
+        delete remainingFilters.start_date;
+        delete remainingFilters.end_date;
 
         // 2. Category
-        if (filters.category_id) {
-          setCategoryFilter(filters.category_id.toString());
+        if (aiFiltersData.category_id) {
+          newFilters.categoryId = aiFiltersData.category_id.toString();
           delete remainingFilters.category_id;
           delete remainingFilters.category;
         }
 
         // 3. Subcategory
-        if (filters.subcategory_id) {
-          setSubcategoryFilter(filters.subcategory_id.toString());
+        if (aiFiltersData.subcategory_id) {
+          newFilters.subcategoryId = aiFiltersData.subcategory_id.toString();
           delete remainingFilters.subcategory_id;
           delete remainingFilters.subcategory;
         }
 
+        setFilters((prev) => ({ ...prev, ...newFilters }));
         setAIFilters(Object.keys(remainingFilters).length > 0 ? remainingFilters : null);
         setIsAIMode(true);
       }
@@ -285,7 +381,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
   };
 
   const handleAISearch = () => {
-    if (!searchQuery.trim()) return;
+    if (!filters.searchQuery.trim()) return;
     executeAISearch(0, false);
   };
 
@@ -299,13 +395,100 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
     }
   }, []);
 
-  const filteredTransactions = isAIMode
-    ? transactions
-    : searchQuery
-      ? transactions.filter((tx) =>
-        tx.description_raw.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-      : transactions;
+  // Feature 7: Smart filtering - Apply all client-side filters
+  const filteredTransactions = useMemo(() => {
+    if (isAIMode) return transactions;
+    
+    let filtered = transactions;
+    
+    // Search query filter
+    if (filters.searchQuery) {
+      const query = filters.searchQuery.toLowerCase();
+      filtered = filtered.filter((tx) =>
+        tx.description_raw.toLowerCase().includes(query) ||
+        (tx.account_name?.toLowerCase().includes(query) ?? false)
+      );
+    }
+    
+    // Category filter
+    if (filters.categoryId) {
+      filtered = filtered.filter((tx) => tx.category_id === parseInt(filters.categoryId));
+    }
+    
+    // Subcategory filter
+    if (filters.subcategoryId) {
+      filtered = filtered.filter((tx) => tx.subcategory_id === parseInt(filters.subcategoryId));
+    }
+    
+    // Amount filter
+    if (filters.minAmount) {
+      const min = parseFloat(filters.minAmount);
+      filtered = filtered.filter((tx) => Math.abs(tx.amount) >= min);
+    }
+    if (filters.maxAmount) {
+      const max = parseFloat(filters.maxAmount);
+      filtered = filtered.filter((tx) => Math.abs(tx.amount) <= max);
+    }
+    
+    // Transaction type filter
+    if (filters.transactionType === "expense") {
+      filtered = filtered.filter((tx) => tx.amount < 0);
+    } else if (filters.transactionType === "income") {
+      filtered = filtered.filter((tx) => tx.amount > 0);
+    }
+    
+    // Sort
+    filtered = [...filtered].sort((a, b) => {
+      let result = 0;
+      switch (filters.sortBy) {
+        case "date":
+          result = new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime();
+          break;
+        case "amount":
+          result = Math.abs(b.amount) - Math.abs(a.amount);
+          break;
+        case "category":
+          const catA = categories.find((c) => c.id === a.category_id)?.name || "";
+          const catB = categories.find((c) => c.id === b.category_id)?.name || "";
+          result = catA.localeCompare(catB);
+          break;
+      }
+      return filters.sortOrder === "asc" ? -result : result;
+    });
+    
+    return filtered;
+  }, [transactions, filters, isAIMode, categories]);
+
+  // Handle filter changes
+  const handleFiltersChange = useCallback((newFilters: Partial<FilterState>) => {
+    setFilters((prev) => ({ ...prev, ...newFilters }));
+    // Disable AI mode when changing filters manually
+    if (isAIMode) {
+      setIsAIMode(false);
+      setAIFilters(null);
+      setRawAIFilters(null);
+    }
+  }, [isAIMode]);
+
+  // Clear all filters
+  const handleClearFilters = useCallback(() => {
+    setFilters({
+      searchQuery: "",
+      categoryId: "",
+      subcategoryId: "",
+      dateRange: "30d",
+      customStartDate: "",
+      customEndDate: "",
+      minAmount: "",
+      maxAmount: "",
+      transactionType: "all",
+      sortBy: "date",
+      sortOrder: "desc",
+    });
+    setIsAIMode(false);
+    setAIFilters(null);
+    setRawAIFilters(null);
+  }, []);
 
   const pagedTransactions = isAIMode
     ? transactions
@@ -337,260 +520,74 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
 
 
+  // Export with current filters
+  const handleExport = useCallback(() => {
+    setFilters((currentFilters) => {
+      const params = new URLSearchParams();
+      const { startDate, endDate } = getDateRange(currentFilters.dateRange, currentFilters.customStartDate, currentFilters.customEndDate);
+      if (startDate) params.append("start_date", startDate);
+      if (endDate) params.append("end_date", endDate + " 23:59:59");
+      if (currentFilters.categoryId) params.append("category_id", currentFilters.categoryId);
+      if (currentFilters.subcategoryId) params.append("subcategory_id", currentFilters.subcategoryId);
+      if (currentFilters.minAmount) params.append("min_amount", currentFilters.minAmount);
+      if (currentFilters.maxAmount) params.append("max_amount", currentFilters.maxAmount);
+      window.open(`${apiBase}/transactions/export?${params.toString()}`, "_blank");
+      return currentFilters;
+    });
+  }, [apiBase]);
+
   return (
     <div style={{ display: "grid", gap: "1.5rem" }}>
-      {/* Date Range Filter */}
-      <div className="card" style={{ padding: "1rem 1.25rem" }}>
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-          {(["7d", "30d", "90d", "year", "all"] as DateRange[]).map((range) => (
-            <button
-              key={range}
-              className={dateRange === range ? "primary" : "secondary"}
-              onClick={() => setDateRange(range)}
-              style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
-            >
-              {range === "7d" ? "7 Days" :
-                range === "30d" ? "30 Days" :
-                  range === "90d" ? "90 Days" :
-                    range === "year" ? "1 Year" : "All Time"}
-            </button>
-          ))}
-          <button
-            className={dateRange === "custom" ? "primary" : "secondary"}
-            onClick={() => setDateRange("custom")}
-            style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
-          >
-            Custom
-          </button>
+      {/* Feature 7: Smart Search with Enhanced Filters */}
+      <SmartFilters
+        categories={categories}
+        subcategories={subcategories}
+        filters={filters}
+        onChange={handleFiltersChange}
+        onClear={handleClearFilters}
+        resultCount={isAIMode ? transactions.length : filteredTransactions.length}
+        totalCount={isAIMode ? totalCount : transactions.length}
+        isAIMode={isAIMode}
+        onAISearch={handleAISearch}
+      />
 
-          {dateRange === "custom" && (
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginLeft: "0.5rem" }}>
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                style={{ padding: "0.5rem", fontSize: "0.8125rem" }}
-              />
-              <span style={{ color: "var(--text-muted)" }}>to</span>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                style={{ padding: "0.5rem", fontSize: "0.8125rem" }}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Search & Category Filters */}
-      <div className="card" style={{ padding: "1rem 1.25rem" }}>
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
-          {/* Search */}
-          <div style={{ flex: "1 1 300px", position: "relative" }}>
-            <svg
-              width="18"
-              height="18"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              style={{
-                position: "absolute",
-                left: 12,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--text-muted)",
-              }}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder={isAIMode ? "Refine AI search..." : "Search transactions... (Type & Enter for AI)"}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleAISearch();
-              }}
-              style={{ paddingLeft: 40, paddingRight: searchQuery ? 60 : 40, width: "100%" }}
-            />
-
-            {/* AI Sparkle Button */}
-            {!isAIMode && searchQuery && (
-              <button
-                onClick={handleAISearch}
-                style={{
-                  position: "absolute",
-                  right: 30, // Left of clear button if present
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  padding: "4px",
-                }}
-                title="AI Smart Search"
-              >
-                ✨
-              </button>
-            )}
-
-            {searchQuery && (
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  if (isAIMode) {
-                    setIsAIMode(false);
-                    setAIFilters(null);
-                  }
-                }}
-                style={{
-                  position: "absolute",
-                  right: 8,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--text-muted)",
-                  cursor: "pointer",
-                  padding: "4px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                title="Clear search"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          {/* Category filter */}
-          <div style={{ flex: "0 0 200px" }}>
-            <Select
-              value={categoryFilter || ""}
-              onChange={(val) => setCategoryFilter(String(val))}
-              options={[
-                { value: "", label: "All categories" },
-                ...categories.map(c => ({ value: c.id, label: c.name }))
-              ]}
-              placeholder="Categories"
-              style={{ width: "100%" }}
-            />
-          </div>
-
-          {/* Subcategory filter */}
-          <div style={{ flex: "0 0 200px" }}>
-            <Select
-              value={subcategoryFilter || ""}
-              onChange={(val) => setSubcategoryFilter(String(val))}
-              options={[
-                { value: "", label: "All subcategories" },
-                ...subcategories
-                  .filter(sub => sub.category_id === parseInt(categoryFilter))
-                  .map(sub => ({ value: sub.id, label: sub.name }))
-              ]}
-              placeholder="Subcategories"
-              style={{ width: "100%", opacity: categoryFilter ? 1 : 0.5, pointerEvents: categoryFilter ? "auto" : "none" }}
-            />
-          </div>
-
-          {/* Summary */}
-          <div style={{ flex: "0 0 auto", textAlign: "right" }}>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-              {isAIMode ? (
-                <span>
-                  Found <strong>{totalCount}</strong> transactions
-                </span>
-              ) : searchQuery ? (
-                <span>
-                  <strong>{filteredTransactions.length}</strong> of {transactions.length} transactions
-                </span>
-              ) : (
-                `${filteredTransactions.length} transactions`
-              )}
-            </div>
-            <div
-              className="mono"
-              style={{
-                fontWeight: 600,
-                fontSize: "0.9375rem",
-                color: totalAmount >= 0 ? "var(--success)" : "var(--text-primary)",
-              }}
-            >
-              {formatCurrency(totalAmount)}
-            </div>
-          </div>
-
-          {/* Export Button */}
-          <button
-            onClick={() => {
-              const params = new URLSearchParams();
-              const { startDate, endDate } = getDateRange(dateRange, customStartDate, customEndDate);
-              if (startDate) params.append("start_date", startDate);
-              if (endDate) params.append("end_date", endDate + " 23:59:59");
-              if (categoryFilter) params.append("category_id", categoryFilter);
-              if (subcategoryFilter) params.append("subcategory_id", subcategoryFilter);
-              window.open(`${apiBase}/transactions/export?${params.toString()}`, "_blank");
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.5rem 1rem",
-              background: "var(--bg-input)",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--text-secondary)",
-              cursor: "pointer",
-              fontSize: "0.8125rem",
-            }}
-            title="Export to CSV"
-          >
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Export
-          </button>
-        </div>
-      </div>
-
-      {/* AI Filters Display */}
+      {/* AI Mode Indicator */}
       {isAIMode && (
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center", marginTop: "-1rem", paddingLeft: "0.5rem" }}>
-          {/* Clear Button - Prominent if in AI mode */}
-          <button
-            className="text-btn"
-            onClick={() => {
-              setIsAIMode(false);
-              setAIFilters(null);
-              setRawAIFilters(null);
-              setTotalCount(0);
-              setSearchQuery("");
-              // Optional: Reset other filters? Maybe not, user might want to keep the context.
-              // But usually clearing search means reset.
-              setCategoryFilter("");
-              setDateRange("30d");
-              setPage(0);
-            }}
-            style={{
-              fontSize: "0.75rem",
-              color: "var(--accent)",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              background: "var(--bg-input)",
-              padding: "4px 8px",
-              borderRadius: "var(--radius-sm)"
-            }}
-          >
-            ← Clear AI Search
-          </button>
-
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center", paddingLeft: "0.5rem", marginTop: "-0.5rem" }}>
+          <span className="badge" style={{
+            background: "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)",
+            color: "#fff",
+            fontSize: "0.75rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.375rem 0.75rem"
+          }}>
+            <span>✨</span>
+            AI Search Active
+            <button
+              onClick={() => {
+                setIsAIMode(false);
+                setAIFilters(null);
+                setRawAIFilters(null);
+                handleClearFilters();
+              }}
+              style={{
+                background: "rgba(255,255,255,0.2)",
+                border: "none",
+                color: "#fff",
+                cursor: "pointer",
+                fontSize: "0.625rem",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                marginLeft: "0.25rem"
+              }}
+            >
+              ✕
+            </button>
+          </span>
           {aiFilters && Object.entries(aiFilters).map(([key, value]) => {
             if (!value) return null;
-            // Beautify keys
             const label = key.replace(/_/g, " ").replace("amount", "");
             return (
               <span key={key} className="badge" style={{
@@ -601,7 +598,8 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                 display: "flex",
                 alignItems: "center",
                 gap: "6px",
-                padding: "4px 8px"
+                padding: "4px 8px",
+                fontSize: "0.8125rem"
               }}>
                 <span style={{ color: "var(--text-muted)", textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.5px" }}>
                   {label}
@@ -612,6 +610,113 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
           })}
         </div>
       )}
+
+      {/* Export Button */}
+      <div style={{ padding: "0 0.5rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        {/* Feature 8: Bulk Actions Toolbar */}
+        {selectedTransactions.size > 0 && (
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <span style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginRight: "0.5rem" }}>
+              {selectedTransactions.size} selected
+            </span>
+            <button
+              onClick={selectNone}
+              style={{
+                padding: "0.5rem 0.75rem",
+                background: "var(--bg-input)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-md)",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                fontSize: "0.8125rem",
+              }}
+            >
+              Select None
+            </button>
+            <button
+              onClick={() => setShowBulkCategoryModal(true)}
+              style={{
+                padding: "0.5rem 1rem",
+                background: "var(--accent)",
+                border: "none",
+                borderRadius: "var(--radius-md)",
+                color: "#fff",
+                cursor: "pointer",
+                fontSize: "0.8125rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.375rem",
+              }}
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+              Categorize
+            </button>
+            <button
+              onClick={() => setShowBulkDeleteModal(true)}
+              style={{
+                padding: "0.5rem 1rem",
+                background: "var(--danger)",
+                border: "none",
+                borderRadius: "var(--radius-md)",
+                color: "#fff",
+                cursor: "pointer",
+                fontSize: "0.8125rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.375rem",
+              }}
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete
+            </button>
+          </div>
+        )}
+        {selectedTransactions.size === 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <button
+              onClick={selectAllVisible}
+              style={{
+                padding: "0.5rem 0.75rem",
+                background: "var(--bg-input)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-md)",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                fontSize: "0.8125rem",
+              }}
+            >
+              Select All
+            </button>
+          </div>
+        )}
+        <button
+          onClick={handleExport}
+          disabled={!isAIMode && filteredTransactions.length === 0}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.5rem 1rem",
+            background: "var(--bg-input)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-md)",
+            color: "var(--text-secondary)",
+            cursor: (!isAIMode && filteredTransactions.length === 0) ? "not-allowed" : "pointer",
+            fontSize: "0.8125rem",
+            opacity: (!isAIMode && filteredTransactions.length === 0) ? 0.5 : 1,
+          }}
+          title="Export filtered results to CSV"
+        >
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Export
+        </button>
+      </div>
 
 
       {/* Transactions Table */}
@@ -634,6 +739,28 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
               <table>
                 <thead>
                   <tr>
+                    {<!-- Feature 8: Checkbox column -->}
+                    <th style={{ width: 40, textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={
+                          pagedTransactions.length > 0 && 
+                          pagedTransactions.every(tx => selectedTransactions.has(tx.id))
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            selectAllVisible();
+                          } else {
+                            setSelectedTransactions(prev => {
+                              const newSet = new Set(prev);
+                              pagedTransactions.forEach(tx => newSet.delete(tx.id));
+                              return newSet;
+                            });
+                          }
+                        }}
+                        style={{ cursor: "pointer" }}
+                      />
+                    </th>
                     <th style={{ width: 90 }}>Date</th>
                     <th style={{ width: 140 }}>Account</th>
                     <th>Description</th>
@@ -650,10 +777,20 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                       style={{
                         animationDelay: `${idx * 20}ms`,
                         cursor: "pointer",
+                        background: selectedTransactions.has(tx.id) ? "var(--accent-glow)" : undefined,
                       }}
                       onClick={() => openEdit(tx)}
                       title="Click to edit"
                     >
+                      {<!-- Feature 8: Checkbox cell -->}
+                      <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedTransactions.has(tx.id)}
+                          onChange={() => toggleTransactionSelection(tx.id)}
+                          style={{ cursor: "pointer" }}
+                        />
+                      </td>
                       <td>
                         <div style={{ fontWeight: 500, color: "var(--text-primary)" }}>
                           {formatDate(tx.posted_at)}
@@ -797,7 +934,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
               </table>
             </div>
 
-            {/* Pagination */}
+                        {/* Pagination */}
             {totalPages > 1 && (
               <div
                 style={{
@@ -887,6 +1024,191 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
           />
         )
       }
+
+      {/* Feature 8: Bulk Categorize Modal */}
+      {showBulkCategoryModal && createPortal(
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowBulkCategoryModal(false)}
+        >
+          <div className="card" style={{ width: "100%", maxWidth: "400px", padding: "1.5rem" }}>
+            <h3 style={{ marginTop: 0, marginBottom: "1.5rem" }}>Categorize {selectedTransactions.size} Transactions</h3>
+            
+            <div style={{ display: "grid", gap: "1rem", marginBottom: "1.5rem" }}>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                  Category *
+                </label>
+                <select
+                  value={bulkCategoryId}
+                  onChange={(e) => {
+                    setBulkCategoryId(e.target.value);
+                    setBulkSubcategoryId("");
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--border-subtle)",
+                    background: "var(--bg-input)",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  <option value="">Select category...</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {bulkCategoryId && subcategories.filter((s) => s.category_id === parseInt(bulkCategoryId)).length > 0 && (
+                <div>
+                  <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                    Subcategory
+                  </label>
+                  <select
+                    value={bulkSubcategoryId}
+                    onChange={(e) => setBulkSubcategoryId(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "0.75rem",
+                      borderRadius: "var(--radius-md)",
+                      border: "1px solid var(--border-subtle)",
+                      background: "var(--bg-input)",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    <option value="">Select subcategory...</option>
+                    {subcategories
+                      .filter((s) => s.category_id === parseInt(bulkCategoryId))
+                      .map((sub) => (
+                        <option key={sub.id} value={sub.id}>{sub.name}</option>
+                      ))}
+                  </select>
+                </div>
+              )}
+            </div>
+            
+            {bulkActionError && (
+              <div style={{ padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "var(--radius-md)", color: "#ef4444", fontSize: "0.875rem", marginBottom: "1rem" }}>
+                {bulkActionError}
+              </div>
+            )}
+            
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowBulkCategoryModal(false)}
+                disabled={bulkActionLoading}
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: "var(--bg-input)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-md)",
+                  color: "var(--text-secondary)",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkCategorize}
+                disabled={bulkActionLoading || !bulkCategoryId}
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: bulkCategoryId ? "var(--accent)" : "var(--text-muted)",
+                  border: "none",
+                  borderRadius: "var(--radius-md)",
+                  color: "#fff",
+                  cursor: bulkCategoryId ? "pointer" : "not-allowed",
+                  opacity: bulkCategoryId ? 1 : 0.5,
+                }}
+              >
+                {bulkActionLoading ? "Categorizing..." : "Apply"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Feature 8: Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && createPortal(
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            backdropFilter: "blur(4px)",
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowBulkDeleteModal(false)}
+        >
+          <div
+            className="card"
+            style={{
+              width: "100%",
+              maxWidth: "400px",
+              padding: "1.5rem",
+              animation: "slideIn 0.2s ease-out",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: "1rem", color: "var(--text-primary)" }}>Delete Transactions</h3>
+            <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>
+              Are you sure you want to delete <strong>{selectedTransactions.size}</strong> transactions? This action cannot be undone.
+            </p>
+
+            {bulkActionError && (
+              <div
+                style={{
+                  padding: "0.75rem",
+                  background: "rgba(239, 68, 68, 0.1)",
+                  border: "1px solid var(--danger)",
+                  borderRadius: "0.5rem",
+                  marginBottom: "1.5rem",
+                  fontSize: "0.875rem",
+                  color: "var(--danger)",
+                }}
+              >
+                {bulkActionError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+              <button 
+                className="secondary" 
+                onClick={() => setShowBulkDeleteModal(false)} 
+                disabled={bulkActionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className="danger"
+                onClick={handleBulkDelete}
+                disabled={bulkActionLoading}
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+              >
+                {bulkActionLoading ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       <style>{`
         @keyframes slideUp {

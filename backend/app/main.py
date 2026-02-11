@@ -1267,6 +1267,57 @@ def bulk_update_transactions(
     }
 
 
+@app.post("/transactions/bulk-delete")
+def bulk_delete_transactions(
+    transaction_ids: List[int] = Form(...),
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
+    """Bulk delete multiple transactions."""
+    # CRITICAL-003: Validate transaction_ids
+    if not transaction_ids:
+        raise HTTPException(status_code=400, detail="transaction_ids cannot be empty")
+    
+    # Validate all transaction IDs are positive integers
+    if len(transaction_ids) > 1000:  # Reasonable limit to prevent abuse
+        raise HTTPException(status_code=400, detail="Maximum 1000 transactions can be deleted at once")
+    
+    for tx_id in transaction_ids:
+        if not isinstance(tx_id, int) or tx_id <= 0:
+            raise HTTPException(status_code=400, detail=f"Invalid transaction_id: {tx_id}. Must be a positive integer")
+    
+    with get_conn() as conn:
+        # Delete transaction links first (cascade manually since some DBs don't cascade FKs)
+        placeholders = ",".join("?" * len(transaction_ids))
+        conn.execute(
+            f"""
+            DELETE FROM transaction_links 
+            WHERE source_transaction_id IN ({placeholders}) OR target_transaction_id IN ({placeholders})
+            """,
+            tuple(transaction_ids + transaction_ids),
+        )
+        
+        # Delete the transactions belonging to the user
+        placeholders = ",".join("?" * len(transaction_ids))
+        cursor = conn.execute(
+            f"""
+            DELETE FROM transactions
+            WHERE id IN ({placeholders}) AND user_id = ?
+            """,
+            tuple(transaction_ids + [current_user.id]),
+        )
+        deleted_count = cursor.rowcount
+        
+        conn.commit()
+    
+    # Invalidate user's report caches after bulk delete
+    invalidate_user_cache(current_user.id, "reports")
+    
+    return {
+        "status": "ok",
+        "deleted_count": deleted_count,
+    }
+
+
 @app.get("/reports/summary")
 @cached(ttl=180, key_prefix="reports")
 async def report_summary(
