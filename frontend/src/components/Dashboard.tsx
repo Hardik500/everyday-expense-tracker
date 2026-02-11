@@ -9,11 +9,15 @@ import type { Category } from "../App";
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   ResponsiveContainer,
   Tooltip,
   Cell,
+  CartesianGrid,
+  Legend,
 } from "recharts";
 
 type Props = {
@@ -96,6 +100,7 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
   const [items, setItems] = useState<ReportItem[]>([]);
   const [timeSeries, setTimeSeries] = useState<TimeSeriesData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [trendRange, setTrendRange] = useState<"7d" | "30d" | "90d">("30d");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     currentMonthSpending: 0,
@@ -110,6 +115,10 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
     avgTransactionAmount: 0,
     topCategory: null,
   });
+
+  // Trend chart data
+  const [dailyTrendData, setDailyTrendData] = useState<Array<{ date: string; amount: number; income: number }>>([]);
+  const [loadingTrend, setLoadingTrend] = useState(false);
 
   // Generate last 12 months for dropdown
   const getMonthOptions = () => {
@@ -259,6 +268,40 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
     income: d.income,
     expenses: Math.abs(d.expenses),
   }));
+
+  useEffect(() => {
+    const fetchDailyTrend = async () => {
+      setLoadingTrend(true);
+      try {
+        const now = new Date();
+        const days = trendRange === "7d" ? 7 : trendRange === "30d" ? 30 : 90;
+        const endDate = now.toISOString().split("T")[0];
+        const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+        const res = await fetchWithAuth(
+          `${apiBase}/reports/timeseries?start_date=${startDate}&end_date=${endDate}&granularity=day`
+        );
+        const data = await res.json();
+        
+        // Process the daily data
+        const trendData = (data.data || []).map((d: TimeSeriesData) => ({
+          date: new Date(d.period).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+          amount: Math.abs(d.expenses),
+          income: d.income,
+          fullDate: d.period,
+        }));
+        
+        setDailyTrendData(trendData);
+      } catch (err) {
+        console.error("Failed to fetch daily trend:", err);
+      }
+      setLoadingTrend(false);
+    };
+    
+    if (items.length > 0) {
+      fetchDailyTrend();
+    }
+  }, [trendRange, apiBase, items.length, refreshKey]);
 
   // Categories that represent asset movements
   const assetMovementCategories = ["Transfers", "Investments"];
@@ -575,6 +618,109 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
           </div>
         </div>
       )}
+
+      {/* Daily Expense Trend Chart - Feature 5 */}
+      <div className="card">
+        <div className="card-header">
+          <h2>Expense Trend</h2>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            {(["7d", "30d", "90d"] as const).map((range) => (
+              <button
+                key={range}
+                onClick={() => setTrendRange(range)}
+                className={trendRange === range ? "primary" : "secondary"}
+                style={{
+                  padding: "0.375rem 0.75rem",
+                  fontSize: "0.8125rem",
+                  borderRadius: "var(--radius-sm)",
+                }}
+              >
+                {range === "7d" ? "7 Days" : range === "30d" ? "30 Days" : "90 Days"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ height: 250 }}>
+          {loadingTrend ? (
+            <div
+              style={{
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--text-muted)",
+              }}
+            >
+              Loading trend data...
+            </div>
+          ) : dailyTrendData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={dailyTrendData}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                <XAxis
+                  dataKey="date"
+                  stroke="var(--text-muted)"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="var(--text-muted)"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => formatCurrency(value)}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--bg-card)",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "var(--radius-md)",
+                  }}
+                  formatter={(value: number, name: string) => [
+                    formatFullCurrency(value),
+                    name === "amount" ? "Expenses" : name,
+                  ]}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="amount"
+                  name="Expenses"
+                  stroke="#ef4444"
+                  strokeWidth={2}
+                  dot={{ fill: "#ef4444", strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5, fill: "#ef4444" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="income"
+                  name="Income"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  dot={{ fill: "#10b981", strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5, fill: "#10b981" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div
+              style={{
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--text-muted)",
+              }}
+            >
+              No data available for selected period
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Quick Stats Grid */}
       <div
