@@ -349,6 +349,14 @@ tbody td:first-child {
   animation: fadeIn 0.3s ease forwards;
 }
 
+/* GPU-accelerated card for smooth transitions */
+.card-stable {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  transition: opacity 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
 @keyframes pulse {
   0%, 100% {
     opacity: 1;

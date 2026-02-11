@@ -456,17 +456,20 @@ function ReviewQueue({
       </div>
 
       {/* Transaction cards */}
-      {pagedTransactions.map((tx, idx) => {
+      {pagedTransactions.map((tx) => {
         const similar = similarInfo[tx.id];
         const hasSimilar = similar && similar.count > 1;
         const willApplyToSimilar = applyToSimilar[tx.id] && hasSimilar;
+        const isLoadingSimilar = !similar && !similarInfo[tx.id];
 
         return (
           <div
             key={tx.id}
-            className="card animate-in"
+            className="card card-stable"
             style={{
-              animationDelay: `${idx * 50}ms`,
+              opacity: 1,
+              transition: 'opacity 150ms ease, transform 150ms ease',
+              willChange: 'transform',
               padding: "1.25rem",
             }}
           >
@@ -524,7 +527,17 @@ function ReviewQueue({
                 </div>
 
                 {/* Similar transactions info */}
-                {hasSimilar && (
+                {isLoadingSimilar ? (
+                  <div
+                    style={{
+                      marginTop: "1rem",
+                      height: 60,
+                      background: "var(--bg-secondary)",
+                      borderRadius: "var(--radius-md)",
+                      animation: "pulse 1.5s ease-in-out infinite",
+                    }}
+                  />
+                ) : hasSimilar ? (
                   <div
                     style={{
                       marginTop: "1rem",
@@ -532,6 +545,9 @@ function ReviewQueue({
                       background: "var(--bg-input)",
                       borderRadius: "var(--radius-md)",
                       fontSize: "0.8125rem",
+                      opacity: hasSimilar ? 1 : 0,
+                      transform: hasSimilar ? "translateY(0)" : "translateY(-8px)",
+                      transition: "opacity 200ms ease, transform 200ms ease",
                     }}
                   >
                     {/* Apply to similar toggle */}
@@ -648,7 +664,7 @@ function ReviewQueue({
                       </div>
                     )}
                   </div>
-                )}
+                ) : null}
               </div>
 
               {/* Category selector - single searchable dropdown */}
