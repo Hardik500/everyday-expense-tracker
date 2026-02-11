@@ -284,6 +284,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       const formData = new FormData();
       formData.append("name", editName.trim());
       formData.append("color", editingCategory.color || "");
+      formData.append("monthly_budget", String(editingCategory.monthly_budget || ""));
 
       const res = await fetchWithAuth(`${apiBase}/categories/${editingCategory.id}`, {
         method: "PUT",
@@ -910,6 +911,29 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                       title={color}
                     />
                   ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                  Monthly Budget (₹)
+                </label>
+                <input
+                  type="number"
+                  value={editingCategory?.monthly_budget || ''}
+                  onChange={(e) => setEditingCategory({ ...editingCategory, monthly_budget: e.target.value ? parseFloat(e.target.value) : null })}
+                  placeholder="e.g., 5000"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--border-subtle)",
+                    background: "var(--bg-input)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+                  Set a monthly spending limit for this category
                 </div>
               </div>
 

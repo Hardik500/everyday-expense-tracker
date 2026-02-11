@@ -54,6 +54,22 @@ type DashboardStats = {
   topCategory: { name: string; amount: number } | null;
 };
 
+type CategoryBudget = {
+  category_id: number;
+  category_name: string;
+  monthly_budget: number;
+  spent: number;
+  percentage: number;
+  color: string;
+};
+
+type BudgetState = {
+  categories: CategoryBudget[];
+  totalBudget: number;
+  totalSpent: number;
+  overallPercentage: number;
+};
+
 const categoryColors: Record<string, string> = {
   Food: "#f59e0b",
   Transport: "#3b82f6",
@@ -119,6 +135,15 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
   // Trend chart data
   const [dailyTrendData, setDailyTrendData] = useState<Array<{ date: string; amount: number; income: number }>>([]);
   const [loadingTrend, setLoadingTrend] = useState(false);
+
+  // Budget progress bars state - Feature 6
+  const [budgetState, setBudgetState] = useState<BudgetState>({
+    categories: [],
+    totalBudget: 0,
+    totalSpent: 0,
+    overallPercentage: 0,
+  });
+  const [loadingBudget, setLoadingBudget] = useState(false);
 
   // Generate last 12 months for dropdown
   const getMonthOptions = () => {
@@ -242,6 +267,63 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
         setLoading(false);
       }
     };
+
+    // Fetch budget data - Feature 6
+    const fetchBudgetData = async () => {
+      if (items.length === 0) return;
+      
+      setLoadingBudget(true);
+      try {
+        // Fetch categories with budget info
+        const catRes = await fetchWithAuth(`${apiBase}/categories`);
+        const catData = await catRes.json();
+        const categories = (catData.categories || []) as Category[];
+        
+        // Create a map of category spending from current items
+        const spendingByCategory = new Map<string, number>();
+        items.forEach((item: ReportItem) => {
+          if (item.total < 0 && item.category_id) {
+            const current = spendingByCategory.get(String(item.category_id)) || 0;
+            spendingByCategory.set(String(item.category_id), current + Math.abs(item.total));
+          }
+        });
+        
+        // Build budget state for categories with monthly budgets
+        const categoriesWithBudget: CategoryBudget[] = categories
+          .filter((cat) => cat.monthly_budget && cat.monthly_budget > 0)
+          .map((cat) => {
+            const spent = spendingByCategory.get(String(cat.id)) || 0;
+            const budget = cat.monthly_budget || 0;
+            const percentage = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
+            
+            return {
+              category_id: cat.id,
+              category_name: cat.name,
+              monthly_budget: budget,
+              spent: spent,
+              percentage: percentage,
+              color: cat.color || getColor(cat.name),
+            };
+          })
+          .sort((a, b) => b.percentage - a.percentage); // Sort by percentage descending
+        
+        const totalBudget = categoriesWithBudget.reduce((sum, cat) => sum + cat.monthly_budget, 0);
+        const totalSpent = categoriesWithBudget.reduce((sum, cat) => sum + cat.spent, 0);
+        const overallPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+        
+        setBudgetState({
+          categories: categoriesWithBudget,
+          totalBudget,
+          totalSpent,
+          overallPercentage,
+        });
+      } catch (err) {
+        console.error("Failed to fetch budget data:", err);
+      }
+      setLoadingBudget(false);
+    };
+
+    fetchBudgetData();
 
     fetchData();
   }, [apiBase, refreshKey, selectedMonth]);
@@ -721,6 +803,260 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
           )}
         </div>
       </div>
+
+      {/* 📊 Feature 6 - Budget Progress Bars */}
+      {budgetState.categories.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <h2>Budget Progress</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                {formatCurrency(budgetState.totalSpent)} / {formatCurrency(budgetState.totalBudget)}
+              </span>
+              <div
+                style={{
+                  width: 100,
+                  height: 6,
+                  borderRadius: 3,
+                  background: "var(--bg-input)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${Math.min(100, budgetState.overallPercentage)}%`,
+                    height: "100%",
+                    background:
+                      budgetState.overallPercentage > 100
+                        ? "#ef4444"
+                        : budgetState.overallPercentage > 80
+                        ? "#f59e0b"
+                        : "#10b981",
+                    transition: "width 0.5s ease",
+                  }}
+                />
+              </div>
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  color:
+                    budgetState.overallPercentage > 100
+                      ? "#ef4444"
+                      : budgetState.overallPercentage > 80
+                      ? "#f59e0b"
+                      : "#10b981",
+                }}
+              >
+                {budgetState.overallPercentage.toFixed(0)}%
+              </span>
+            </div>
+          </div>
+
+          {/* Overall Budget Bar */}
+          <div
+            style={{
+              marginBottom: "1.5rem",
+              padding: "1rem",
+              background: "var(--bg-input)",
+              borderRadius: "var(--radius-md)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "0.5rem",
+              }}
+            >
+              <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--text-primary)" }}>
+                Overall Budget
+              </span>
+              <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                {budgetState.overallPercentage > 100 ? (
+                  <span style={{ color: "#ef4444", fontWeight: 500 }}>
+                    Over budget by {formatCurrency(budgetState.totalSpent - budgetState.totalBudget)}
+                  </span>
+                ) : (
+                  <span style={{ color: "#10b981", fontWeight: 500 }}>
+                    {formatCurrency(budgetState.totalBudget - budgetState.totalSpent)} remaining
+                  </span>
+                )}
+              </span>
+            </div>
+            <div
+              style={{
+                width: "100%",
+                height: 8,
+                borderRadius: 4,
+                background: "rgba(0,0,0,0.1)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${Math.min(100, budgetState.overallPercentage)}%`,
+                  height: "100%",
+                  background:
+                    budgetState.overallPercentage > 100
+                      ? "linear-gradient(90deg, #ef4444, #dc2626)"
+                      : budgetState.overallPercentage > 80
+                      ? "linear-gradient(90deg, #f59e0b, #d97706)"
+                      : "linear-gradient(90deg, #10b981, #059669)",
+                  borderRadius: 4,
+                  transition: "width 0.6s ease, background 0.3s ease",
+                  boxShadow:
+                    budgetState.overallPercentage > 90
+                      ? "0 0 10px rgba(239, 68, 68, 0.5)"
+                      : "none",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Category Budget Bars */}
+          <div style={{ display: "grid", gap: "1rem" }}>
+            {loadingBudget ? (
+              <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
+                Loading budget data...
+              </div>
+            ) : (
+              budgetState.categories.map((cat) => {
+                const isOverBudget = cat.percentage > 100;
+                const isNearLimit = cat.percentage > 80 && cat.percentage <= 100;
+                const remaining = cat.monthly_budget - cat.spent;
+
+                return (
+                  <div
+                    key={cat.category_id}
+                    onClick={() => onCategorySelect?.(cat.category_id)}
+                    style={{
+                      display: "grid",
+                      gap: "0.5rem",
+                      padding: "1rem",
+                      background: "var(--bg-input)",
+                      borderRadius: "var(--radius-md)",
+                      cursor: onCategorySelect ? "pointer" : "default",
+                      transition: "all var(--transition-fast)",
+                      border: isOverBudget ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (onCategorySelect) {
+                        e.currentTarget.style.background = "var(--bg-hover)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (onCategorySelect) {
+                        e.currentTarget.style.background = "var(--bg-input)";
+                      }
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <div
+                          style={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            background: cat.color,
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: "0.875rem",
+                            fontWeight: 500,
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          {cat.category_name}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.75rem",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: "0.8125rem",
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          {formatCurrency(cat.spent)} / {formatCurrency(cat.monthly_budget)}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            padding: "0.25rem 0.5rem",
+                            borderRadius: "var(--radius-sm)",
+                            background: isOverBudget
+                              ? "rgba(239, 68, 68, 0.15)"
+                              : isNearLimit
+                              ? "rgba(245, 158, 11, 0.15)"
+                              : "rgba(16, 185, 129, 0.15)",
+                            color: isOverBudget ? "#ef4444" : isNearLimit ? "#f59e0b" : "#10b981",
+                          }}
+                        >
+                          {cat.percentage.toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div
+                      style={{
+                        width: "100%",
+                        height: 6,
+                        borderRadius: 3,
+                        background: "rgba(0,0,0,0.1)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${Math.min(100, cat.percentage)}%`,
+                          height: "100%",
+                          background: cat.color,
+                          borderRadius: 3,
+                          transition: "width 0.6s ease",
+                          opacity: isOverBudget ? 0.8 : 1,
+                        }}
+                      />
+                    </div>
+
+                    {/* Status Message */}
+                    <div style={{ fontSize: "0.75rem" }}>
+                      {isOverBudget ? (
+                        <span style={{ color: "#ef4444", fontWeight: 500 }}>
+                          ⚠️ Over budget by {formatCurrency(cat.spent - cat.monthly_budget)}
+                        </span>
+                      ) : isNearLimit ? (
+                        <span style={{ color: "#f59e0b" }}>
+                          ⚡ Only {formatCurrency(remaining)} remaining
+                        </span>
+                      ) : (
+                        <span style={{ color: "var(--text-muted)" }}>
+                          {formatCurrency(remaining)} remaining
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Quick Stats Grid */}
       <div

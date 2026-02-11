@@ -25,6 +25,7 @@ export type Category = {
   id: number;
   name: string;
   color?: string | null;
+  monthly_budget?: number | null;
 };
 
 export type Subcategory = {

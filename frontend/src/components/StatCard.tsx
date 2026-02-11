@@ -85,7 +85,7 @@ export function StatCard({
   className = "",
 }: StatCardProps) {
   const styles = variantStyles[variant];
-  const size = sizeStyles[size];
+  const sizeStyle = sizeStyles[size];
 
   const TrendIcon = trend?.type === "up" ? (
     <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -103,12 +103,12 @@ export function StatCard({
     <div
       className={`card stat-card ${className}`}
       style={{
-        padding: size.padding,
+        padding: sizeStyle.padding,
         background: styles.bg,
         display: "flex",
         flexDirection: "column",
         gap: "0.75rem",
-        minHeight: size === sizeStyles.large ? "140px" : "auto",
+        minHeight: sizeStyle === sizeStyles.large ? "140px" : "auto",
         justifyContent: "space-between",
       }}
     >
@@ -116,8 +116,8 @@ export function StatCard({
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
         <div
           style={{
-            width: size.iconSize,
-            height: size.iconSize,
+            width: sizeStyle.iconSize,
+            height: sizeStyle.iconSize,
             borderRadius: "10px",
             background: styles.iconBg,
             display: "flex",
@@ -131,7 +131,7 @@ export function StatCard({
         </div>
         <span
           style={{
-            fontSize: size.titleSize,
+            fontSize: sizeStyle.titleSize,
             color: "var(--text-muted)",
             fontWeight: 500,
           }}
@@ -145,7 +145,7 @@ export function StatCard({
         <div
           className="mono"
           style={{
-            fontSize: size.valueSize,
+            fontSize: sizeStyle.valueSize,
             fontWeight: 600,
             color: styles.valueColor,
             lineHeight: 1.2,
@@ -182,7 +182,7 @@ export function StatCard({
           {(trend || subtitle) && (
             <span
               style={{
-                fontSize: size.subtitleSize,
+                fontSize: sizeStyle.subtitleSize,
                 color: "var(--text-muted)",
               }}
             >
