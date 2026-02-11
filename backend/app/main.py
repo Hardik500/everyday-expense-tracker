@@ -3057,3 +3057,667 @@ def get_analytics_yearly(
 ) -> List[dict]:
     """Get month-by-month spending for a given year."""
     return get_year_over_year(current_user.id, year)
+
+
+# Feature 8: Recurring Expenses API
+from datetime import timedelta
+import calendar
+
+
+def calculate_next_due_date(frequency: str, current_date: date, interval_days: Optional[int] = None) -> date:
+    """Calculate the next due date based on frequency."""
+    if frequency == "daily":
+        return current_date + timedelta(days=1)
+    elif frequency == "weekly":
+        return current_date + timedelta(weeks=1)
+    elif frequency == "monthly":
+        # Move to same day next month, handling month-end
+        day = current_date.day
+        month = current_date.month + 1
+        year = current_date.year
+        if month > 12:
+            month = 1
+            year += 1
+        # Get last day of target month
+        last_day = calendar.monthrange(year, month)[1]
+        day = min(day, last_day)
+        return date(year, month, day)
+    elif frequency == "quarterly":
+        # Move to same day every 3 months
+        month = current_date.month + 3
+        year = current_date.year
+        if month > 12:
+            month = month - 12
+            year += 1
+        day = min(current_date.day, calendar.monthrange(year, month)[1])
+        return date(year, month, day)
+    elif frequency == "yearly":
+        # Move to same day next year
+        new_date = date(current_date.year + 1, current_date.month, current_date.day)
+        # Handle Feb 29 on non-leap years
+        if current_date.month == 2 and current_date.day == 29:
+            if not calendar.isleap(current_date.year + 1):
+                new_date = date(current_date.year + 1, 2, 28)
+        return new_date
+    elif frequency == "custom" and interval_days:
+        return current_date + timedelta(days=interval_days)
+    return current_date + timedelta(days=30)  # Fallback
+
+
+class RecurringExpenseCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    amount: float
+    currency: str = "INR"
+    frequency: str
+    interval_days: Optional[int] = None
+    category_id: Optional[int] = None
+    subcategory_id: Optional[int] = None
+    account_id: Optional[int] = None
+    start_date: date
+    end_date: Optional[date] = None
+    alert_days_before: int = 3
+    merchant_pattern: Optional[str] = None
+
+
+class RecurringExpenseUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    currency: Optional[str] = None
+    frequency: Optional[str] = None
+    interval_days: Optional[int] = None
+    category_id: Optional[int] = None
+    subcategory_id: Optional[int] = None
+    account_id: Optional[int] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    is_active: Optional[bool] = None
+    alert_days_before: Optional[int] = None
+    merchant_pattern: Optional[str] = None
+
+
+@app.post("/recurring-expenses")
+def create_recurring_expense(
+    payload: RecurringExpenseCreateRequest,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
+    """Create a new recurring expense."""
+    with get_conn() as conn:
+        # Validate category/belonging
+        if payload.category_id:
+            cat = conn.execute(
+                "SELECT id FROM categories WHERE id = ? AND user_id = ?",
+                (payload.category_id, current_user.id)
+            ).fetchone()
+            if not cat:
+                raise HTTPException(status_code=400, detail="Invalid category")
+        
+        if payload.subcategory_id:
+            sub = conn.execute(
+                "SELECT id FROM subcategories WHERE id = ? AND user_id = ?",
+                (payload.subcategory_id, current_user.id)
+            ).fetchone()
+            if not sub:
+                raise HTTPException(status_code=400, detail="Invalid subcategory")
+        
+        if payload.account_id:
+            acc = conn.execute(
+                "SELECT id FROM accounts WHERE id = ? AND user_id = ?",
+                (payload.account_id, current_user.id)
+            ).fetchone()
+            if not acc:
+                raise HTTPException(status_code=400, detail="Invalid account")
+        
+        # Calculate next due date
+        next_due = calculate_next_due_date(
+            payload.frequency, 
+            payload.start_date, 
+            payload.interval_days
+        )
+        
+        cursor = conn.execute(
+            """
+            INSERT INTO recurring_expenses 
+            (user_id, name, description, amount, currency, frequency, interval_days,
+             category_id, subcategory_id, account_id, start_date, end_date, next_due_date,
+             alert_days_before, merchant_pattern, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+            """,
+            (
+                current_user.id, payload.name, payload.description, payload.amount,
+                payload.currency, payload.frequency, payload.interval_days,
+                payload.category_id, payload.subcategory_id, payload.account_id,
+                payload.start_date.isoformat(), 
+                payload.end_date.isoformat() if payload.end_date else None,
+                next_due.isoformat(), payload.alert_days_before, payload.merchant_pattern
+            )
+        )
+        conn.commit()
+        
+        return {
+            "id": cursor.lastrowid,
+            "message": "Recurring expense created",
+            "next_due_date": next_due.isoformat()
+        }
+
+
+@app.get("/recurring-expenses")
+def list_recurring_expenses(
+    active_only: bool = True,
+    current_user: schemas.User = Depends(get_current_user)
+) -> List[dict]:
+    """List all recurring expenses for the user."""
+    with get_conn() as conn:
+        base_query = """
+            SELECT 
+                re.id, re.user_id, re.name, re.description, re.amount, re.currency,
+                re.frequency, re.interval_days, re.category_id, re.subcategory_id, 
+                re.account_id, re.start_date, re.end_date, re.next_due_date,
+                re.previous_due_date, re.is_active, re.auto_detected, re.merchant_pattern,
+                re.alert_days_before, re.created_at, re.updated_at,
+                c.name as category_name, s.name as subcategory_name, a.name as account_name
+            FROM recurring_expenses re
+            LEFT JOIN categories c ON c.id = re.category_id
+            LEFT JOIN subcategories s ON s.id = re.subcategory_id
+            LEFT JOIN accounts a ON a.id = re.account_id
+            WHERE re.user_id = ?
+        """
+        
+        if active_only:
+            base_query += " AND re.is_active = 1"
+        
+        base_query += " ORDER BY re.next_due_date ASC, re.name ASC"
+        
+        rows = conn.execute(base_query, (current_user.id,)).fetchall()
+        
+        result = []
+        for row in rows:
+            expense = dict(row)
+            # Parse dates
+            for date_field in ['start_date', 'end_date', 'next_due_date', 'previous_due_date']:
+                if expense.get(date_field):
+                    expense[date_field] = date.fromisoformat(expense[date_field])
+            # Parse bool
+            expense['is_active'] = bool(expense['is_active'])
+            expense['auto_detected'] = bool(expense['auto_detected'])
+            result.append(expense)
+        
+        return result
+
+
+@app.get("/recurring-expenses/{expense_id}")
+def get_recurring_expense(
+    expense_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
+    """Get a specific recurring expense with payment history."""
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT 
+                re.id, re.user_id, re.name, re.description, re.amount, re.currency,
+                re.frequency, re.interval_days, re.category_id, re.subcategory_id, 
+                re.account_id, re.start_date, re.end_date, re.next_due_date,
+                re.previous_due_date, re.is_active, re.auto_detected, re.merchant_pattern,
+                re.alert_days_before, re.created_at, re.updated_at,
+                c.name as category_name, s.name as subcategory_name, a.name as account_name
+            FROM recurring_expenses re
+            LEFT JOIN categories c ON c.id = re.category_id
+            LEFT JOIN subcategories s ON s.id = re.subcategory_id
+            LEFT JOIN accounts a ON a.id = re.account_id
+            WHERE re.id = ? AND re.user_id = ?
+            """,
+            (expense_id, current_user.id)
+        ).fetchone()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="Recurring expense not found")
+        
+        expense = dict(row)
+        
+        # Get payment history
+        payments = conn.execute(
+            """
+            SELECT id, recurring_expense_id, transaction_id, scheduled_date, paid_date,
+                   expected_amount, actual_amount, status, notes
+            FROM recurring_payments
+            WHERE recurring_expense_id = ?
+            ORDER BY scheduled_date DESC
+            LIMIT 12
+            """,
+            (expense_id,)
+        ).fetchall()
+        
+        # Parse dates
+        for date_field in ['start_date', 'end_date', 'next_due_date', 'previous_due_date']:
+            if expense.get(date_field):
+                expense[date_field] = date.fromisoformat(expense[date_field])
+        
+        expense['is_active'] = bool(expense['is_active'])
+        expense['auto_detected'] = bool(expense['auto_detected'])
+        expense['payments'] = [dict(p) for p in payments]
+        
+        return expense
+
+
+@app.patch("/recurring-expenses/{expense_id}")
+def update_recurring_expense(
+    expense_id: int,
+    payload: RecurringExpenseUpdateRequest,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
+    """Update a recurring expense."""
+    with get_conn() as conn:
+        # Verify ownership
+        existing = conn.execute(
+            "SELECT id FROM recurring_expenses WHERE id = ? AND user_id = ?",
+            (expense_id, current_user.id)
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Recurring expense not found")
+        
+        # Build update
+        updates = []
+        params = []
+        
+        if payload.name is not None:
+            updates.append("name = ?")
+            params.append(payload.name)
+        if payload.description is not None:
+            updates.append("description = ?")
+            params.append(payload.description)
+        if payload.amount is not None:
+            updates.append("amount = ?")
+            params.append(payload.amount)
+        if payload.currency is not None:
+            updates.append("currency = ?")
+            params.append(payload.currency)
+        if payload.frequency is not None:
+            updates.append("frequency = ?")
+            params.append(payload.frequency)
+        if payload.interval_days is not None:
+            updates.append("interval_days = ?")
+            params.append(payload.interval_days)
+        if payload.category_id is not None:
+            updates.append("category_id = ?")
+            params.append(payload.category_id)
+        if payload.subcategory_id is not None:
+            updates.append("subcategory_id = ?")
+            params.append(payload.subcategory_id)
+        if payload.account_id is not None:
+            updates.append("account_id = ?")
+            params.append(payload.account_id)
+        if payload.start_date is not None:
+            updates.append("start_date = ?")
+            params.append(payload.start_date.isoformat())
+        if payload.end_date is not None:
+            updates.append("end_date = ?")
+            params.append(payload.end_date.isoformat() if payload.end_date else None)
+        if payload.is_active is not None:
+            updates.append("is_active = ?")
+            params.append(1 if payload.is_active else 0)
+        if payload.alert_days_before is not None:
+            updates.append("alert_days_before = ?")
+            params.append(payload.alert_days_before)
+        if payload.merchant_pattern is not None:
+            updates.append("merchant_pattern = ?")
+            params.append(payload.merchant_pattern)
+        
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        
+        if updates:
+            query = f"UPDATE recurring_expenses SET {', '.join(updates)} WHERE id = ?"
+            params.append(expense_id)
+            conn.execute(query, tuple(params))
+            conn.commit()
+        
+        return {"status": "ok", "message": "Recurring expense updated"}
+
+
+@app.delete("/recurring-expenses/{expense_id}")
+def delete_recurring_expense(
+    expense_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
+    """Delete a recurring expense and its payments."""
+    with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT id FROM recurring_expenses WHERE id = ? AND user_id = ?",
+            (expense_id, current_user.id)
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Recurring expense not found")
+        
+        # Delete payments first (cascade)
+        conn.execute(
+            "DELETE FROM recurring_payments WHERE recurring_expense_id = ?",
+            (expense_id,)
+        )
+        # Delete expense
+        conn.execute(
+            "DELETE FROM recurring_expenses WHERE id = ?",
+            (expense_id,)
+        )
+        conn.commit()
+        
+        return {"status": "ok", "deleted": True}
+
+
+@app.post("/recurring-expenses/{expense_id}/payments/record")
+def record_recurring_payment(
+    expense_id: int,
+    transaction_id: Optional[int] = None,
+    paid_date: Optional[str] = None,
+    actual_amount: Optional[float] = None,
+    notes: Optional[str] = None,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
+    """Record a payment for a recurring expense and update next due date."""
+    with get_conn() as conn:
+        # Verify ownership
+        expense = conn.execute(
+            """SELECT frequency, interval_days, next_due_date, amount, auto_detected 
+               FROM recurring_expenses 
+               WHERE id = ? AND user_id = ?""",
+            (expense_id, current_user.id)
+        ).fetchone()
+        
+        if not expense:
+            raise HTTPException(status_code=404, detail="Recurring expense not found")
+        
+        current_next_due = date.fromisoformat(expense['next_due_date'])
+        
+        # Record the payment
+        conn.execute(
+            """
+            INSERT INTO recurring_payments 
+            (recurring_expense_id, transaction_id, scheduled_date, paid_date, 
+             expected_amount, actual_amount, status, notes)
+            VALUES (?, ?, ?, ?, ?, ?, 'paid', ?)
+            """,
+            (
+                expense_id, transaction_id, expense['next_due_date'], 
+                paid_date or date.today().isoformat(),
+                expense['amount'], actual_amount or expense['amount'], notes
+            )
+        )
+        
+        # Calculate and update next due date
+        new_next_due = calculate_next_due_date(
+            expense['frequency'], current_next_due, expense['interval_days']
+        )
+        
+        conn.execute(
+            """
+            UPDATE recurring_expenses 
+            SET previous_due_date = next_due_date, 
+                next_due_date = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (new_next_due.isoformat(), expense_id)
+        )
+        conn.commit()
+        
+        return {
+            "status": "ok",
+            "message": "Payment recorded",
+            "new_next_due_date": new_next_due.isoformat()
+        }
+
+
+@app.get("/recurring-expenses/stats/summary")
+def get_recurring_expenses_stats(
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
+    """Get summary statistics for recurring expenses."""
+    today = date.today()
+    
+    with get_conn() as conn:
+        # Basic counts
+        total = conn.execute(
+            "SELECT COUNT(*) as cnt FROM recurring_expenses WHERE user_id = ? AND is_active = 1",
+            (current_user.id,)
+        ).fetchone()['cnt']
+        
+        # Upcoming (next 7 days)
+        upcoming_date = (today + timedelta(days=7)).isoformat()
+        upcoming = conn.execute(
+            """
+            SELECT COUNT(*) as cnt FROM recurring_expenses 
+            WHERE user_id = ? AND is_active = 1 
+            AND next_due_date <= ?
+            """,
+            (current_user.id, upcoming_date)
+        ).fetchone()['cnt']
+        
+        # Overdue
+        overdue = conn.execute(
+            """
+            SELECT COUNT(*) as cnt FROM recurring_expenses 
+            WHERE user_id = ? AND is_active = 1 
+            AND next_due_date < ?
+            """,
+            (current_user.id, today.isoformat())
+        ).fetchone()['cnt']
+        
+        # Monthly total (approximate)
+        monthly_total = conn.execute(
+            """
+            SELECT 
+                SUM(CASE 
+                    WHEN frequency = 'monthly' THEN amount
+                    WHEN frequency = 'daily' THEN amount * 30
+                    WHEN frequency = 'weekly' THEN amount * 4.33
+                    WHEN frequency = 'quarterly' THEN amount / 3
+                    WHEN frequency = 'yearly' THEN amount / 12
+                    WHEN frequency = 'custom' AND interval_days IS NOT NULL THEN amount * (30.0 / interval_days)
+                    ELSE amount
+                END) as total
+            FROM recurring_expenses
+            WHERE user_id = ? AND is_active = 1
+            """,
+            (current_user.id,)
+        ).fetchone()['total'] or 0
+        
+        # By frequency
+        freq_breakdown = conn.execute(
+            """
+            SELECT frequency, COUNT(*) as cnt, SUM(amount) as total
+            FROM recurring_expenses 
+            WHERE user_id = ? AND is_active = 1
+            GROUP BY frequency
+            """,
+            (current_user.id,)
+        ).fetchall()
+        
+        # By category
+        cat_breakdown = conn.execute(
+            """
+            SELECT c.name as category_name, COUNT(*) as cnt, SUM(re.amount) as total
+            FROM recurring_expenses re
+            JOIN categories c ON c.id = re.category_id
+            WHERE re.user_id = ? AND re.is_active = 1 AND re.category_id IS NOT NULL
+            GROUP BY re.category_id, c.name
+            ORDER BY total DESC
+            """,
+            (current_user.id,)
+        ).fetchall()
+        
+        return {
+            "total_active": total,
+            "upcoming_count": upcoming,
+            "overdue_count": overdue,
+            "monthly_total": round(monthly_total, 2),
+            "by_frequency": {r['frequency']: {"count": r['cnt'], "total": r['total']} for r in freq_breakdown},
+            "by_category": [dict(r) for r in cat_breakdown]
+        }
+
+
+@app.post("/recurring-expenses/detect")
+def detect_recurring_from_transactions(
+    months_back: int = 6,
+    min_occurrences: int = 3,
+    current_user: schemas.User = Depends(get_current_user)
+) -> List[dict]:
+    """Auto-detect potential recurring expenses from transaction history using pattern matching."""
+    from datetime import datetime, timedelta
+    
+    cutoff_date = (datetime.now() - timedelta(days=months_back * 30)).strftime('%Y-%m-%d')
+    
+    with get_conn() as conn:
+        # Find merchants that appear multiple times with similar amounts
+        query = """
+        SELECT 
+            description_norm,
+            category_id,
+            subcategory_id,
+            COUNT(*) as occurrence_count,
+            AVG(amount) as avg_amount,
+            MIN(amount) as min_amount,
+            MAX(amount) as max_amount
+        FROM transactions
+        WHERE user_id = ? 
+          AND posted_at >= ?
+          AND description_norm IS NOT NULL
+          AND description_norm != ''
+        GROUP BY description_norm, category_id, subcategory_id
+        HAVING occurrence_count >= ?
+        ORDER BY occurrence_count DESC, avg_amount DESC
+        """
+        
+        rows = conn.execute(query, (current_user.id, cutoff_date, min_occurrences)).fetchall()
+        
+        candidates = []
+        seen = set()
+        
+        for row in rows:
+            merchant = row['description_norm']
+            
+            # Skip if too generic
+            if len(merchant) < 3:
+                continue
+                
+            # Skip already-extracted patterns
+            if merchant in seen:
+                continue
+            seen.add(merchant)
+            
+            # Get actual dates for pattern analysis
+            dates_query = """
+            SELECT posted_at, amount
+            FROM transactions
+            WHERE user_id = ? AND description_norm = ?
+            ORDER BY posted_at ASC
+            """
+            txns = conn.execute(dates_query, (current_user.id, merchant)).fetchall()
+            
+            if len(txns) < min_occurrences:
+                continue
+            
+            # Calculate date intervals to detect frequency
+            intervals = []
+            for i in range(1, len(txns)):
+                d1 = date.fromisoformat(txns[i-1]['posted_at'])
+                d2 = date.fromisoformat(txns[i]['posted_at'])
+                intervals.append((d2 - d1).days)
+            
+            if not intervals:
+                continue
+            
+            avg_interval = sum(intervals) / len(intervals)
+            
+            # Determine frequency
+            if 27 <= avg_interval <= 33:
+                frequency = "monthly"
+                interval_days = None
+            elif 6 <= avg_interval <= 8:
+                frequency = "weekly"
+                interval_days = None
+            elif 85 <= avg_interval <= 95:
+                frequency = "quarterly"
+                interval_days = None
+            elif 360 <= avg_interval <= 370:
+                frequency = "yearly"
+                interval_days = None
+            else:
+                frequency = "custom"
+                interval_days = int(avg_interval)
+            
+            # Get category name
+            cat_name = None
+            if row['category_id']:
+                cat_row = conn.execute(
+                    "SELECT name FROM categories WHERE id = ?",
+                    (row['category_id'],)
+                ).fetchone()
+                cat_name = cat_row['name'] if cat_row else None
+            
+            candidates.append({
+                "merchant": merchant,
+                "category_id": row['category_id'],
+                "subcategory_id": row['subcategory_id'],
+                "category_name": cat_name,
+                "occurrence_count": row['occurrence_count'],
+                "suggested_amount": round(row['avg_amount'], 2),
+                "amount_range": f"{row['min_amount']:.2f} - {row['max_amount']:.2f}",
+                "suggested_frequency": frequency,
+                "detected_interval_days": interval_days,
+                "avg_interval_days": round(avg_interval, 1),
+                "sample_transaction_dates": [t['posted_at'] for t in txns[-5:]]
+            })
+        
+        # Limit candidates
+        return candidates[:20]
+
+
+@app.post("/recurring-expenses/{expense_id}/link-transaction/{transaction_id}")
+def link_transaction_to_recurring(
+    expense_id: int,
+    transaction_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
+    """Manually link a transaction to a recurring expense."""
+    with get_conn() as conn:
+        # Verify both exist and belong to user
+        expense = conn.execute(
+            "SELECT id FROM recurring_expenses WHERE id = ? AND user_id = ?",
+            (expense_id, current_user.id)
+        ).fetchone()
+        if not expense:
+            raise HTTPException(status_code=404, detail="Recurring expense not found")
+        
+        txn = conn.execute(
+            "SELECT id, posted_at, amount FROM transactions WHERE id = ? AND user_id = ?",
+            (transaction_id, current_user.id)
+        ).fetchone()
+        if not txn:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        
+        # Check if already linked
+        existing = conn.execute(
+            """SELECT id FROM recurring_payments 
+               WHERE recurring_expense_id = ? AND transaction_id = ?""",
+            (expense_id, transaction_id)
+        ).fetchone()
+        
+        if existing:
+            return {"status": "ok", "message": "Already linked"}
+        
+        # Create payment record
+        conn.execute(
+            """
+            INSERT INTO recurring_payments 
+            (recurring_expense_id, transaction_id, scheduled_date, paid_date,
+             expected_amount, actual_amount, status, notes)
+            VALUES (?, ?, ?, ?, ?, ?, 'paid', 'Linked from transaction')
+            """,
+            (
+                expense_id, transaction_id, txn['posted_at'], txn['posted_at'],
+                txn['amount'], txn['amount']
+            )
+        )
+        conn.commit()
+        
+        return {"status": "ok", "message": "Transaction linked successfully"}

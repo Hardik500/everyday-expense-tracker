@@ -18,6 +18,7 @@ import GoogleCallback from "./components/GoogleCallback";
 import { CategoriesProvider, useCategories } from "./contexts/CategoriesContext";
 import { PageLoading } from "./components/ui/Loading";
 import LandingPage from "./components/LandingPage";
+import RecurringExpenses from "./components/RecurringExpenses";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -50,7 +51,7 @@ export type Transaction = {
   account_name?: string;
 };
 
-type Tab = "dashboard" | "analytics" | "cards" | "accounts" | "categories" | "rules" | "upload" | "review" | "transactions" | "profile" | "google-callback";
+type Tab = "dashboard" | "analytics" | "cards" | "accounts" | "categories" | "rules" | "recurring" | "upload" | "review" | "transactions" | "profile" | "google-callback";
 
 const NavIcon = ({ active, children }: { active: boolean; children: React.ReactNode }) => (
   <div
@@ -79,7 +80,7 @@ function AppContent() {
     }
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab") as Tab;
-    const validTabs: Tab[] = ["dashboard", "analytics", "cards", "accounts", "categories", "rules", "upload", "review", "transactions", "profile"];
+    const validTabs: Tab[] = ["dashboard", "analytics", "cards", "accounts", "categories", "rules", "recurring", "upload", "review", "transactions", "profile"];
     return validTabs.includes(tab) ? tab : "dashboard";
   };
 
@@ -105,7 +106,7 @@ function AppContent() {
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get("tab") as Tab;
-      const validTabs: Tab[] = ["dashboard", "analytics", "accounts", "categories", "rules", "upload", "review", "transactions"];
+      const validTabs: Tab[] = ["dashboard", "analytics", "cards", "accounts", "categories", "rules", "recurring", "upload", "review", "transactions"];
       if (validTabs.includes(tab)) {
         setActiveTab(tab);
       }
@@ -195,6 +196,15 @@ function AppContent() {
       icon: (
         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+        </svg>
+      ),
+    },
+    {
+      id: "recurring",
+      label: "Recurring",
+      icon: (
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       ),
     },
@@ -412,6 +422,7 @@ function AppContent() {
             {activeTab === "accounts" && "Accounts"}
             {activeTab === "categories" && "Categories"}
             {activeTab === "rules" && "Categorization Rules"}
+            {activeTab === "recurring" && "Recurring Expenses"}
             {activeTab === "upload" && "Import Statement"}
             {activeTab === "review" && "Review Transactions"}
             {activeTab === "transactions" && "Transaction History"}
@@ -425,6 +436,7 @@ function AppContent() {
             {activeTab === "accounts" && "Manage your bank accounts, credit cards, and cash wallets"}
             {activeTab === "categories" && "Organize your transactions with categories and subcategories"}
             {activeTab === "rules" && "Manage rules for automatic transaction categorization"}
+            {activeTab === "recurring" && "Track your recurring bills and subscriptions"}
             {activeTab === "upload" && "Upload bank statements, credit card bills, or cash records"}
             {activeTab === "review" && `${reviewCount} transactions need your attention`}
             {activeTab === "transactions" && "View and filter all your transactions"}
@@ -488,6 +500,14 @@ function AppContent() {
               apiBase={API_BASE}
               categories={categories}
               subcategories={subcategories}
+              refreshKey={refreshKey}
+              onRefresh={() => setRefreshKey((k) => k + 1)}
+            />
+          )}
+          {activeTab === "recurring" && (
+            <RecurringExpenses
+              key={`recurring-${tabResetKey}`}
+              apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
             />

@@ -121,3 +121,88 @@ class SearchRequest(BaseModel):
     page: int = 1
     page_size: int = 50
 
+
+# Recurring Expense Schemas
+class RecurringExpenseCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    amount: float
+    currency: str = "INR"
+    frequency: str = Field(pattern="^(daily|weekly|monthly|quarterly|yearly|custom)$")
+    interval_days: Optional[int] = None
+    category_id: Optional[int] = None
+    subcategory_id: Optional[int] = None
+    account_id: Optional[int] = None
+    start_date: date
+    end_date: Optional[date] = None
+    alert_days_before: int = 3
+    merchant_pattern: Optional[str] = None
+
+
+class RecurringExpenseUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    currency: Optional[str] = None
+    frequency: Optional[str] = Field(pattern="^(daily|weekly|monthly|quarterly|yearly|custom)$", default=None)
+    interval_days: Optional[int] = None
+    category_id: Optional[int] = None
+    subcategory_id: Optional[int] = None
+    account_id: Optional[int] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    is_active: Optional[bool] = None
+    alert_days_before: Optional[int] = None
+    merchant_pattern: Optional[str] = None
+
+
+class RecurringPayment(BaseModel):
+    id: int
+    recurring_expense_id: int
+    transaction_id: Optional[int] = None
+    scheduled_date: date
+    paid_date: Optional[date] = None
+    expected_amount: float
+    actual_amount: Optional[float] = None
+    status: str
+    notes: Optional[str] = None
+
+
+class RecurringExpense(BaseModel):
+    id: int
+    user_id: int
+    name: str
+    description: Optional[str] = None
+    amount: float
+    currency: str
+    frequency: str
+    interval_days: Optional[int] = None
+    category_id: Optional[int] = None
+    subcategory_id: Optional[int] = None
+    account_id: Optional[int] = None
+    start_date: date
+    end_date: Optional[date] = None
+    next_due_date: date
+    previous_due_date: Optional[date] = None
+    is_active: bool
+    auto_detected: bool
+    merchant_pattern: Optional[str] = None
+    alert_days_before: int
+    created_at: Union[datetime, str]
+    updated_at: Union[datetime, str]
+    # Joined fields
+    category_name: Optional[str] = None
+    subcategory_name: Optional[str] = None
+    account_name: Optional[str] = None
+    # Computed fields
+    upcoming_payments: Optional[List[RecurringPayment]] = None
+
+
+class RecurringExpenseStats(BaseModel):
+    total_active: int
+    total_monthly: float
+    upcoming_count: int
+    overdue_count: int
+    by_frequency: Dict[str, int]
+    by_category: List[Dict[str, Any]]
+
