@@ -258,9 +258,13 @@ def ai_classify(
                 subcategory_name if not is_new_subcategory else subcategory_name,
             )
         
+        print(f"[AI] SUCCESS: category_id={category['id']}, subcategory_id={subcategory['id']}")        
         return (category["id"], subcategory["id"])
         
     except Exception as e:
+        import traceback
+        print(f"[AI] EXCEPTION: {e}")
+        print(traceback.format_exc())
         return None
 
 
