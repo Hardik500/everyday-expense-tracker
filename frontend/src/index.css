@@ -357,6 +357,50 @@ tbody td:first-child {
   transition: opacity 150ms ease, transform 150ms ease, box-shadow 150ms ease;
 }
 
+/* Smooth similar section appearance */
+.similar-section {
+  will-change: opacity, transform;
+  animation: similarEnter 300ms ease forwards;
+}
+
+@keyframes similarEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.96);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(2px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Smooth skeleton fade-out */
+@keyframes skeletonFadeOut {
+  from { opacity: 0.7; }
+  to { opacity: 0; }
+}
+
+/* Subtle stagger for similar content elements */
+.similar-section > * {
+  animation: contentFadeIn 250ms ease forwards;
+  animation-delay: calc(var(--child-index, 0) * 50ms);
+}
+
+@keyframes contentFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
@@ -698,4 +742,45 @@ html {
 .btn-secondary:hover {
   transform: translateY(-2px);
   border-color: #667eea;
+}
+
+/* Similar section smooth appearance */
+.similar-skeleton {
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-card) 50%, var(--bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.similar-content {
+  animation: similar-fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+@keyframes similar-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Staggered fade-in for content children */
+.similar-content > * {
+  opacity: 0;
+  animation: child-fade-in 0.3s ease forwards;
+  animation-delay: 0.15s;
+}
+
+@keyframes child-fade-in {
+  to {
+    opacity: 1;
+  }
 }

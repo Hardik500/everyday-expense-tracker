@@ -529,25 +529,22 @@ function ReviewQueue({
                 {/* Similar transactions info */}
                 {isLoadingSimilar ? (
                   <div
+                    className="similar-skeleton"
                     style={{
                       marginTop: "1rem",
-                      height: 60,
-                      background: "var(--bg-secondary)",
+                      height: 80,
                       borderRadius: "var(--radius-md)",
-                      animation: "pulse 1.5s ease-in-out infinite",
                     }}
                   />
                 ) : hasSimilar ? (
                   <div
+                    className="similar-content"
                     style={{
                       marginTop: "1rem",
                       padding: "1rem",
                       background: "var(--bg-input)",
                       borderRadius: "var(--radius-md)",
                       fontSize: "0.8125rem",
-                      opacity: hasSimilar ? 1 : 0,
-                      transform: hasSimilar ? "translateY(0)" : "translateY(-8px)",
-                      transition: "opacity 200ms ease, transform 200ms ease",
                     }}
                   >
                     {/* Apply to similar toggle */}
