@@ -12,8 +12,93 @@ import httpx
 
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
 
+
 # Cache for category/subcategory lookups per user to avoid repeated DB queries
 _category_cache: Dict[int, dict] = {}
+
+
+def _extract_json(text: str, allow_partial: bool = False) -> Optional[Dict[str, Any]]:
+    """
+    Extract JSON object from text. Handles markdown code blocks and partial JSON.
+    
+    Args:
+        text: The text to extract JSON from
+        allow_partial: If True, try to extract partial JSON (for truncated responses)
+        
+    Returns:
+        Parsed JSON dict or None if extraction failed
+    """
+    if not text or not text.strip():
+        return None
+    
+    # Method 1: Try parsing the entire text as JSON
+    try:
+        return json.loads(text.strip())
+    except json.JSONDecodeError:
+        pass
+    
+    # Method 2: Look for JSON in markdown code blocks
+    # Match content between ``` or ```json fences
+    code_block_match = re.search(
+        r'^```(?:json)?\s*\n?(.*?)\s*```\s*$', 
+        text.strip(), 
+        re.DOTALL
+    )
+    if code_block_match:
+        code_content = code_block_match.group(1)
+        try:
+            return json.loads(code_content.strip())
+        except json.JSONDecodeError:
+            pass
+    
+    # Method 3: Find outermost JSON object by brace counting
+    start = text.find('{')
+    if start == -1:
+        return None
+        
+    brace_count = 0
+    end = start
+    for i, char in enumerate(text[start:], start):
+        if char == '{':
+            brace_count += 1
+        elif char == '}':
+            brace_count -= 1
+            if brace_count == 0:
+                end = i + 1
+                break
+    
+    json_str = text[start:end]
+    if not json_str:
+        return None
+        
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        if not allow_partial:
+            return None
+        
+        # Method 4: Try to extract partial JSON (for truncated responses)
+        # Try adding closing braces/brackets to make it valid JSON
+        fixed_json = json_str
+        
+        # Count unclosed braces
+        open_braces = json_str.count('{') - json_str.count('}')
+        for _ in range(open_braces):
+            fixed_json += '}'
+        
+        # Count unclosed brackets
+        open_brackets = json_str.count('[') - json_str.count(']')
+        for _ in range(open_brackets):
+            fixed_json += ']'
+        
+        # Remove trailing commas before closing braces
+        fixed_json = re.sub(r',\s*}', '}', fixed_json)
+        fixed_json = re.sub(r',\s*]', ']', fixed_json)
+        
+        try:
+            return json.loads(fixed_json)
+        except json.JSONDecodeError:
+            return None
 
 
 def _get_categories_json(conn, user_id: int) -> str:
@@ -49,50 +134,31 @@ def _get_categories_json(conn, user_id: int) -> str:
 
 
 def _build_prompt(description: str, amount: float, categories_json: str, allow_new: bool = True) -> str:
-    """Build the prompt for Gemini."""
+    """Build the Gemini prompt for categorization."""
     new_category_instruction = """
 5. If none of the existing categories fit well, you MAY suggest a NEW category/subcategory
    - Set "is_new_category": true and/or "is_new_subcategory": true
-   - Make the new names clear, concise, and consistent with existing naming style
-""" if allow_new else ""
+   - Make the new names clear, concise, and consistent with existing naming style""" if allow_new else ""
 
     return f"""You are a financial transaction categorizer for Indian bank/credit card statements.
 
 Given a transaction description and amount, categorize it into the most appropriate category and subcategory.
 
-IMPORTANT CONTEXT FOR INDIAN BANKING:
-- "ACH C-" prefix means an incoming credit via ACH (could be dividend, salary, refund, etc.)
-- "ACH D-" prefix means an outgoing debit via ACH
-- Company names followed by account numbers often indicate DIVIDENDS from stock investments
-- "NEFT", "RTGS", "IMPS", "UPI" are transfer methods
-- "POS" means point-of-sale card transaction
-- Amounts that are CREDITS (+ve) from company names are usually dividends or refunds
-
 IMPORTANT RULES:
 1. Return ONLY valid JSON
 2. PREFER using existing categories/subcategories when they fit reasonably well
-3. Suggest a "regex_pattern" that could identify similar transactions in the future
-4. The regex should be simple and capture the key merchant/vendor name
-5. For credits from companies (especially with account numbers), consider "Income > Dividend"{new_category_instruction}
+3. Suggest a "regex_pattern" that could identify similar transactions
+4. Amounts that are CREDITS (+ve) from company names are usually dividends or refunds{new_category_instruction}
 
-Available Categories and Subcategories:
+Available Categories:
 {categories_json}
 
-Transaction to categorize:
+Transaction:
 - Description: {description}
 - Amount: ₹{abs(amount):.2f} ({'debit/expense' if amount < 0 else 'credit/income'})
 
-Respond with ONLY a JSON object:
-{{
-  "category": "Category Name",
-  "subcategory": "Subcategory Name", 
-  "regex_pattern": "PATTERN",
-  "is_new_category": false,
-  "is_new_subcategory": false,
-  "confidence": "high"
-}}
-
-Set confidence to "high", "medium", or "low" based on how certain you are."""
+Respond with ONLY JSON:
+{{"category": "Name", "subcategory": "Name", "regex_pattern": "PATTERN", "is_new_category": false, "is_new_subcategory": false, "confidence": "high"}}"""
 
 
 def ai_classify(
@@ -106,34 +172,20 @@ def ai_classify(
     """
     Use Google Gemini to classify a transaction.
     Returns (category_id, subcategory_id) tuple or None if classification fails.
-    
-    If AI suggests a new category/subcategory and allow_new_categories=True,
-    creates a suggestion record for user approval.
-    
-    Also creates a rule from the AI's suggestion to avoid future API calls.
     """
-    import traceback
-    
     api_key = os.getenv("GEMINI_API_KEY")
-    print(f"[AI] api_key exists: {bool(api_key)}, user_id: {user_id}, tx_id: {transaction_id}")
-    
     if not api_key:
-        print("[AI] No API key, returning None")
         return None
     
     if not conn:
-        print("[AI] No conn, returning None")
         return None
     
     try:
         if not user_id:
-            print("[AI] No user_id, returning None")
             return None
             
         categories_json = _get_categories_json(conn, user_id)
-        print(f"[AI] Categories JSON length: {len(categories_json)}")
         prompt = _build_prompt(description_norm, amount, categories_json, allow_new=allow_new_categories)
-        print(f"[AI] Prompt built, length: {len(prompt)}")
         
         response = httpx.post(
             f"{GEMINI_API_URL}?key={api_key}",
@@ -143,76 +195,36 @@ def ai_classify(
                     "temperature": 0.1,
                     "topK": 1,
                     "topP": 0.8,
-                    "maxOutputTokens": 256,
+                    "maxOutputTokens": 1024,
                 }
             },
             timeout=10.0,
         )
         
-        print(f"[AI] Response status: {response.status_code}")
-        
         if response.status_code != 200:
-            print(f"[AI] Non-200 response: {response.text}")
             return None
         
         data = response.json()
-        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-        print(f"[AI] Full Response text:\n{text}")
-        print(f"[AI] Response text (truncated): {text[:500]}...")
         
-        # Extract JSON from response
-        result = None
-        
-        # Method 1: Try parsing the entire text as JSON
-        try:
-            result = json.loads(text.strip())
-            print("[AI] Parsed full text as JSON")
-        except json.JSONDecodeError as e:
-            print(f"[AI] Method 1 failed: {e}")
-        
-        # Method 2: Look for JSON in markdown code blocks
-        if result is None:
-            # Match content between code fences (handles ```json and ```)
-            code_block_match = re.search(r'^```(?:json)?\s*\n?(.*?)\n?```\s*$', text, re.DOTALL)
-            if code_block_match:
-                code_content = code_block_match.group(1)
-                print(f"[AI] Found code block content: {repr(code_content[:200])}...")
-                try:
-                    result = json.loads(code_content.strip())
-                    print("[AI] Parsed JSON from code block")
-                except json.JSONDecodeError as e:
-                    print(f"[AI] Method 2 failed: {e}")
-            else:
-                print("[AI] No code block found")
-                print(f"[AI] Text starts with: {repr(text[:50])}...")
-        
-        # Method 3: Find outermost JSON object by brace counting
-        if result is None:
-            start = text.find('{')
-            if start != -1:
-                brace_count = 0
-                end = start
-                for i, char in enumerate(text[start:], start):
-                    if char == '{':
-                        brace_count += 1
-                    elif char == '}':
-                        brace_count -= 1
-                        if brace_count == 0:
-                            end = i + 1
-                            break
-                json_str = text[start:end]
-                print(f"[AI] Brace counting found: {json_str[:200]}...")
-                try:
-                    result = json.loads(json_str)
-                    print(f"[AI] Parsed JSON by brace counting")
-                except json.JSONDecodeError as e:
-                    print(f"[AI] Method 3 failed: {e}")
-            else:
-                print("[AI] No opening brace found")
-        
-        if result is None:
-            print(f"[AI] Failed to extract valid JSON from response")
+        # Check if response was truncated
+        candidates = data.get("candidates", [{}])
+        if not candidates:
             return None
+        
+        finish_reason = candidates[0].get("finishReason", "")
+        content = candidates[0].get("content", {})
+        text = content.get("parts", [{}])[0].get("text", "")
+        
+        if finish_reason == "MAX_TOKENS":
+            # Response was truncated - try to extract partial JSON
+            result = _extract_json(text, allow_partial=True)
+        else:
+            result = _extract_json(text, allow_partial=False)
+        
+        if result is None:
+            return None
+            
+        # Extract fields
         category_name = result.get("category")
         subcategory_name = result.get("subcategory")
         regex_pattern = result.get("regex_pattern")
@@ -220,10 +232,7 @@ def ai_classify(
         is_new_subcategory = result.get("is_new_subcategory", False)
         confidence = result.get("confidence", "medium")
         
-        print(f"[AI] Parsed: category={category_name}, subcategory={subcategory_name}")
-        
         if not category_name or not subcategory_name:
-            print(f"[AI] Missing category/subcategory in response")
             return None
         
         # Look up category
@@ -232,19 +241,14 @@ def ai_classify(
             (category_name, user_id)
         ).fetchone()
         
-        print(f"[AI] Category lookup: {category}")
-        
-        # If category doesn't exist and AI suggested new one
+        # If category doesn't exist
         if not category:
-            print(f"[AI] Category '{category_name}' not found")
             if is_new_category and allow_new_categories and transaction_id:
-                # Create a suggestion for user approval
                 _create_suggestion(
                     conn, transaction_id, user_id, category_name, subcategory_name,
                     None, None, regex_pattern, confidence
                 )
-                print(f"[AI] Created suggestion for new category")
-                return None  # Don't categorize yet, wait for approval
+                return None
             else:
                 # Fall back to Miscellaneous
                 category = conn.execute(
@@ -252,10 +256,7 @@ def ai_classify(
                     (user_id,)
                 ).fetchone()
                 if not category:
-                    print(f"[AI] 'Miscellaneous' category not found for user {user_id}")
                     return None
-                else:
-                    print(f"[AI] Using 'Miscellaneous' category: {category['id']}")
         
         # Look up subcategory
         subcategory = conn.execute(
@@ -263,55 +264,32 @@ def ai_classify(
             (category["id"], subcategory_name, user_id)
         ).fetchone()
         
-        print(f"[AI] Subcategory lookup: {subcategory}")
-        
         if not subcategory:
-            print(f"[AI] Subcategory '{subcategory_name}' not found")
             if is_new_subcategory and allow_new_categories and transaction_id:
-                # Create a suggestion for new subcategory
                 _create_suggestion(
                     conn, transaction_id, user_id, category_name, subcategory_name,
                     category["id"], None, regex_pattern, confidence
                 )
-                print(f"[AI] Created suggestion for new subcategory")
-                return None  # Don't categorize yet, wait for approval
+                return None
             else:
-                # Try to find first subcategory in this category, or use "Other"
+                # Find first subcategory
                 subcategory = conn.execute(
-                    "SELECT id FROM subcategories WHERE category_id = ? AND name LIKE '%%Other%%' AND user_id = ? LIMIT 1",
+                    "SELECT id FROM subcategories WHERE category_id = ? AND user_id = ? LIMIT 1",
                     (category["id"], user_id)
                 ).fetchone()
                 if not subcategory:
-                    subcategory = conn.execute(
-                        "SELECT id FROM subcategories WHERE category_id = ? AND user_id = ? LIMIT 1",
-                        (category["id"], user_id)
-                    ).fetchone()
-                if not subcategory:
-                    print(f"[AI] No subcategory found in category {category['id']}")
                     return None
-                else:
-                    print(f"[AI] Using fallback subcategory: {subcategory['id']}")
         
-        # Create a rule from the AI's suggestion to avoid future API calls
-        if regex_pattern and regex_pattern != "null":
+        # Create rule for future similar transactions
+        if regex_pattern and regex_pattern != "null" and regex_pattern != "PATTERN":
             _create_rule_from_ai(
-                conn,
-                user_id,
-                description_norm,
-                regex_pattern,
-                category["id"],
-                subcategory["id"],
-                category_name,
-                subcategory_name if not is_new_subcategory else subcategory_name,
+                conn, user_id, description_norm, regex_pattern,
+                category["id"], subcategory["id"], category_name, subcategory_name
             )
         
-        print(f"[AI] SUCCESS: category_id={category['id']}, subcategory_id={subcategory['id']}")        
         return (category["id"], subcategory["id"])
         
-    except Exception as e:
-        import traceback
-        print(f"[AI] EXCEPTION: {e}")
-        print(traceback.format_exc())
+    except Exception:
         return None
 
 
@@ -328,7 +306,6 @@ def _create_suggestion(
 ) -> None:
     """Create an AI suggestion record for user approval."""
     try:
-        # Check if suggestion already exists for this transaction
         existing = conn.execute(
             "SELECT id FROM ai_suggestions WHERE transaction_id = ? AND status = 'pending' AND user_id = ?",
             (transaction_id, user_id)
@@ -363,10 +340,8 @@ def _create_rule_from_ai(
 ) -> None:
     """Create a rule from AI classification to avoid future API calls."""
     try:
-        # Validate the regex pattern
         re.compile(regex_pattern)
         
-        # Check if rule already exists
         existing = conn.execute(
             "SELECT id FROM rules WHERE pattern = ? AND user_id = ?",
             (regex_pattern, user_id)
@@ -375,7 +350,6 @@ def _create_rule_from_ai(
         if existing:
             return
         
-        # Create a readable name from the pattern
         rule_name = f"AI: {category_name} - {subcategory_name[:20]}"
         
         conn.execute(
@@ -385,9 +359,7 @@ def _create_rule_from_ai(
             """,
             (rule_name, regex_pattern, category_id, subcategory_id, 55, user_id),
         )
-        
     except (re.error, Exception):
-        # Invalid regex or other error - skip rule creation
         pass
 
 
