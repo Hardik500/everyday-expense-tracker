@@ -65,6 +65,7 @@ class Category(BaseModel):
     name: str
     color: Optional[str] = None
     monthly_budget: Optional[float] = None
+    icon: Optional[str] = None
 
 
 class Subcategory(BaseModel):

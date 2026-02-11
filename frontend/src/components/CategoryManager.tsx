@@ -120,6 +120,47 @@ const DeleteConfirmationModal = ({
   );
 };
 
+// Popular Lucide icons for categories
+const CATEGORY_ICONS = [
+  { name: "shopping-bag", path: "M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18M16 10a4 4 0 01-8 0" },
+  { name: "utensils", path: "M3 2v7c0 1.1.9 2 2 2h4a2 2 0 002-2V2M3 2h6M3 2v20M12 2v10c0 4.4 3.6 8 8 8h4V2h-4c-4.4 0-8 3.6-8 8z" },
+  { name: "car", path: "M14 16H9m10 0h3v-3.15a1 1 0 00-.8-.76l-2.1-.42a1 1 0 01-.93-.54L17.35 8H5.64l-.86 3.29a1 1 0 01-.93.54l-2.1.42a1 1 0 00-.8.76V16h3m12-4h-5M2 16h.01M2 12h.01M19 7a4 4 0 10-8 0 4 4 0 008 0z" },
+  { name: "home", path: "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2zM9 22V12h6v10" },
+  { name: "zap", path: "M13 2L3 14h9l-1 8 10-12h-9l1-8z" },
+  { name: "wifi", path: "M5 12.55a11 11 0 0114.08 0M4.26 10.03a15.5 15.5 0 0122.48 0M1.42 13.8a19.5 19.5 0 0133.16 0M12 18h.01" },
+  { name: "smartphone", path: "M17 2H7a2 2 0 00-2 2v16a2 2 0 002 2h10a2 2 0 002-2V4a2 2 0 00-2-2zM12 18h.01" },
+  { name: "tv", path: "M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM8 22v-4M16 22v-4M12 2v4" },
+  { name: "heart", path: "M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" },
+  { name: "gift", path: "M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" },
+  { name: "briefcase", path: "M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2M12 13v4" },
+  { name: "plane", path: "M2 12h20M13 2v20M21 12a9 9 0 01-9 9M3 12a9 9 0 019-9" },
+  { name: "book-open", path: "M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2zM22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z" },
+  { name: "gamepad-2", path: "M6 11h4M8 9v4M15 12h.01M18 10h.01M17.32 5H6.68a4 4 0 00-3.978 3.59c-.019.154-.03.31-.03.468v7.884c0 .157.011.314.03.468A4 4 0 006.68 21h10.64a4 4 0 003.978-3.59c.019-.154.03-.31.03-.468v-7.884c0-.157-.011-.314-.03-.468A4 4 0 0017.32 5z" },
+  { name: "coffee", path: "M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8zM6 1v3M10 1v3M14 1v3" },
+  { name: "music", path: "M9 18V5l12-2v13" },
+  { name: "film", path: "M7 4v16M17 4v16M2 9h20M2 15h20M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z" },
+  { name: "credit-card", path: "M21 4H3a2 2 0 00-2 2v12a2 2 0 002 2h18a2 2 0 002-2V6a2 2 0 00-2-2zM1 10h22" },
+  { name: "banknote", path: "M4 10h3l4-5 4 5h7M4 14h16M1 4h22v16H1z" },
+  { name: "trending-up", path: "M23 6l-9.5 9.5-5-5L1 18M17 6h6v6" },
+  { name: "shield", path: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" },
+  { name: "pill", path: "M10.5 20.5l10-10a4.95 4.95 0 00-7-7l-10 10a4.95 4.95 0 007 7zM14.5 9l5.5 5.5" },
+  { name: "dumbbell", path: "M6.5 6.5h11M6.5 17.5h11M6 20L2 16l4-4M18 20l4-4-4-4M12 5v14" },
+  { name: "graduation-cap", path: "M22 10v6M2 10l10-5 10 5-10 5zM6 12v5c3 3 9 3 12 0v-5" },
+  { name: "shopping-cart", path: "M9 22a1 1 0 100-2 1 1 0 000 2zM20 22a1 1 0 100-2 1 1 0 000 2zM1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" },
+  { name: "package", path: "M11 21.73a2 2 0 002 2l7.5-4.37a2 2 0 001-1.73V6.27a2 2 0 00-1-1.73L13 1a2 2 0 00-2 0l-7.5 4.37a2 2 0 00-1 1.73v9.63a2 2 0 001 1.73L3 18l6 3M8 6v14" },
+  { name: "truck", path: "M1 3h15v13H1zM16 8h4l3 3v5h-7V8zM10 18a3 3 0 100-6 3 3 0 000 6zM20 18a3 3 0 100-6 3 3 0 000 6z" },
+  { name: "building", path: "M3 21h18M5 21V7l8-4 8 4v14M8 21V10h2v11M14 21v-5h2v5" },
+  { name: "leaf", path: "M11 20A7 7 0 019.1 6.36 15.6 15.6 0 0020 18 15.56 15.56 0 0011 20zM7 20a9.44 9.44 0 0011-11.74A9.47 9.47 0 007 20z" },
+  { name: "sun", path: "M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42M12 6a6 6 0 100 12 6 6 0 000-12z" },
+];
+
+// Helper to get icon path
+const getIconPath = (iconName: string | null | undefined): string => {
+  if (!iconName) return "";
+  const icon = CATEGORY_ICONS.find(i => i.name === iconName);
+  return icon?.path || "";
+};
+
 type CategoryWithStats = Category & {
   subcategories: Subcategory[];
   transactionCount?: number;
@@ -136,6 +177,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState("#3B82F6");
+  const [newCategoryIcon, setNewCategoryIcon] = useState<string>("shopping-bag");
 
   // Predefined color palette
   const colorPalette = [
@@ -218,6 +260,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       const formData = new FormData();
       formData.append("name", newCategoryName.trim());
       formData.append("color", newCategoryColor);
+      formData.append("icon", newCategoryIcon);
 
       const res = await fetchWithAuth(`${apiBase}/categories`, {
         method: "POST",
@@ -231,6 +274,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
 
       setNewCategoryName("");
       setNewCategoryColor("#3B82F6");
+      setNewCategoryIcon("shopping-bag");
       setShowAddCategory(false);
       fetchCategories();
       onRefresh();
@@ -285,6 +329,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       formData.append("name", editName.trim());
       formData.append("color", editingCategory.color || "");
       formData.append("monthly_budget", String(editingCategory.monthly_budget || ""));
+      formData.append("icon", editingCategory.icon || "");
 
       const res = await fetchWithAuth(`${apiBase}/categories/${editingCategory.id}`, {
         method: "PUT",
@@ -488,9 +533,24 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
 
-                {/* Category name with color dot */}
+                {/* Category name with color dot and icon */}
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  {cat.color && (
+                  {/* Feature 9: Category Icon */}
+                  {cat.icon && getIconPath(cat.icon) ? (
+                    <svg
+                      width="20"
+                      height="20"
+                      fill="none"
+                      stroke={cat.color || "var(--text-primary)"}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      viewBox="0 0 24 24"
+                      style={{ flexShrink: 0 }}
+                    >
+                      <path d={getIconPath(cat.icon)} />
+                    </svg>
+                  ) : cat.color ? (
                     <div
                       style={{
                         width: 12,
@@ -501,7 +561,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                       }}
                       title={cat.color}
                     />
-                  )}
+                  ) : null}
                   <div>
                     <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>
                       {cat.name}
@@ -735,6 +795,58 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                 </div>
               </div>
 
+              {/* Feature 9: Icon Picker */}
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                  Category Icon (optional)
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem", maxHeight: "150px", overflowY: "auto", padding: "0.5rem", background: "var(--bg-input)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+                  <button
+                    onClick={() => setNewCategoryIcon("")}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: "var(--radius-md)",
+                      background: newCategoryIcon === "" ? "var(--accent)" : "transparent",
+                      border: newCategoryIcon === "" ? "2px solid var(--accent)" : "1px solid var(--border-subtle)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "6px",
+                      fontSize: "0.75rem",
+                      color: newCategoryIcon === "" ? "#fff" : "var(--text-muted)",
+                    }}
+                    title="No icon"
+                  >
+                    ∅
+                  </button>
+                  {CATEGORY_ICONS.map((icon) => (
+                    <button
+                      key={icon.name}
+                      onClick={() => setNewCategoryIcon(icon.name)}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "var(--radius-md)",
+                        background: newCategoryIcon === icon.name ? "var(--accent)" : "transparent",
+                        border: newCategoryIcon === icon.name ? "2px solid var(--accent)" : "1px solid transparent",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "6px",
+                      }}
+                      title={icon.name}
+                    >
+                      <svg width="18" height="18" fill="none" stroke={newCategoryIcon === icon.name ? "#fff" : "var(--text-secondary)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                        <path d={icon.path} />
+                      </svg>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {error && (
                 <div style={{ padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "var(--radius-md)", color: "#ef4444", fontSize: "0.875rem" }}>
                   {error}
@@ -910,6 +1022,58 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                       }}
                       title={color}
                     />
+                  ))}
+                </div>
+              </div>
+
+              {/* Feature 9: Icon Picker in Edit Modal */}
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                  Category Icon
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem", maxHeight: "120px", overflowY: "auto", padding: "0.5rem", background: "var(--bg-input)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+                  <button
+                    onClick={() => setEditingCategory({ ...editingCategory, icon: "" })}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: "var(--radius-md)",
+                      background: editingCategory?.icon === "" || !editingCategory?.icon ? "var(--accent)" : "transparent",
+                      border: editingCategory?.icon === "" || !editingCategory?.icon ? "2px solid var(--accent)" : "1px solid var(--border-subtle)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "4px",
+                      fontSize: "0.625rem",
+                      color: editingCategory?.icon === "" || !editingCategory?.icon ? "#fff" : "var(--text-muted)",
+                    }}
+                    title="No icon"
+                  >
+                    ∅
+                  </button>
+                  {CATEGORY_ICONS.map((icon) => (
+                    <button
+                      key={icon.name}
+                      onClick={() => setEditingCategory({ ...editingCategory, icon: icon.name })}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "var(--radius-md)",
+                        background: editingCategory?.icon === icon.name ? "var(--accent)" : "transparent",
+                        border: editingCategory?.icon === icon.name ? "2px solid var(--accent)" : "1px solid transparent",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "4px",
+                      }}
+                      title={icon.name}
+                    >
+                      <svg width="16" height="16" fill="none" stroke={editingCategory?.icon === icon.name ? "#fff" : "var(--text-secondary)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                        <path d={icon.path} />
+                      </svg>
+                    </button>
                   ))}
                 </div>
               </div>

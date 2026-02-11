@@ -338,7 +338,7 @@ def delete_account(
 def list_categories(current_user: schemas.User = Depends(get_current_user)) -> dict:
     with get_conn() as conn:
         categories = conn.execute(
-            "SELECT id, name, color, monthly_budget FROM categories WHERE user_id = ? ORDER BY name",
+            "SELECT id, name, color, monthly_budget, icon FROM categories WHERE user_id = ? ORDER BY name",
             (current_user.id,)
         ).fetchall()
         subcategories = conn.execute(
@@ -356,6 +356,7 @@ def create_category(
     name: str = Form(...),
     color: Optional[str] = Form(None),
     monthly_budget: Optional[float] = Form(None),
+    icon: Optional[str] = Form(None),
     current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
     """Create a new category."""
@@ -369,11 +370,11 @@ def create_category(
             raise HTTPException(status_code=400, detail="Category already exists")
         
         cursor = conn.execute(
-            "INSERT INTO categories (name, color, monthly_budget, user_id) VALUES (?, ?, ?, ?)", 
-            (name.strip(), color, monthly_budget, current_user.id)
+            "INSERT INTO categories (name, color, monthly_budget, icon, user_id) VALUES (?, ?, ?, ?, ?)", 
+            (name.strip(), color, monthly_budget, icon, current_user.id)
         )
         conn.commit()
-        return {"id": cursor.lastrowid, "name": name.strip(), "color": color, "monthly_budget": monthly_budget}
+        return {"id": cursor.lastrowid, "name": name.strip(), "color": color, "monthly_budget": monthly_budget, "icon": icon}
 
 
 @app.put("/categories/{category_id}")
@@ -382,9 +383,10 @@ def update_category(
     name: str = Form(...),
     color: Optional[str] = Form(None),
     monthly_budget: Optional[float] = Form(None),
+    icon: Optional[str] = Form(None),
     current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
-    """Update a category name, color, and budget."""
+    """Update a category name, color, icon, and budget."""
     with get_conn() as conn:
         existing = conn.execute(
             "SELECT id FROM categories WHERE id = ? AND user_id = ?", (category_id, current_user.id)
@@ -401,11 +403,11 @@ def update_category(
             raise HTTPException(status_code=400, detail="Category name already exists")
         
         conn.execute(
-            "UPDATE categories SET name = ?, color = ?, monthly_budget = ? WHERE id = ? AND user_id = ?", 
-            (name.strip(), color, monthly_budget, category_id, current_user.id)
+            "UPDATE categories SET name = ?, color = ?, monthly_budget = ?, icon = ? WHERE id = ? AND user_id = ?", 
+            (name.strip(), color, monthly_budget, icon, category_id, current_user.id)
         )
         conn.commit()
-        return {"id": category_id, "name": name.strip(), "color": color, "monthly_budget": monthly_budget}
+        return {"id": category_id, "name": name.strip(), "color": color, "monthly_budget": monthly_budget, "icon": icon}
 
 
 @app.delete("/categories/{category_id}")
