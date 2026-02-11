@@ -829,3 +829,203 @@ html {
 .touch-pan-y {
   touch-action: pan-y;
 }
+
+/* ========================================
+   MOBILE-OPTIMIZED CHARTS (Feature 3)
+   ======================================== */
+
+/* TrendChart container adjustments */
+.trend-chart-container {
+  touch-action: pan-x pan-y pinch-zoom;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Mobile chart animations */
+@keyframes chartFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Chart loading state */
+.trend-chart-container .recharts-wrapper {
+  animation: chartFadeIn 0.3s ease;
+}
+
+/* Responsive chart adjustments */
+@media (max-width: 768px) {
+  /* Card adjustments for mobile */
+  .card {
+    padding: 1rem;
+    border-radius: var(--radius-md);
+  }
+  
+  .card-header {
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+  }
+  
+  .card-header h2 {
+    font-size: 1rem;
+  }
+  
+  /* Make chart containers more touch-friendly */
+  .recharts-wrapper {
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+  
+  /* Better touch targets for chart interactions */
+  .recharts-surface {
+    cursor: grab;
+  }
+  
+  .recharts-surface:active {
+    cursor: grabbing;
+  }
+  
+  /* Improve tooltip visibility on mobile */
+  .recharts-tooltip-wrapper {
+    z-index: 1000 !important;
+  }
+  
+  /* Mobile chart legend adjustments */
+  .recharts-legend-wrapper {
+    font-size: 0.6875rem !important;
+  }
+  
+  /* Compact stat cards on mobile */
+  .stat-card {
+    padding: 0.75rem;
+  }
+  
+  .stat-card-value {
+    font-size: 1.125rem;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+  .card {
+    padding: 0.875rem;
+  }
+  
+  .card-header h2 {
+    font-size: 0.9375rem;
+  }
+  
+  /* Even smaller padding for very small screens */
+  .trend-chart-container button {
+    padding: 0.5rem 0.625rem !important;
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Large screens - enhance display */
+@media (min-width: 1024px) {
+  .trend-chart-container {
+    max-width: 100%;
+  }
+  
+  /* Larger touch targets for better UX */
+  .trend-chart-container button {
+    min-height: 36px;
+  }
+}
+
+/* ========================================
+   SMOOTH SCROLL & TOUCH BEHAVIORS
+   ======================================== */
+
+/* Prevent text selection on chart area */
+.trend-chart-container,
+.recharts-wrapper,
+.recharts-surface {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Enhanced touch feedback */
+.trend-chart-container button {
+  position: relative;
+  overflow: hidden;
+}
+
+.trend-chart-container button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  border-radius: 100%;
+  transform: scale(1, 1) translate(-50%);
+  transform-origin: 50% 50%;
+}
+
+.trend-chart-container button:focus:not(:active)::after {
+  animation: ripple 1s ease-out;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0, 0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(20, 20);
+    opacity: 0;
+  }
+}
+
+/* ========================================
+   MOBILE-SPECIFIC CHART ENHANCEMENTS
+   ======================================== */
+
+/* Swipe hint animation */
+@keyframes swipeHint {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(3px);
+  }
+}
+
+.trend-chart-container [data-swipe-hint] {
+  animation: swipeHint 1.5s ease-in-out infinite;
+}
+
+/* Hide cursor on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .recharts-surface {
+    cursor: default !important;
+  }
+}
+
+/* Optimize chart rendering on mobile */
+@media (max-width: 768px) {
+  /* Disable some visual effects on mobile for performance */
+  .recharts-line .recharts-curve {
+    will-change: auto;
+  }
+  
+  /* Reduce animation complexity */
+  .recharts-line,
+  .recharts-dot {
+    transition: none;
+  }
+}

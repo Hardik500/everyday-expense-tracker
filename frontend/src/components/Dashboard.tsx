@@ -4,21 +4,19 @@ import TransferDetector from "./TransferDetector";
 import Select from "./ui/Select";
 import StatCard, { Sparkline } from "./StatCard";
 import SpendingInsights from "./SpendingInsights";
+import TrendChart from "./TrendChart";
 import type { Category } from "../App";
 
 // Recharts imports for mini charts
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   ResponsiveContainer,
   Tooltip,
   Cell,
   CartesianGrid,
-  Legend,
 } from "recharts";
 
 type Props = {
@@ -714,110 +712,20 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
         />
       </div>
 
-      {/* Daily Expense Trend Chart - Feature 5 */}
+{/* Daily Expense Trend Chart - Feature 3 & Feature 5: Mobile-Optimized TrendChart */}
       <div className="card">
         <div className="card-header">
           <h2>Expense Trend</h2>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            {(["7d", "30d", "90d"] as const).map((range) => (
-              <button
-                key={range}
-                onClick={() => setTrendRange(range)}
-                className={trendRange === range ? "primary" : "secondary"}
-                style={{
-                  padding: "0.375rem 0.75rem",
-                  fontSize: "0.8125rem",
-                  borderRadius: "var(--radius-sm)",
-                }}
-              >
-                {range === "7d" ? "7 Days" : range === "30d" ? "30 Days" : "90 Days"}
-              </button>
-            ))}
-          </div>
         </div>
-        <div style={{ height: 250 }}>
-          {loadingTrend ? (
-            <div
-              style={{
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--text-muted)",
-              }}
-            >
-              Loading trend data...
-            </div>
-          ) : dailyTrendData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={dailyTrendData}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                <XAxis
-                  dataKey="date"
-                  stroke="var(--text-muted)"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  stroke="var(--text-muted)"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => formatCurrency(value)}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--bg-card)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "var(--radius-md)",
-                  }}
-                  formatter={(value: number, name: string) => [
-                    formatFullCurrency(value),
-                    name === "amount" ? "Expenses" : name,
-                  ]}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="amount"
-                  name="Expenses"
-                  stroke="#ef4444"
-                  strokeWidth={2}
-                  dot={{ fill: "#ef4444", strokeWidth: 0, r: 3 }}
-                  activeDot={{ r: 5, fill: "#ef4444" }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="income"
-                  name="Income"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  dot={{ fill: "#10b981", strokeWidth: 0, r: 3 }}
-                  activeDot={{ r: 5, fill: "#10b981" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div
-              style={{
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--text-muted)",
-              }}
-            >
-              No data available for selected period
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 📊 Feature 6 - Budget Progress Bars */}
+        <TrendChart
+          data={dailyTrendData}
+          loading={loadingTrend}
+          range={trendRange}
+          onRangeChange={setTrendRange}
+          formatCurrency={formatCurrency}
+          formatFullCurrency={formatFullCurrency}
+        />
+      </div>      {/* 📊 Feature 6 - Budget Progress Bars */}
       {budgetState.categories.length > 0 && (
         <div className="card">
           <div className="card-header">
