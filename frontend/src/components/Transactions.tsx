@@ -54,6 +54,13 @@ const formatDate = (dateStr: string) => {
 
 type DateRange = "7d" | "30d" | "90d" | "year" | "all" | "custom";
 
+// Helper function to get category color
+const getCategoryColor = (categoryId: number | null, cats: Category[]): string | null => {
+  if (!categoryId) return null;
+  const cat = cats.find(c => c.id === categoryId);
+  return cat?.color || null;
+};
+
 const getDateRange = (range: DateRange, customStart?: string, customEnd?: string) => {
   const now = new Date();
   let startDate = "";
@@ -705,12 +712,27 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                           <span
                             className="badge"
                             style={{
-                              background: tx.is_uncertain
+                              background: tx.is_uncertain 
                                 ? "rgba(245, 158, 11, 0.15)"
+                                : getCategoryColor(tx.category_id, categories) ? `${getCategoryColor(tx.category_id, categories)}20`
                                 : "var(--accent-glow)",
-                              color: tx.is_uncertain ? "var(--warning)" : "var(--accent)",
+                              color: tx.is_uncertain ? "var(--warning)" : getCategoryColor(tx.category_id, categories) || "var(--accent)",
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
                             }}
                           >
+                            {getCategoryColor(tx.category_id, categories) && (
+                              <span
+                                style={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: '50%',
+                                  background: getCategoryColor(tx.category_id, categories) || undefined,
+                                  display: 'inline-block',
+                                }}
+                              />
+                            )}
                             {categories.find((c) => c.id === tx.category_id)?.name || "Unknown"}
                           </span>
                         ) : (

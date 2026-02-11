@@ -63,6 +63,7 @@ class AccountUpdate(BaseModel):
 class Category(BaseModel):
     id: int
     name: str
+    color: Optional[str] = None
 
 
 class Subcategory(BaseModel):

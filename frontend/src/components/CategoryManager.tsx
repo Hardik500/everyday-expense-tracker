@@ -135,6 +135,13 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
   // Add category modal
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryColor, setNewCategoryColor] = useState("#3B82F6");
+
+  // Predefined color palette
+  const colorPalette = [
+    "#EF4444", "#F97316", "#F59E0B", "#84CC16", "#10B981", "#06B6D4",
+    "#3B82F6", "#6366F1", "#8B5CF6", "#EC4899", "#F43F5E", "#64748B",
+  ];
 
   // Add subcategory modal
   const [addingSubcategoryTo, setAddingSubcategoryTo] = useState<number | null>(null);
@@ -210,6 +217,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
     try {
       const formData = new FormData();
       formData.append("name", newCategoryName.trim());
+      formData.append("color", newCategoryColor);
 
       const res = await fetchWithAuth(`${apiBase}/categories`, {
         method: "POST",
@@ -222,6 +230,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       }
 
       setNewCategoryName("");
+      setNewCategoryColor("#3B82F6");
       setShowAddCategory(false);
       fetchCategories();
       onRefresh();
@@ -274,6 +283,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
     try {
       const formData = new FormData();
       formData.append("name", editName.trim());
+      formData.append("color", editingCategory.color || "");
 
       const res = await fetchWithAuth(`${apiBase}/categories/${editingCategory.id}`, {
         method: "PUT",
@@ -293,6 +303,12 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       setError(err instanceof Error ? err.message : "Failed to update");
     }
     setSaving(false);
+  };
+
+  const handleCategoryColorChange = (categoryId: number, color: string) => {
+    setCategories((prev) =>
+      prev.map((c) => (c.id === categoryId ? { ...c, color } : c))
+    );
   };
 
   const handleEditSubcategory = async () => {
@@ -471,13 +487,27 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
 
-                {/* Category name */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>
-                    {cat.name}
-                  </div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                    {cat.subcategories.length} subcategories
+                {/* Category name with color dot */}
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  {cat.color && (
+                    <div
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: '50%',
+                        background: cat.color,
+                        flexShrink: 0,
+                      }}
+                      title={cat.color}
+                    />
+                  )}
+                  <div>
+                    <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                      {cat.name}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                      {cat.subcategories.length} subcategories
+                    </div>
                   </div>
                 </div>
 
@@ -680,6 +710,30 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                 />
               </div>
 
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                  Category Color
+                </label>
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                  {colorPalette.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setNewCategoryColor(color)}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        background: color,
+                        border: newCategoryColor === color ? "3px solid var(--text-primary)" : "2px solid transparent",
+                        cursor: "pointer",
+                        boxShadow: newCategoryColor === color ? "0 0 0 2px var(--accent)" : "none",
+                      }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
+
               {error && (
                 <div style={{ padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "var(--radius-md)", color: "#ef4444", fontSize: "0.875rem" }}>
                   {error}
@@ -833,6 +887,30 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                   autoFocus
                   onKeyDown={(e) => e.key === "Enter" && handleEditCategory()}
                 />
+              </div>
+
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                  Category Color
+                </label>
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                  {colorPalette.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => handleCategoryColorChange(editingCategory.id, color)}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        background: color,
+                        border: editingCategory?.color === color ? "3px solid var(--text-primary)" : "2px solid transparent",
+                        cursor: "pointer",
+                        boxShadow: editingCategory?.color === color ? "0 0 0 2px var(--accent)" : "none",
+                      }}
+                      title={color}
+                    />
+                  ))}
+                </div>
               </div>
 
               {error && (

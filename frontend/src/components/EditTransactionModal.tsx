@@ -419,7 +419,24 @@ const EditTransactionModal = ({
                                         {tx.amount < 0 ? "-" : "+"}{formatCurrency(tx.amount)}
                                     </div>
                                     {tx.category_id ? (
-                                        <span className="badge" style={{ fontSize: "0.6875rem", whiteSpace: "nowrap" }}>
+                                        <span className="badge" style={{ 
+                                            fontSize: "0.6875rem", 
+                                            whiteSpace: "nowrap",
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            background: categories.find(c => c.id === tx.category_id)?.color ? `${categories.find(c => c.id === tx.category_id)?.color}20` : undefined,
+                                            color: categories.find(c => c.id === tx.category_id)?.color || 'var(--accent)'
+                                        }}>
+                                            {categories.find(c => c.id === tx.category_id)?.color && (
+                                                <span style={{
+                                                    width: 6,
+                                                    height: 6,
+                                                    borderRadius: '50%',
+                                                    background: categories.find(c => c.id === tx.category_id)?.color,
+                                                    display: 'inline-block'
+                                                }} />
+                                            )}
                                             {categories.find((c) => c.id === tx.category_id)?.name}
                                         </span>
                                     ) : (
