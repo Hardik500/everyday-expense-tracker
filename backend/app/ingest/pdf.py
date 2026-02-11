@@ -1,5 +1,6 @@
 import io
 import re
+import os
 from typing import Optional, Tuple, List, Set
 
 import pdfplumber
@@ -7,6 +8,16 @@ import pdfplumber
 from app.ingest.normalize import compute_hash, normalize_description, parse_amount, parse_date
 from app.ingest.ai_parser import parse_with_gemini
 
+# Import new statement-parser package (optional)
+try:
+    from statement_parser import StatementParser
+    STATEMENT_PARSER_AVAILABLE = True
+except ImportError:
+    STATEMENT_PARSER_AVAILABLE = False
+
+# Feature flag: USE_NEW_PARSER = True to use statement-parser package
+# Set via environment variable: USE_NEW_STATEMENT_PARSER=true
+USE_NEW_PARSER = os.environ.get("USE_NEW_STATEMENT_PARSER", "false").lower() in ("true", "1", "yes")
 
 # Date patterns
 DATE_PATTERN = re.compile(r"(\d{2}/\d{2}/\d{4})")
@@ -796,33 +807,229 @@ def _save_parsed_pattern(conn, user_id: int, card_type: str, parsed_txs: List[Tu
         print(f"Could not save pattern: {e}")
 
 
-def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes, user_id: int) -> Tuple[int, int]:
+def _ingest_with_new_parser(conn, account_id: int, statement_id: int, payload: bytes, user_id: int) -> Tuple[int, int, int]:
+    """
+    Ingest PDF using the new expense-statement-parser package.
+    
+    This uses pattern-based parsing with optional AI fallback.
+    Returns: (inserted, skipped, transactions_found)
+    """
     inserted = 0
     skipped = 0
+    transactions_found = 0
+    
+    if not STATEMENT_PARSER_AVAILABLE:
+        print("New statement-parser package not available")
+        return 0, 0, 0
+    
+    try:
+        # Save PDF to temp file for the package
+        import tempfile
+        
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+            tmp.write(payload)
+            tmp_path = tmp.name
+        
+        try:
+            # Use the new package
+            parser = StatementParser()
+            result = parser.parse_file(tmp_path)
+            
+            transactions_found = len(result.transactions)
+            print(f"New parser detected: {result.statement_type} with {transactions_found} transactions")
+            
+            seen_hashes = set()
+            
+            for tx in result.transactions:
+                # Extract date
+                date_str = tx.get('date', '')
+                posted_at = parse_date(date_str)
+                if not posted_at:
+                    skipped += 1
+                    continue
+                
+                # Extract description
+                description_raw = tx.get('description', '') or tx.get('narration', '')
+                description_norm = normalize_description(description_raw)
+                
+                # Extract amount and type
+                debit = float(tx.get('debit', 0) or 0)
+                credit = float(tx.get('credit', 0) or 0)
+                
+                if credit > 0:
+                    amount = credit
+                    is_credit = True
+                elif debit > 0:
+                    amount = -debit
+                    is_credit = False
+                else:
+                    # Try 'amount' field
+                    amount_val = float(tx.get('amount', 0) or 0)
+                    tx_type = tx.get('type', 'debit').lower()
+                    is_credit = tx_type == 'credit'
+                    amount = amount_val if is_credit else -amount_val
+                
+                if amount == 0:
+                    skipped += 1
+                    continue
+                
+                # Compute hash for deduplication
+                tx_hash = compute_hash(posted_at, amount, description_norm, user_id=user_id)
+                
+                if tx_hash in seen_hashes:
+                    skipped += 1
+                    continue
+                seen_hashes.add(tx_hash)
+                
+                # Insert transaction
+                try:
+                    conn.execute(
+                        """
+                        INSERT INTO transactions (
+                            account_id, statement_id, posted_at, amount, currency,
+                            description_raw, description_norm, hash, user_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            account_id,
+                            statement_id,
+                            posted_at,
+                            amount,
+                            "INR",
+                            description_raw,
+                            description_norm,
+                            tx_hash,
+                            user_id,
+                        ),
+                    )
+                    inserted += 1
+                except Exception as e:
+                    print(f"Error inserting transaction: {e}")
+                    skipped += 1
+            
+            print(f"New parser: {inserted} inserted, {skipped} skipped (from {transactions_found} found)")
+            
+        finally:
+            # Clean up temp file
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
+                
+    except Exception as e:
+        print(f"New parser error: {e}")
+        return 0, 0, 0
+    
+    return inserted, skipped, transactions_found
 
+
+def ingest_pdf(conn, account_id: int, statement_id: int, payload: bytes, user_id: int) -> Tuple[int, int]:
+    """
+    Ingest PDF using HYBRID approach:
+    1. Try new statement-parser package first
+    2. Fall back to old logic if new fails
+    3. Track which parser was used in the database
+    """
+    
+    inserted = 0
+    skipped = 0
+    parser_used = "unknown"
+    parser_version = None
+    transactions_found = 0
+    parser_error = None
+    
+    # Try new parser first (if available)
+    if STATEMENT_PARSER_AVAILABLE:
+        print("[HYBRID] Trying NEW statement-parser package...")
+        try:
+            new_inserted, new_skipped, transactions_found = _ingest_with_new_parser(
+                conn, account_id, statement_id, payload, user_id
+            )
+            
+            if new_inserted > 0:
+                print(f"[HYBRID] New parser succeeded: {new_inserted} transactions inserted")
+                inserted = new_inserted
+                skipped = new_skipped
+                parser_used = "statement-parser"
+                parser_version = "0.1.1"
+            else:
+                print(f"[HYBRID] New parser found {transactions_found} but inserted 0, will try old logic...")
+                
+        except Exception as e:
+            print(f"[HYBRID] New parser failed: {e}")
+            parser_error = str(e)[:500]  # Limit error message length
+    else:
+        print("[HYBRID] New parser not available, using old logic...")
+    
+    # Fall back to old logic if new parser didn't work
+    if inserted == 0:
+        print("[HYBRID] Falling back to OLD logic...")
+        try:
+            old_inserted, old_skipped, old_found = _ingest_with_old_parser(
+                conn, account_id, statement_id, payload, user_id
+            )
+            inserted = old_inserted
+            skipped = old_skipped
+            transactions_found = old_found
+            parser_used = "legacy"
+            parser_version = "1.0"
+            print(f"[HYBRID] Old parser: {inserted} inserted, {skipped} skipped")
+            
+        except Exception as e:
+            print(f"[HYBRID] Old parser also failed: {e}")
+            parser_error = f"New: {parser_error or 'N/A'} | Old: {str(e)[:200]}"
+    
+    # Update statement record with parser info
+    try:
+        conn.execute(
+            """
+            UPDATE statements 
+            SET parser = ?,
+                parser_version = ?,
+                transactions_found = ?,
+                transactions_inserted = ?,
+                parser_error = ?
+            WHERE id = ?
+            """,
+            (parser_used, parser_version, transactions_found, inserted, parser_error, statement_id)
+        )
+        conn.commit()
+        print(f"[HYBRID] Updated statement {statement_id} with parser={parser_used}")
+    except Exception as e:
+        print(f"[HYBRID] Could not update statement record: {e}")
+    
+    print(f"[HYBRID] Final: {inserted} inserted, {skipped} skipped (using {parser_used})")
+    return inserted, skipped
+
+
+def _ingest_with_old_parser(conn, account_id: int, statement_id: int, payload: bytes, user_id: int) -> Tuple[int, int, int]:
+    """
+    Original/old PDF parsing logic.
+    Returns: (inserted, skipped, found)
+    """
+    inserted = 0
+    skipped = 0
+    found = 0
+    
     with pdfplumber.open(io.BytesIO(payload)) as pdf:
         pdf_type = _detect_pdf_type(pdf)
-
-        # Skip bank statement logic removed to allow fallback to AI
+        
         if pdf_type == "bank":
             print(f"Detected bank statement PDF - attempting generic parsing")
-            # return 0, 0 # Allow fall-through
-
+        
         card_type = _detect_card_type(pdf)
         print(f"Detected card type: {card_type}")
-
+        
         seen_hashes = set()
-
+        
         for page in pdf.pages:
             text = page.extract_text() or ""
             ins, skp = process_page_text(conn, account_id, statement_id, text, card_type, user_id, seen_hashes)
             inserted += ins
             skipped += skp
-
-        # Save successful parsing patterns for future learning
-        # This helps reduce AI calls on similar future statements
+            found += ins + skp  # Count all potential transactions found
+        
         if inserted > 0:
             _save_parsed_pattern(conn, user_id, card_type, [])
-
-    print(f"PDF import: {inserted} inserted, {skipped} skipped")
-    return inserted, skipped
+    
+    return inserted, skipped, found
