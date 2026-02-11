@@ -10,7 +10,7 @@ from typing import Optional, Tuple, Dict, Any
 import httpx
 
 
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
 
 # Cache for category/subcategory lookups per user to avoid repeated DB queries
 _category_cache: Dict[int, dict] = {}
