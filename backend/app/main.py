@@ -11,6 +11,9 @@ from fastapi.requests import Request
 from datetime import datetime, timedelta
 import time
 
+# Analytics module
+from app.analytics import get_spending_insights, get_year_over_year
+
 # HIGH-003: Rate limiting storage (in-memory with simple cleanup)
 _rate_limit_store: dict = {}
 _rate_limit_lock = None  # Will use threading.Lock if needed
@@ -3036,3 +3039,21 @@ def ignore_transfer(source_id: int, target_id: int) -> dict:
         )
         conn.commit()
     return {"status": "ok"}
+
+
+# Feature 10: Spending Insights API
+@app.get("/analytics/insights")
+def get_analytics_insights(
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
+    """Get spending insights with month-over-month comparison."""
+    return get_spending_insights(current_user.id)
+
+
+@app.get("/analytics/yearly")
+def get_analytics_yearly(
+    year: Optional[int] = None,
+    current_user: schemas.User = Depends(get_current_user)
+) -> List[dict]:
+    """Get month-by-month spending for a given year."""
+    return get_year_over_year(current_user.id, year)

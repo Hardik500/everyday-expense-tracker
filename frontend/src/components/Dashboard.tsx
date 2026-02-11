@@ -3,6 +3,7 @@ import { fetchWithAuth } from "../utils/api";
 import TransferDetector from "./TransferDetector";
 import Select from "./ui/Select";
 import StatCard, { Sparkline } from "./StatCard";
+import SpendingInsights from "./SpendingInsights";
 import type { Category } from "../App";
 
 // Recharts imports for mini charts
@@ -700,6 +701,18 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
           </div>
         </div>
       )}
+
+      {/* Feature 10: Spending Insights */}
+      <div className="card">
+        <div className="card-header">
+          <h2>Spending Insights</h2>
+        </div>
+        <SpendingInsights 
+          apiBase={apiBase} 
+          categories={categories} 
+          refreshKey={refreshKey} 
+        />
+      </div>
 
       {/* Daily Expense Trend Chart - Feature 5 */}
       <div className="card">
