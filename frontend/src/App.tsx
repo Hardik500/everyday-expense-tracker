@@ -43,6 +43,7 @@ export type Transaction = {
   category_id?: number | null;
   subcategory_id?: number | null;
   is_uncertain: boolean;
+  notes?: string | null;
   account_name?: string;
 };
 

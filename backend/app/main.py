@@ -932,7 +932,7 @@ def list_transactions(
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     query = f"""
         SELECT t.id, t.account_id, t.posted_at, t.amount, t.currency, t.description_raw,
-               t.description_norm, t.category_id, t.subcategory_id, t.is_uncertain,
+               t.description_norm, t.category_id, t.subcategory_id, t.is_uncertain, t.notes,
                a.name as account_name
         FROM transactions t
         LEFT JOIN accounts a ON a.id = t.account_id
@@ -1031,13 +1031,29 @@ def update_transaction(
         if not tx:
             raise HTTPException(status_code=404, detail="Transaction not found")
 
+        # Build dynamic update query
+        updates = ["is_uncertain = FALSE"]
+        params: List[object] = []
+        
+        if payload.category_id is not None:
+            updates.append("category_id = ?")
+            params.append(payload.category_id)
+        if payload.subcategory_id is not None:
+            updates.append("subcategory_id = ?")
+            params.append(payload.subcategory_id)
+        if payload.notes is not None:
+            updates.append("notes = ?")
+            params.append(payload.notes)
+        
+        params.extend([transaction_id, current_user.id])
+        
         conn.execute(
-            """
+            f"""
             UPDATE transactions
-            SET category_id = ?, subcategory_id = ?, is_uncertain = FALSE
+            SET {', '.join(updates)}
             WHERE id = ? AND user_id = ?
             """,
-            (payload.category_id, payload.subcategory_id, transaction_id, current_user.id),
+            tuple(params),
         )
         if payload.create_mapping and payload.category_id:
             conn.execute(
@@ -1118,7 +1134,7 @@ def find_similar_transactions(
         
         similar = conn.execute(
             """
-            SELECT id, description_norm, amount, posted_at, category_id, subcategory_id
+            SELECT id, description_norm, amount, posted_at, category_id, subcategory_id, notes
             FROM transactions
             WHERE description_norm LIKE ? AND user_id = ?
             ORDER BY posted_at DESC

@@ -74,6 +74,7 @@ const EditTransactionModal = ({
 }: Props) => {
     const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
     const [selectedSubcategory, setSelectedSubcategory] = useState<number | null>(null);
+    const [notes, setNotes] = useState<string>("");
     const [createRule, setCreateRule] = useState(false);
     const [ruleName, setRuleName] = useState("");
     const [similarTxs, setSimilarTxs] = useState<SimilarTransaction[]>([]);
@@ -90,6 +91,7 @@ const EditTransactionModal = ({
         if (isOpen && transaction) {
             setSelectedCategory(transaction.category_id ?? null);
             setSelectedSubcategory(transaction.subcategory_id ?? null);
+            setNotes(transaction.notes || "");
             setCreateRule(false);
             setRuleName("");
             setSimilarTxs([]);
@@ -153,6 +155,23 @@ const EditTransactionModal = ({
     };
 
     const handleSave = async () => {
+        // Update notes for current transaction if changed
+        const notesChanged = notes !== (transaction.notes || '');
+        if (notesChanged && notes.trim() !== '') {
+            try {
+                const res = await fetchWithAuth(`${apiBase}/transactions/${transaction.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notes }),
+                });
+                if (!res.ok) throw new Error('Failed to save notes');
+            } catch (err) {
+                console.error('Failed to save notes', err);
+                alert('Failed to save notes');
+                return;
+            }
+        }
+        
         if (!selectedCategory) return;
         setSaving(true);
 
@@ -269,6 +288,30 @@ const EditTransactionModal = ({
                             setSelectedCategory(catId ? Number(catId) : null);
                         }}
                         placeholder="Search categories..."
+                    />
+                </div>
+
+                {/* Notes Field */}
+                <div style={{ marginBottom: "1.5rem" }}>
+                    <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                        Notes
+                    </label>
+                    <textarea
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Add notes about this transaction..."
+                        style={{
+                            width: "100%",
+                            minHeight: "80px",
+                            fontSize: "0.875rem",
+                            padding: "0.75rem",
+                            background: "var(--bg-input)",
+                            border: "1px solid var(--border-color)",
+                            borderRadius: "var(--radius-md)",
+                            color: "var(--text-primary)",
+                            resize: "vertical",
+                            fontFamily: "inherit",
+                        }}
                     />
                 </div>
 

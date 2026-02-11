@@ -682,6 +682,23 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                         >
                           {tx.description_raw}
                         </div>
+                        {tx.notes && (
+                          <div
+                            style={{
+                              maxWidth: 400,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              fontSize: "0.75rem",
+                              color: "var(--text-muted)",
+                              marginTop: "2px",
+                              fontStyle: "italic",
+                            }}
+                            title={tx.notes}
+                          >
+                            📝 {tx.notes}
+                          </div>
+                        )}
                       </td>
                       <td>
                         {tx.category_id ? (
