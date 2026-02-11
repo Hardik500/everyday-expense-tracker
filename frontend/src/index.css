@@ -814,3 +814,18 @@ html {
     opacity: 1;
   }
 }
+
+/* Spin animation for pull-to-refresh */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Touch-action for pull-to-refresh - ensure smooth scrolling */
+.touch-pan-y {
+  touch-action: pan-y;
+}

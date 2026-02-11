@@ -6,6 +6,21 @@ import EditTransactionModal from "./EditTransactionModal";
 import SmartFilters, { type FilterState } from "./SmartFilters";
 import { PageLoading } from "./ui/Loading";
 import { createPortal } from "react-dom";
+import SwipeableCard from "./SwipeableCard";
+import { useTrashBin } from "../hooks/useTrashBin";
+
+// Hook to detect mobile view
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  
+  return isMobile;
+};
 
 type Props = {
   apiBase: string;
@@ -92,6 +107,191 @@ const getDateRange = (range: DateRange, customStart?: string, customEnd?: string
   return { startDate, endDate };
 };
 
+// Mobile Transaction List Component with Swipe Actions
+interface MobileTransactionListProps {
+  transactions: Transaction[];
+  categories: Category[];
+  subcategories: Subcategory[];
+  selectedTransactions: Set<number>;
+  onToggleSelection: (id: number) => void;
+  onEdit: (tx: Transaction) => void;
+  onDelete: (id: number) => void;
+  onLink: (tx: Transaction) => void;
+}
+
+const MobileTransactionList: React.FC<MobileTransactionListProps> = ({
+  transactions,
+  categories,
+  selectedTransactions,
+  onToggleSelection,
+  onEdit,
+  onDelete,
+}) => {
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+    });
+  };
+
+  const getCategoryName = (categoryId: number | null) => {
+    if (!categoryId) return "Uncategorized";
+    return categories.find((c) => c.id === categoryId)?.name || "Unknown";
+  };
+
+  const getCategoryColor = (categoryId: number | null) => {
+    if (!categoryId) return "#64748b";
+    return categories.find((c) => c.id === categoryId)?.color || "#64748b";
+  };
+
+  return (
+    <div className="mobile-transaction-list" style={{ display: "none" }}>
+      <style>{
+        `
+          @media (max-width: 768px) {
+            .mobile-transaction-list { display: block !important; }
+            .mobile-transaction-list + div { display: none !important; }
+            .mobile-transaction-list ~ div table { display: none !important; }
+          }
+        `
+      }</style>
+      {transactions.map((tx, idx) => {
+        const isSelected = selectedTransactions.has(tx.id);
+        const categoryName = getCategoryName(tx.category_id);
+        const categoryColor = getCategoryColor(tx.category_id);
+        const isExpense = tx.amount < 0;
+
+        const swipeActions = [
+          {
+            label: "Edit",
+            color: "#3b82f6",
+            icon: (
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            ),
+            onClick: () => onEdit(tx),
+          },
+          {
+            label: "Delete",
+            color: "#ef4444",
+            icon: (
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            ),
+            onClick: () => onDelete(tx.id),
+            destructive: true,
+          },
+        ];
+
+        return (
+          <SwipeableCard
+            key={tx.id}
+            actions={swipeActions}
+            style={{ marginBottom: idx === transactions.length - 1 ? 0 : "8px" }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "16px",
+                background: isSelected ? "var(--accent-glow)" : "var(--bg-card)",
+                borderRadius: "var(--radius-md)",
+              }}
+              onClick={() => onEdit(tx)}
+            >
+              {/* Checkbox */}
+              <div onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => onToggleSelection(tx.id)}
+                  style={{ cursor: "pointer" }}
+                />
+              </div>
+
+              {/* Category indicator */}
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  background: `${categoryColor}20`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: "50%",
+                    background: categoryColor,
+                  }}
+                />
+              </div>
+
+              {/* Transaction info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: 500,
+                    color: "var(--text-primary)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    marginBottom: "4px",
+                  }}
+                  title={tx.description_norm}
+                >
+                  {tx.description_norm}
+                </div>
+                <div
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--text-muted)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <span>{formatDate(tx.posted_at)}</span>
+                  <span style={{ opacity: 0.5 }}>•</span>
+                  <span>{categoryName}</span>
+                </div>
+              </div>
+
+              {/* Amount */}
+              <div
+                style={{
+                  textAlign: "right",
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: 600,
+                    color: isExpense ? "var(--danger)" : "var(--success)",
+                  }}
+                >
+                  {isExpense ? "-" : "+"}
+                  {formatCurrency(Math.abs(tx.amount))}
+                </div>
+              </div>
+            </div>
+          </SwipeableCard>
+        );
+      })}
+    </div>
+  );
+};
+
 function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdated }: Props) {
   // Init state from URL
   const getParams = () => new URLSearchParams(window.location.search);
@@ -143,6 +343,20 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
   // Link modal state
   const [linkingTx, setLinkingTx] = useState<Transaction | null>(null);
+
+  // Touch gestures (swipe to delete) - Feature 2
+  const { softDelete } = useTrashBin({ apiBase });
+
+  const handleSoftDelete = async (id: number) => {
+    const result = await softDelete("transactions", id);
+    if (result.success) {
+      // Remove from local state
+      setTransactions(prev => prev.filter(tx => tx.id !== id));
+      onUpdated?.();
+    } else {
+      console.error("Failed to delete transaction:", result.error);
+    }
+  };
 
   // Sync state TO URL
   useEffect(() => {
@@ -739,7 +953,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
               <table>
                 <thead>
                   <tr>
-                    {<!-- Feature 8: Checkbox column -->}
+                    {/* Feature 8: Checkbox column */}
                     <th style={{ width: 40, textAlign: "center" }}>
                       <input
                         type="checkbox"
@@ -782,7 +996,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                       onClick={() => openEdit(tx)}
                       title="Click to edit"
                     >
-                      {<!-- Feature 8: Checkbox cell -->}
+                      {/* Feature 8: Checkbox cell  */}
                       <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
@@ -934,7 +1148,19 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
               </table>
             </div>
 
-                        {/* Pagination */}
+            {/* Mobile Swipeable List View */}
+            <MobileTransactionList 
+              transactions={pagedTransactions}
+              categories={categories}
+              subcategories={subcategories}
+              selectedTransactions={selectedTransactions}
+              onToggleSelection={toggleTransactionSelection}
+              onEdit={openEdit}
+              onDelete={handleSoftDelete}
+              onLink={(tx) => setLinkingTx(tx)}
+            />
+
+            {/* Pagination */}
             {totalPages > 1 && (
               <div
                 style={{

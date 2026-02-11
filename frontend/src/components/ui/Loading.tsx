@@ -41,4 +41,25 @@ export const PageLoading = ({ text = "Loading..." }: { text?: string }) => (
   </div>
 );
 
+export const LoadingOverlay = ({ text = "Loading..." }: { text?: string }) => (
+  <div style={{
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: "rgba(10, 15, 26, 0.8)",
+    backdropFilter: "blur(4px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
+  }}>
+    <div style={{ textAlign: "center" }}>
+      <div className="spinner spinner-lg" />
+      <span style={{ display: "block", marginTop: "1rem", color: "var(--text-secondary)" }}>{text}</span>
+    </div>
+  </div>
+);
+
 export default Loading;

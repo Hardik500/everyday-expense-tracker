@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Upload from "./components/Upload";
 import Transactions from "./components/Transactions";
 import ReviewQueue from "./components/ReviewQueue";
@@ -19,6 +19,8 @@ import { CategoriesProvider, useCategories } from "./contexts/CategoriesContext"
 import { PageLoading } from "./components/ui/Loading";
 import LandingPage from "./components/LandingPage";
 import RecurringExpenses from "./components/RecurringExpenses";
+import PullToRefreshIndicator from "./components/PullToRefreshIndicator";
+import { usePullToRefresh } from "./hooks/usePullToRefresh";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -90,6 +92,17 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);
   const [reviewCount, setReviewCount] = useState(0);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+
+  // Pull-to-refresh hook
+  const handleRefresh = useCallback(async () => {
+    setRefreshKey((k) => k + 1);
+  }, []);
+
+  const { containerRef: contentRef, isPulling, pullProgress, isRefreshing, pullY } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    threshold: 120,
+    maxPullDistance: 180,
+  });
 
   // Sync tab to URL - only when logged in
   useEffect(() => {
@@ -405,14 +418,25 @@ function AppContent() {
         </div>
       </aside>
 
-      {/* Main content */}
+      {/* Main content with Pull-to-Refresh */}
       <main
         style={{
           marginLeft: 72,
           flex: 1,
           padding: "2rem 2.5rem",
+          overflowY: "auto",
+          height: "100vh",
+          position: "relative",
         }}
+        ref={contentRef}
       >
+        {/* Pull to Refresh Indicator */}
+        <PullToRefreshIndicator
+          isPulling={isPulling}
+          pullProgress={pullProgress}
+          isRefreshing={isRefreshing}
+          pullY={pullY}
+        />
         {/* Header */}
         <header style={{ marginBottom: "2rem" }}>
           <h1 style={{ marginBottom: 4 }}>
