@@ -172,11 +172,11 @@ def ai_classify(
         
         # Method 2: Look for JSON in markdown code blocks
         if result is None:
-            # Match content between code fences
-            code_block_match = re.search(r'```(?:json)?\s*(.*?)\s*```', text, re.DOTALL)
+            # Match content between code fences (handles ```json and ```)
+            code_block_match = re.search(r'^```(?:json)?\s*\n?(.*?)\n?```\s*$', text, re.DOTALL)
             if code_block_match:
                 code_content = code_block_match.group(1)
-                print(f"[AI] Found code block content: {code_content[:200]}...")
+                print(f"[AI] Found code block content: {repr(code_content[:200])}...")
                 try:
                     result = json.loads(code_content.strip())
                     print("[AI] Parsed JSON from code block")
@@ -184,6 +184,7 @@ def ai_classify(
                     print(f"[AI] Method 2 failed: {e}")
             else:
                 print("[AI] No code block found")
+                print(f"[AI] Text starts with: {repr(text[:50])}...")
         
         # Method 3: Find outermost JSON object by brace counting
         if result is None:
