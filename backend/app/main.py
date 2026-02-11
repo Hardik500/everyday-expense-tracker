@@ -2481,7 +2481,10 @@ def ai_categorize_transactions(
 
 
 @app.post("/ai/categorize/{transaction_id}")
-def ai_categorize_single(transaction_id: int) -> dict:
+def ai_categorize_single(
+    transaction_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> dict:
     """Use AI to categorize a single transaction."""
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -2492,17 +2495,22 @@ def ai_categorize_single(transaction_id: int) -> dict:
     
     with get_conn() as conn:
         tx = conn.execute(
-            "SELECT id, description_norm, amount, description_raw FROM transactions WHERE id = ?",
+            "SELECT id, description_norm, amount, description_raw, user_id FROM transactions WHERE id = ?",
             (transaction_id,),
         ).fetchone()
         
         if not tx:
             raise HTTPException(status_code=404, detail="Transaction not found")
         
+        # Ensure user owns this transaction
+        if tx["user_id"] != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to categorize this transaction")
+        
         result = ai_classify(
             tx["description_norm"], 
             tx["amount"], 
             conn,
+            user_id=current_user.id,
             transaction_id=transaction_id,
             allow_new_categories=True,
         )
