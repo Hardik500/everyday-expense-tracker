@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchWithAuth } from "../utils/api";
 import TransferDetector from "./TransferDetector";
 import Select from "./ui/Select";
+import { ReportPDFExport } from "./PDFExport";
 
 type Props = {
   apiBase: string;
@@ -14,6 +15,15 @@ type ReportItem = {
   category_id: number | null;
   category_name: string | null;
   total: number;
+};
+
+type Transaction = {
+  id: number;
+  date: string;
+  description: string;
+  amount: number;
+  category_name: string | null;
+  category_id: number | null;
 };
 
 const categoryColors: Record<string, string> = {
@@ -60,6 +70,7 @@ const formatFullCurrency = (amount: number) => {
 
 function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
   const [items, setItems] = useState<ReportItem[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>(""); // "" = all time, "YYYY-MM" = specific month
 
@@ -81,6 +92,7 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
       setLoading(true);
     }
     let summaryUrl = `${apiBase}/reports/summary`;
+    let transactionsUrl = `${apiBase}/transactions`;
 
     if (selectedMonth) {
       const [year, month] = selectedMonth.split("-");
@@ -89,16 +101,26 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
       const endDate = `${year}-${month}-${lastDay}`;
       const dateParams = `?start_date=${startDate}&end_date=${endDate}`;
       summaryUrl += dateParams;
+      transactionsUrl += dateParams;
     }
 
-    fetchWithAuth(summaryUrl)
-      .then((res) => res.json())
-      .then((summaryData) => {
+    // Fetch both summary and transactions
+    Promise.all([
+      fetchWithAuth(summaryUrl),
+      fetchWithAuth(transactionsUrl)
+    ])
+      .then(([summaryRes, transactionsRes]) => Promise.all([
+        summaryRes.json(),
+        transactionsRes.json()
+      ]))
+      .then(([summaryData, transactionsData]) => {
         setItems(summaryData.items || []);
+        setTransactions(transactionsData.transactions || transactionsData || []);
         setLoading(false);
       })
       .catch(() => {
         setItems([]);
+        setTransactions([]);
         setLoading(false);
       });
   }, [apiBase, refreshKey, selectedMonth]);
@@ -194,7 +216,7 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
   return (
     <div style={{ display: "grid", gap: "1.5rem" }}>
       {/* Month Selector */}
-      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
         <Select
           label="Period"
           value={selectedMonth || ""}
@@ -204,6 +226,19 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
             ...getMonthOptions()
           ]}
           style={{ minWidth: 200 }}
+        />
+        
+        {/* Feature 14: PDF Export */}
+        <ReportPDFExport 
+          month={selectedMonth || "All Time"}
+          totalSpent={totalSpend}
+          totalIncome={totalIncome}
+          categories={spendingItems.slice(0, 10).map(item => ({
+            name: item.category_name || "Uncategorized",
+            amount: Math.abs(item.total),
+            color: getColor(item.category_name)
+          }))}
+          reportData={transactions}
         />
       </div>
 
