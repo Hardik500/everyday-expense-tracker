@@ -3,11 +3,17 @@ AI-powered transaction categorization using Google Gemini.
 Falls back to None if no API key is configured or rate-limited.
 """
 import json
+import logging
 import os
 import re
 from typing import Optional, Tuple, Dict, Any
 
 import httpx
+from app.ai_cache import get_cached_category, cache_category_result
+
+# Configure logging for AI operations
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
@@ -175,15 +181,24 @@ def ai_classify(
     """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
+        logger.warning("GEMINI_API_KEY not configured, skipping AI classification")
         return None
     
     if not conn:
+        logger.error("Database connection required for AI classification")
+        return None
+    
+    if not user_id:
+        logger.error("user_id required for AI classification")
         return None
     
     try:
-        if not user_id:
-            return None
-            
+        # PHASE-5: Check cache first
+        cached = get_cached_category(conn, user_id, description_norm, amount)
+        if cached:
+            logger.debug(f"Cache hit for: {description_norm[:50]}")
+            return cached
+        
         categories_json = _get_categories_json(conn, user_id)
         prompt = _build_prompt(description_norm, amount, categories_json, allow_new=allow_new_categories)
         
@@ -202,6 +217,7 @@ def ai_classify(
         )
         
         if response.status_code != 200:
+            logger.error(f"Gemini API returned status {response.status_code}: {response.text[:200]}")
             return None
         
         data = response.json()
@@ -209,6 +225,7 @@ def ai_classify(
         # Check if response was truncated
         candidates = data.get("candidates", [{}])
         if not candidates:
+            logger.warning("Gemini API returned no candidates")
             return None
         
         finish_reason = candidates[0].get("finishReason", "")
@@ -222,6 +239,7 @@ def ai_classify(
             result = _extract_json(text, allow_partial=False)
         
         if result is None:
+            logger.warning(f"Failed to parse Gemini response for transaction: {description_norm[:50]}: {text[:200]}")
             return None
             
         # Extract fields
@@ -287,9 +305,16 @@ def ai_classify(
                 category["id"], subcategory["id"], category_name, subcategory_name
             )
         
-        return (category["id"], subcategory["id"])
+        result = (category["id"], subcategory["id"])
         
-    except Exception:
+        # PHASE-5: Cache the successful categorization
+        cache_category_result(user_id, description_norm, amount, result[0], result[1])
+        
+        return result
+        
+    except Exception as e:
+        # HIGH-001: Log error instead of silent failure
+        logger.error(f"AI classification failed for transaction {transaction_id}: {str(e)}", exc_info=True)
         # Rollback to clear the failed transaction state in PostgreSQL
         try:
             conn.rollback()
@@ -317,7 +342,12 @@ def _create_suggestion(
         ).fetchone()
         
         if existing:
+            logger.debug(f"AI suggestion already exists for transaction {transaction_id}")
             return
+        
+        # Log the suggestion creation
+        logger.info(f"Creating AI suggestion: category='{category_name}', subcategory='{subcategory_name}' "
+                    f"for transaction {transaction_id}, confidence={confidence}")
         
         conn.execute(
             """
@@ -329,7 +359,8 @@ def _create_suggestion(
             (transaction_id, user_id, category_name, subcategory_name,
              existing_category_id, existing_subcategory_id, regex_pattern, confidence),
         )
-    except Exception:
+    except Exception as e:
+        logger.error(f"Failed to create AI suggestion for transaction {transaction_id}: {str(e)}")
         try:
             conn.rollback()
         except Exception:
@@ -349,6 +380,7 @@ def _create_rule_from_ai(
     """Create a rule from AI classification to avoid future API calls."""
     try:
         re.compile(regex_pattern)
+        logger.debug(f"Creating AI rule: pattern={regex_pattern}, category={category_name}")
         
         existing = conn.execute(
             "SELECT id FROM rules WHERE pattern = ? AND user_id = ?",
@@ -356,6 +388,7 @@ def _create_rule_from_ai(
         ).fetchone()
         
         if existing:
+            logger.debug(f"Rule with pattern '{regex_pattern}' already exists")
             return
         
         rule_name = f"AI: {category_name} - {subcategory_name[:20]}"
@@ -367,7 +400,15 @@ def _create_rule_from_ai(
             """,
             (rule_name, regex_pattern, category_id, subcategory_id, 55, user_id),
         )
-    except (re.error, Exception):
+        logger.info(f"Created AI rule '{rule_name}' for user {user_id}")
+    except re.error as e:
+        logger.warning(f"Invalid regex pattern '{regex_pattern}': {str(e)}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    except Exception as e:
+        logger.error(f"Failed to create AI rule: {str(e)}")
         try:
             conn.rollback()
         except Exception:

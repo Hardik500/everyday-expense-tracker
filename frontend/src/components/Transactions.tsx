@@ -32,6 +32,18 @@ const formatCurrency = (amount: number) => {
   }).format(Math.abs(amount));
 };
 
+// HIGH-002: XSS Sanitization helper
+const sanitizeHtml = (str: string): string => {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+};
+
+const sanitizeForDisplay = (value: unknown): string => {
+  if (typeof value !== 'string') return String(value);
+  return sanitizeHtml(value);
+};
+
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
   return date.toLocaleDateString("en-IN", {

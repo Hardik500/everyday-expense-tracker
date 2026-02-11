@@ -6,7 +6,75 @@ from typing import List, Optional
 from dotenv import load_dotenv
 load_dotenv()  # Load .env file before anything else
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body, BackgroundTasks, Depends, status
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body, BackgroundTasks, Depends, status, Query
+from fastapi.requests import Request
+from datetime import datetime, timedelta
+import time
+
+# HIGH-003: Rate limiting storage (in-memory with simple cleanup)
+_rate_limit_store: dict = {}
+_rate_limit_lock = None  # Will use threading.Lock if needed
+
+class RateLimiter:
+    """Simple in-memory rate limiter."""
+    def __init__(self, max_requests: int = 10, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+    
+    def is_allowed(self, key: str) -> tuple[bool, dict]:
+        """Check if request is allowed. Returns (allowed, rate_limit_info)."""
+        now = time.time()
+        
+        if key not in _rate_limit_store:
+            _rate_limit_store[key] = []
+        
+        # Clean old entries
+        _rate_limit_store[key] = [
+            req_time for req_time in _rate_limit_store[key]
+            if now - req_time < self.window_seconds
+        ]
+        
+        if len(_rate_limit_store[key]) >= self.max_requests:
+            reset_time = _rate_limit_store[key][0] + self.window_seconds
+            return False, {
+                "limit": self.max_requests,
+                "remaining": 0,
+                "reset_at": reset_time
+            }
+        
+        _rate_limit_store[key].append(now)
+        
+        return True, {
+            "limit": self.max_requests,
+            "remaining": self.max_requests - len(_rate_limit_store[key]),
+            "reset_at": now + self.window_seconds
+        }
+
+# Create rate limiters for different endpoints
+rate_limiter_ai = RateLimiter(max_requests=10, window_seconds=60)  # 10 AI categorizations per minute
+rate_limiter_search = RateLimiter(max_requests=30, window_seconds=60)  # 30 searches per minute
+
+# CRITICAL-002: Whitelist for safe SQL column names
+def validate_column_name(column: str) -> bool:
+    """Validate column name is safe for use in SQL queries."""
+    ALLOWED_COLUMNS = {
+        'id', 'username', 'email', 'full_name', 'created_at', 'updated_at',
+        'user_id', 'account_id', 'category_id', 'subcategory_id', 'statement_id',
+        'name', 'type', 'currency', 'amount', 'posted_at', 'description_raw',
+        'description_norm', 'is_uncertain', 'priority', 'active', 'pattern',
+        'merchant_contains', 'min_amount', 'max_amount', 'account_type'
+    }
+    # Must be alphanumeric with underscores only, and in allowed set
+    if not column or not column.replace('_', '').isalnum():
+        return False
+    return column in ALLOWED_COLUMNS
+
+def sanitize_sql_identifier(identifier: str) -> str:
+    """Sanitize SQL identifier to prevent injection."""
+    # Only allow alphanumeric and underscore
+    if not identifier or not all(c.isalnum() or c == '_' for c in identifier):
+        raise HTTPException(status_code=400, detail="Invalid SQL identifier")
+    return identifier
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import schemas
@@ -805,6 +873,7 @@ from app.search import perform_ai_search
 
 @app.post("/transactions/search")
 def search_transactions_ai(
+    request: Request,
     payload: schemas.SearchRequest,
     current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
@@ -812,6 +881,15 @@ def search_transactions_ai(
     Natural language search for transactions using AI.
     Example: "zomato last 30 days"
     """
+    # HIGH-003: Rate limiting check
+    key = f"search:{current_user.id}"
+    allowed, info = rate_limiter_search.is_allowed(key)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded for AI search. Try again later."
+        )
+    
     print(f"AI Search Query: {payload.query} [Page {payload.page}] for User {current_user.id}")
     return perform_ai_search(
         query=payload.query,
@@ -1079,6 +1157,22 @@ def bulk_update_transactions(
     current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
     """Bulk update multiple transactions and optionally create a rule."""
+    # CRITICAL-003: Validate transaction_ids
+    if not transaction_ids:
+        raise HTTPException(status_code=400, detail="transaction_ids cannot be empty")
+    
+    # Validate all transaction IDs are positive integers
+    if len(transaction_ids) > 1000:  # Reasonable limit to prevent abuse
+        raise HTTPException(status_code=400, detail="Maximum 1000 transactions can be updated at once")
+    
+    for tx_id in transaction_ids:
+        if not isinstance(tx_id, int) or tx_id <= 0:
+            raise HTTPException(status_code=400, detail=f"Invalid transaction_id: {tx_id}. Must be a positive integer")
+    
+    # Validate category_id is positive
+    if category_id <= 0:
+        raise HTTPException(status_code=400, detail="category_id must be a positive integer")
+    
     with get_conn() as conn:
         if update_all_similar and rule_pattern:
             # Handle pattern wrapping if needed (consistent with find_similar)
@@ -2315,6 +2409,20 @@ def link_transfer(
 
 from app.rules.ai import ai_classify, clear_category_cache
 
+def rate_limit_check(limiter: RateLimiter, prefix: str = ""):
+    """Dependency to check rate limiting."""
+    def check_rate_limit(request: Request, current_user: schemas.User = Depends(get_current_user)):
+        key = f"{prefix}:{current_user.id}"
+        allowed, info = limiter.is_allowed(key)
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Rate limit exceeded. Try again in {int(info['reset_at'] - time.time())} seconds.",
+                headers={"Retry-After": str(int(info["reset_at"] - time.time()))}
+            )
+        return current_user
+    return check_rate_limit
+
 
 @app.get("/ai/status")
 def ai_status(current_user: schemas.User = Depends(get_current_user)) -> dict:
@@ -2342,6 +2450,7 @@ import json
 
 @app.post("/ai/categorize")
 def ai_categorize_transactions(
+    request: Request,
     limit: int = Form(10),
     dry_run: bool = Form(False),
     current_user: schemas.User = Depends(get_current_user)
@@ -2350,6 +2459,15 @@ def ai_categorize_transactions(
     Use AI to categorize uncategorized transactions.
     Returns a stream of NDJSON events.
     """
+    # HIGH-003: Rate limiting check
+    key = f"ai_categorize:{current_user.id}"
+    allowed, info = rate_limiter_ai.is_allowed(key)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded for AI categorization. Try again later."
+        )
+    
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(

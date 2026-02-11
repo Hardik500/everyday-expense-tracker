@@ -1,5 +1,6 @@
 import time
 import base64
+import logging
 from datetime import datetime, timezone
 from app.db import get_conn
 from app.gmail import get_gmail_service
@@ -11,6 +12,8 @@ from app.rules.engine import apply_rules
 from app.linking import link_card_payments
 from app.accounts.discovery import detect_statement_account
 
+logger = logging.getLogger(__name__)
+
 def process_user_sync(conn, user):
     """Sync Gmail for a single user."""
     user_id = user["id"]
@@ -20,6 +23,7 @@ def process_user_sync(conn, user):
     
     print(f"Starting Gmail sync for user {user_id} ({user['username']})")
     
+    service = None
     try:
         service = get_gmail_service(refresh_token)
         
@@ -116,7 +120,16 @@ def process_user_sync(conn, user):
         conn.commit()
         
     except Exception as e:
-        print(f"Error syncing Gmail for user {user_id}: {e}")
+        logger.error(f"Error syncing Gmail for user {user_id}: {e}")
+    finally:
+        # HIGH-004: Properly close Gmail service connection
+        if service:
+            try:
+                # Close the underlying HTTP connection
+                if hasattr(service, '_http') and service._http:
+                    service._http.close()
+            except Exception as close_err:
+                logger.warning(f"Error closing Gmail service for user {user_id}: {close_err}")
 
 def run_worker():
     """Main worker loop."""

@@ -138,19 +138,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
             raise credentials_exception
     except Exception as e:
         print(f"JWT Verification Error: {str(e)}")
-        # Fallback to local SECRET_KEY if different (legacy)
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-            username: str = payload.get("sub")
-            if username is None:
-                raise credentials_exception
-            
-            with get_conn() as conn:
-                user_row = conn.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (username,)).fetchone()
-                if user_row:
-                    return schemas.User(**dict(user_row))
-        except JWTError:
-            raise credentials_exception
+        # SECURITY FIX: Removed fallback to local SECRET_KEY to prevent token confusion attacks
+        # All tokens must be verified against Supabase JWT secret only
+        raise credentials_exception
 
     # Supabase user handling
     with get_conn() as conn:

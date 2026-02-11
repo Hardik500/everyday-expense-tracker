@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import Upload from "./components/Upload";
 import Transactions from "./components/Transactions";
 import ReviewQueue from "./components/ReviewQueue";
-import Reports from "./components/Reports";
+import Dashboard from "./components/Dashboard";
+import FloatingActionButton from "./components/FloatingActionButton";
 import Analytics from "./components/Analytics";
 import Cards from "./components/Cards";
 import AccountManager from "./components/AccountManager";
@@ -430,7 +431,7 @@ function AppContent() {
         {/* Tab content */}
         <div className="page-transition">
           {activeTab === "dashboard" && (
-            <Reports
+            <Dashboard
               key={`dashboard-${tabResetKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
@@ -539,6 +540,7 @@ function App() {
     <AuthProvider>
       <CategoriesProvider>
         <AppContent />
+        <FloatingActionButton />
       </CategoriesProvider>
     </AuthProvider>
   );

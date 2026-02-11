@@ -11,13 +11,24 @@ import json
 from pathlib import Path
 from typing import Union, Any, List, Optional
 
+# MED-001: Use relative path or environment variable
+import tempfile
+
+DEFAULT_DB_PATH = os.getenv(
+    "SQLITE_DB_PATH", 
+    os.path.join(tempfile.gettempdir(), "expense-tracker", "expense.db")
+)
+
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "sqlite:////home/hardik/projects/expense-tracker/backend/data/expense.db",
+    f"sqlite:///{DEFAULT_DB_PATH}",
 )
 
 # Detect database type
 IS_POSTGRES = DATABASE_URL.startswith("postgresql://") or DATABASE_URL.startswith("postgres://")
+
+# HIGH-005: Query timeout configuration (30 seconds default)
+DB_QUERY_TIMEOUT = int(os.getenv("DB_QUERY_TIMEOUT", "30"))
 
 
 class PostgresCursorWrapper:
@@ -124,6 +135,30 @@ class PostgresConnectionWrapper:
     def close(self):
         """Close the connection."""
         self._conn.close()
+
+
+class TimeoutCursor:
+    """Wrapper that enforces timeouts on long-running queries."""
+    def __init__(self, cursor, timeout):
+        self._cursor = cursor
+        self._timeout = timeout
+        
+    def execute(self, sql, params=None):
+        import signal
+        def timeout_handler(signum, frame):
+            raise TimeoutError(f"Database query timed out after {self._timeout} seconds")
+        
+        # Set timeout using signal alarm (Unix only)
+        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(self._timeout)
+        try:
+            self._cursor.execute(sql, params)
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
+    
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
     
     def __enter__(self):
         """Context manager entry."""
