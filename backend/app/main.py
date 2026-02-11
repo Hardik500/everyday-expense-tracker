@@ -77,6 +77,45 @@ def get_me(current_user: schemas.User = Depends(get_current_user)):
     return current_user
 
 
+@app.patch("/user/profile", response_model=schemas.User)
+def update_user_profile(
+    payload: schemas.UserUpdate,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Update current user's profile (username, full_name)."""
+    with get_conn() as conn:
+        # Check if username is being changed and if it's already taken
+        if payload.username and payload.username != current_user.username:
+            existing = conn.execute(
+                "SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND id != ?",
+                (payload.username, current_user.id)
+            ).fetchone()
+            if existing:
+                raise HTTPException(status_code=400, detail="Username already taken")
+        
+        # Build update query dynamically
+        updates = []
+        params = []
+        if payload.username is not None:
+            updates.append("username = ?")
+            params.append(payload.username)
+        if payload.full_name is not None:
+            updates.append("full_name = ?")
+            params.append(payload.full_name)
+        
+        if not updates:
+            return current_user
+        
+        params.append(current_user.id)
+        query = f"UPDATE users SET {', '.join(updates)} WHERE id = ?"
+        conn.execute(query, tuple(params))
+        conn.commit()
+        
+        # Fetch and return updated user
+        user_row = conn.execute("SELECT * FROM users WHERE id = ?", (current_user.id,)).fetchone()
+        return schemas.User(**dict(user_row))
+
+
 @app.get("/auth/google/url", response_model=schemas.GoogleAuthUrl)
 def get_google_auth_url(current_user: schemas.User = Depends(get_current_user)):
     """Generate the Google OAuth2 authorization URL."""
