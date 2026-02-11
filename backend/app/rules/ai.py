@@ -159,13 +159,49 @@ def ai_classify(
         text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
         print(f"[AI] Response text: {text[:200]}...")
         
-        # Extract JSON from response (handle markdown code blocks)
-        json_match = re.search(r'\{[^{}]*\}', text, re.DOTALL)
-        if not json_match:
-            print(f"[AI] No JSON match in response")
-            return None
+        # Extract JSON from response
+        result = None
         
-        result = json.loads(json_match.group())
+        # Method 1: Try parsing the entire text as JSON
+        try:
+            result = json.loads(text.strip())
+            print("[AI] Parsed full text as JSON")
+        except json.JSONDecodeError:
+            pass
+        
+        # Method 2: Look for JSON in markdown code blocks
+        if result is None:
+            code_block_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+            if code_block_match:
+                try:
+                    result = json.loads(code_block_match.group(1))
+                    print("[AI] Parsed JSON from code block")
+                except json.JSONDecodeError:
+                    pass
+        
+        # Method 3: Find outermost JSON object by brace counting
+        if result is None:
+            start = text.find('{')
+            if start != -1:
+                brace_count = 0
+                end = start
+                for i, char in enumerate(text[start:], start):
+                    if char == '{':
+                        brace_count += 1
+                    elif char == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            end = i + 1
+                            break
+                try:
+                    result = json.loads(text[start:end])
+                    print(f"[AI] Parsed JSON by brace counting: {text[start:end][:100]}...")
+                except json.JSONDecodeError:
+                    pass
+        
+        if result is None:
+            print(f"[AI] Failed to extract valid JSON from response")
+            return None
         category_name = result.get("category")
         subcategory_name = result.get("subcategory")
         regex_pattern = result.get("regex_pattern")
