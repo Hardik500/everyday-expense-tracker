@@ -160,7 +160,6 @@ const HeroSection = ({ isLoaded }: { isLoaded: boolean }) => {
           aspectRatio: "4/3",
           zIndex: 10
         }}>
-// ... existing Dashboard mockup ...
           {/* Main Dashboard Card */}
           <div style={{
             position: "absolute",
