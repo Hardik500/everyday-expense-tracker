@@ -135,6 +135,22 @@ class PostgresConnectionWrapper:
     def close(self):
         """Close the connection."""
         self._conn.close()
+    
+    def __enter__(self):
+        """Context manager entry - return self."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - commit on success, rollback on error."""
+        if exc_type is None:
+            try:
+                self.commit()
+            except Exception:
+                self.rollback()
+        else:
+            self.rollback()
+        self.close()
+        return False
 
 
 class TimeoutCursor:
