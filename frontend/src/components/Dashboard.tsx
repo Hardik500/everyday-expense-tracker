@@ -6,6 +6,7 @@ import StatCard, { Sparkline } from "./StatCard";
 import SpendingInsights from "./SpendingInsights";
 import TrendChart from "./TrendChart";
 import type { Category } from "../App";
+import { useCategories } from "../contexts/CategoriesContext";
 
 // Recharts imports for mini charts
 import {
@@ -112,6 +113,7 @@ const formatFullCurrency = (amount: number) => {
 };
 
 function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
+  const { categories } = useCategories();
   const [items, setItems] = useState<ReportItem[]>([]);
   const [timeSeries, setTimeSeries] = useState<TimeSeriesData[]>([]);
   const [loading, setLoading] = useState(true);
