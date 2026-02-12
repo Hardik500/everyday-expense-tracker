@@ -12,7 +12,8 @@ import CategoryManager from "./components/CategoryManager";
 import Login from "./components/Login";
 import ResetPassword from "./components/ResetPassword";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { fetchWithAuth } from "./utils/api";
+import { fetchWithAuth, APIError } from "./utils/api";
+import { ApiErrorToast } from "./components/ApiErrorToast";
 import Profile from "./components/Profile";
 import GoogleCallback from "./components/GoogleCallback";
 import { CategoriesProvider, useCategories } from "./contexts/CategoriesContext";
@@ -92,6 +93,7 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);
   const [reviewCount, setReviewCount] = useState(0);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [apiError, setApiError] = useState<{ message: string; status?: number; endpoint?: string; recoverable: boolean } | null>(null);
 
   // Pull-to-refresh hook
   const handleRefresh = useCallback(async () => {
@@ -154,7 +156,17 @@ function AppContent() {
     fetchWithAuth(`${API_BASE}/transactions?uncertain=true`)
       .then((res) => res.json())
       .then((data) => setReviewCount(Array.isArray(data) ? data.length : 0))
-      .catch(() => setReviewCount(0));
+      .catch((err) => {
+        setReviewCount(0);
+        if (err instanceof APIError && err.status >= 500) {
+          setApiError({
+            message: err.message,
+            status: err.status,
+            endpoint: '/transactions?uncertain=true',
+            recoverable: true
+          });
+        }
+      });
   }, [refreshKey]);
 
   const navItems: { id: Tab; label: string; icon: JSX.Element }[] = [
@@ -579,6 +591,12 @@ function AppContent() {
           )}
         </div>
       </main>
+      
+      {/* Global API Error Toast */}
+      <ApiErrorToast 
+        error={apiError} 
+        onDismiss={() => setApiError(null)} 
+      />
     </div>
   );
 }
