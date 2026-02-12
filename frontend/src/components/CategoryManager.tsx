@@ -480,7 +480,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
           {/* Add button */}
           <button
             onClick={() => setShowAddCategory(true)}
-            className="btn btn-primary"
+            className="primary"
             style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
           >
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -863,7 +863,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                 <button
                   onClick={handleAddCategory}
                   disabled={saving}
-                  className="btn btn-primary"
+                  className="primary"
                 >
                   {saving ? "Creating..." : "Create Category"}
                 </button>
@@ -944,7 +944,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                 <button
                   onClick={handleAddSubcategory}
                   disabled={saving}
-                  className="btn btn-primary"
+                  className="primary"
                 >
                   {saving ? "Creating..." : "Create Subcategory"}
                 </button>
@@ -1117,7 +1117,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                 <button
                   onClick={handleEditCategory}
                   disabled={saving}
-                  className="btn btn-primary"
+                  className="primary"
                 >
                   {saving ? "Saving..." : "Save Changes"}
                 </button>
@@ -1191,7 +1191,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                 <button
                   onClick={handleEditSubcategory}
                   disabled={saving}
-                  className="btn btn-primary"
+                  className="primary"
                 >
                   {saving ? "Saving..." : "Save Changes"}
                 </button>

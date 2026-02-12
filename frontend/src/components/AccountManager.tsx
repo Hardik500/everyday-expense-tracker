@@ -147,7 +147,7 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
           </p>
         </div>
         <button
-          className="btn btn-primary"
+          className="primary"
           onClick={() => setShowForm(true)}
           style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
         >
@@ -326,7 +326,7 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary"
+                  className="primary"
                   disabled={saving}
                 >
                   {saving ? "Saving..." : editingAccount ? "Save Changes" : "Create Account"}
