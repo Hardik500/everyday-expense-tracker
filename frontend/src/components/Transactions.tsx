@@ -944,7 +944,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
             </svg>
             <p style={{ marginTop: "1rem", fontWeight: 500 }}>No transactions found</p>
             <p style={{ marginTop: "0.5rem" }}>
-              {searchQuery ? "Try a different search term" : "Import a statement to get started"}
+              {filters.searchQuery ? "Try a different search term" : "Import a statement to get started"}
             </p>
           </div>
         ) : (
