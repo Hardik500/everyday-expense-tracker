@@ -1,4 +1,4 @@
-const CACHE_NAME = 'expense-tracker-v1';
+const CACHE_NAME = 'expense-tracker-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -7,7 +7,7 @@ const STATIC_ASSETS = [
   '/icon-512x512.png'
 ];
 
-const API_CACHE_NAME = 'expense-tracker-api-v1';
+const API_CACHE_NAME = 'expense-tracker-api-v2';
 const API_ROUTES = ['/categories', '/transactions', '/reports'];
 
 const IMAGE_CACHE_NAME = 'expense-tracker-images-v1';
@@ -170,6 +170,24 @@ async function syncPendingTransactions() {
   // Would sync IndexedDB pending transactions with server
   console.log('Syncing pending transactions...');
 }
+
+// Handle messages from main app (e.g., force clear cache)
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.action === 'skipWaiting') {
+    self.skipWaiting();
+  }
+  if (event.data && event.data.action === 'clearAllCaches') {
+    event.waitUntil(
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((name) => caches.delete(name))
+        );
+      }).then(() => {
+        event.ports[0].postMessage({ result: 'caches cleared' });
+      })
+    );
+  }
+});
 
 // Periodic background sync (if supported)
 self.addEventListener('periodicsync', (event) => {
