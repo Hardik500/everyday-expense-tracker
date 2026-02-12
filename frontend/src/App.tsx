@@ -260,15 +260,6 @@ function AppContent() {
         </svg>
       ),
     },
-    {
-      id: "profile",
-      label: "Profile",
-      icon: (
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg>
-      ),
-    },
   ];
 
   if (isLoading) {
@@ -337,6 +328,9 @@ function AppContent() {
             <button
               key={item.id}
               onClick={() => {
+                // Skip if already on this tab - prevents unnecessary re-renders and re-fetches
+                if (activeTab === item.id) return;
+
                 const params = new URLSearchParams(window.location.search);
                 params.set("tab", item.id);
                 // Clear transaction and analytics specific filters on manual tab switch
@@ -349,8 +343,9 @@ function AppContent() {
                 background: "transparent",
                 border: "none",
                 padding: 0,
-                cursor: "pointer",
+                cursor: activeTab === item.id ? "default" : "pointer",
                 position: "relative",
+                opacity: activeTab === item.id ? 1 : 0.7,
               }}
               title={item.label}
             >
@@ -390,7 +385,8 @@ function AppContent() {
           alignItems: 'center',
           gap: 12
         }}>
-          <div
+          <button
+            onClick={() => setActiveTab("profile")}
             title={user?.full_name || user?.username}
             style={{
               width: 40,
@@ -400,14 +396,17 @@ function AppContent() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: '1px solid var(--border-color)',
+              border: activeTab === "profile" ? '2px solid var(--accent)' : '1px solid var(--border-color)',
               fontSize: '0.875rem',
               fontWeight: 600,
-              color: 'var(--accent)'
+              color: 'var(--accent)',
+              cursor: 'pointer',
+              padding: 0,
+              transition: 'all var(--transition-fast)'
             }}
           >
             {(user?.full_name || user?.username || "?")?.[0].toUpperCase()}
-          </div>
+          </button>
           <button
             onClick={logout}
             title="Logout"
