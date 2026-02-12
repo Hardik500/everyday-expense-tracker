@@ -1,12 +1,13 @@
-from datetime import datetime
+from datetime import datetime, date
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from dotenv import load_dotenv
 load_dotenv()  # Load .env file before anything else
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body, BackgroundTasks, Depends, status, Query
+from pydantic import BaseModel
 from fastapi.requests import Request
 from datetime import datetime, timedelta
 import time
