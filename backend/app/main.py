@@ -3721,3 +3721,593 @@ def link_transaction_to_recurring(
         conn.commit()
         
         return {"status": "ok", "message": "Transaction linked successfully"}
+
+
+# ============================================================================
+# DATA BACKUP & RESTORE (Feature 13)
+# ============================================================================
+
+@app.get("/backup")
+def backup_data(current_user: schemas.User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Export all user data for backup."""
+    with get_conn() as conn:
+        # Get all transactions
+        transactions = conn.execute(
+            """
+            SELECT t.*, a.name as account_name, c.name as category_name,
+                   s.name as subcategory_name
+            FROM transactions t
+            JOIN accounts a ON t.account_id = a.id
+            LEFT JOIN categories c ON t.category_id = c.id
+            LEFT JOIN subcategories s ON t.subcategory_id = s.id
+            WHERE a.user_id = ?
+            ORDER BY t.posted_at DESC
+            """,
+            (current_user.id,)
+        ).fetchall()
+        
+        # Get accounts
+        accounts = conn.execute(
+            "SELECT * FROM accounts WHERE user_id = ?",
+            (current_user.id,)
+        ).fetchall()
+        
+        # Get categories with details
+        categories = conn.execute(
+            """
+            SELECT c.*, 
+                   (SELECT json_group_array(json_object('id', s.id, 'name', s.name))
+                    FROM subcategories s WHERE s.category_id = c.id) as subcategories
+            FROM categories c
+            WHERE c.id IN (SELECT DISTINCT category_id FROM transactions t
+                          JOIN accounts a ON t.account_id = a.id WHERE a.user_id = ?)
+               OR c.is_system = 1
+            """,
+            (current_user.id,)
+        ).fetchall()
+        
+        # Get rules
+        rules = conn.execute(
+            """
+            SELECT r.*, c.name as category_name, s.name as subcategory_name
+            FROM rules r
+            LEFT JOIN categories c ON r.category_id = c.id
+            LEFT JOIN subcategories s ON r.subcategory_id = s.id
+            WHERE r.user_id = ?
+            """,
+            (current_user.id,)
+        ).fetchall()
+        
+        # Get transaction tags
+        tags = conn.execute(
+            """
+            SELECT t.* FROM tags t WHERE t.user_id = ?
+            """,
+            (current_user.id,)
+        ).fetchall()
+        
+        transaction_tags = conn.execute(
+            """
+            SELECT tt.* FROM transaction_tags tt
+            JOIN transactions t ON tt.transaction_id = t.id
+            JOIN accounts a ON t.account_id = a.id
+            WHERE a.user_id = ?
+            """,
+            (current_user.id,)
+        ).fetchall()
+        
+        # Get recurring expenses
+        recurring = conn.execute(
+            """
+            SELECT r.*, c.name as category_name, s.name as subcategory_name,
+                   a.name as account_name
+            FROM recurring_expenses r
+            LEFT JOIN categories c ON r.category_id = c.id
+            LEFT JOIN subcategories s ON r.subcategory_id = s.id
+            LEFT JOIN accounts a ON r.account_id = a.id
+            WHERE r.user_id = ?
+            """,
+            (current_user.id,)
+        ).fetchall()
+        
+        # Get savings goals
+        goals = conn.execute(
+            """
+            SELECT g.*, c.name as category_name
+            FROM savings_goals g
+            LEFT JOIN categories c ON g.category_id = c.id
+            WHERE g.user_id = ?
+            """,
+            (current_user.id,)
+        ).fetchall()
+        
+        # Convert to dict format
+        def row_to_dict(row):
+            return {key: row[key] for key in row.keys()}
+        
+        backup_data = {
+            "transactions": [row_to_dict(t) for t in transactions],
+            "accounts": [row_to_dict(a) for a in accounts],
+            "categories": [row_to_dict(c) for c in categories],
+            "rules": [row_to_dict(r) for r in rules],
+            "tags": [row_to_dict(t) for t in tags],
+            "transaction_tags": [row_to_dict(tt) for tt in transaction_tags],
+            "recurring_expenses": [row_to_dict(r) for r in recurring],
+            "savings_goals": [row_to_dict(g) for g in goals],
+        }
+        
+        # Record backup metadata
+        conn.execute(
+            """
+            INSERT INTO backup_metadata 
+            (user_id, backup_version, transaction_count, category_count)
+            VALUES (?, '1.1', ?, ?)
+            """,
+            (current_user.id, len(transactions), len(categories))
+        )
+        conn.commit()
+        
+        return backup_data
+
+@app.post("/restore")
+def restore_data(
+    data: Dict[str, Any],
+    current_user: schemas.User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Restore user data from backup."""
+    with get_conn() as conn:
+        restored = {"transactions": 0, "categories": 0, "accounts": 0, "rules": 0}
+        
+        # Restore accounts first
+        if "accounts" in data:
+            for account in data["accounts"]:
+                try:
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO accounts 
+                        (user_id, name, type, currency)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (current_user.id, account["name"], 
+                         account.get("type", "bank"), 
+                         account.get("currency", "INR"))
+                    )
+                    if conn.total_changes > 0:
+                        restored["accounts"] += 1
+                except Exception:
+                    pass
+        
+        # Restore categories
+        if "categories" in data:
+            for category in data["categories"]:
+                try:
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO categories 
+                        (name, color, monthly_budget, icon, tax_category_id)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (category["name"], 
+                         category.get("color"), 
+                         category.get("monthly_budget"),
+                         category.get("icon"),
+                         category.get("tax_category_id"))
+                    )
+                    if conn.total_changes > 0:
+                        restored["categories"] += 1
+                except Exception:
+                    pass
+        
+        # Restore transactions
+        if "transactions" in data:
+            for txn in data["transactions"]:
+                try:
+                    # Find or create account
+                    account = conn.execute(
+                        "SELECT id FROM accounts WHERE user_id = ? AND name = ?",
+                        (current_user.id, txn.get("account_name"))
+                    ).fetchone()
+                    
+                    if not account:
+                        # Create default account
+                        cursor = conn.execute(
+                            "INSERT INTO accounts (user_id, name, type, currency) VALUES (?, ?, ?, ?)",
+                            (current_user.id, txn.get("account_name", "Imported"), 
+                             txn.get("account_type", "bank"), txn.get("currency", "INR"))
+                        )
+                        account_id = cursor.lastrowid
+                    else:
+                        account_id = account["id"]
+                    
+                    # Find category
+                    category_id = None
+                    if txn.get("category_name"):
+                        cat = conn.execute(
+                            "SELECT id FROM categories WHERE name = ?",
+                            (txn["category_name"],)
+                        ).fetchone()
+                        if cat:
+                            category_id = cat["id"]
+                    
+                    # Insert transaction
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO transactions
+                        (account_id, posted_at, amount, currency, description_raw,
+                         description_norm, category_id, is_uncertain, hash)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (account_id, txn["posted_at"], txn["amount"], 
+                         txn.get("currency", "INR"), txn["description_raw"],
+                         txn.get("description_norm", txn["description_raw"]),
+                         category_id, False, txn.get("hash", hashlib.md5(
+                             f"{account_id}{txn['posted_at']}{txn['amount']}{txn['description_raw']}".encode()
+                         ).hexdigest()))
+                    )
+                    if conn.total_changes > 0:
+                        restored["transactions"] += 1
+                except Exception:
+                    pass
+        
+        # Restore rules
+        if "rules" in data:
+            for rule in data["rules"]:
+                try:
+                    category_id = None
+                    if rule.get("category_name"):
+                        cat = conn.execute(
+                            "SELECT id FROM categories WHERE name = ?",
+                            (rule["category_name"],)
+                        ).fetchone()
+                        if cat:
+                            category_id = cat["id"]
+                    
+                    if category_id:
+                        conn.execute(
+                            """
+                            INSERT OR IGNORE INTO rules
+                            (user_id, name, pattern, category_id, subcategory_id,
+                             min_amount, max_amount, priority, account_type, active)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (current_user.id, rule["name"], rule["pattern"],
+                             category_id, None, rule.get("min_amount"),
+                             rule.get("max_amount"), rule.get("priority", 50),
+                             rule.get("account_type"), rule.get("active", 1))
+                        )
+                        if conn.total_changes > 0:
+                            restored["rules"] += 1
+                except Exception:
+                    pass
+        
+        conn.commit()
+        return {"status": "ok", "restored": restored}
+
+
+# ============================================================================
+# DUPLICATE DETECTION (Feature 14)
+# ============================================================================
+
+@app.get("/duplicates/potential")
+def get_potential_duplicates(
+    days: int = 30,
+    current_user: schemas.User = Depends(get_current_user)
+) -> List[Dict[str, Any]]:
+    """Find potential duplicate transactions."""
+    with get_conn() as conn:
+        cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        
+        # Find duplicates by amount + date
+        duplicates = conn.execute(
+            """
+            SELECT t1.id as id1, t2.id as id2, 
+                   t1.amount, t1.posted_at, t1.description_raw as desc1,
+                   t2.description_raw as desc2,
+                   ABS(julianday(t1.posted_at) - julianday(t2.posted_at)) as days_diff,
+                   CASE 
+                       WHEN t1.hash = t2.hash THEN 'hash'
+                       WHEN t1.amount = t2.amount AND t1.posted_at = t2.posted_at THEN 'amount_date'
+                       ELSE 'amount_similar_date'
+                   END as reason
+            FROM transactions t1
+            JOIN transactions t2 ON t1.id < t2.id
+            JOIN accounts a1 ON t1.account_id = a1.id
+            JOIN accounts a2 ON t2.account_id = a2.id
+            WHERE a1.user_id = ? AND a2.user_id = ?
+              AND t1.posted_at >= ? AND t2.posted_at >= ?
+              AND (t1.hash = t2.hash 
+                   OR (t1.amount = t2.amount 
+                       AND ABS(julianday(t1.posted_at) - julianday(t2.posted_at)) <= 2))
+            ORDER BY t1.posted_at DESC
+            LIMIT 100
+            """,
+            (current_user.id, current_user.id, cutoff_date, cutoff_date)
+        ).fetchall()
+        
+        return [dict(d) for d in duplicates]
+
+@app.post("/duplicates/merge")
+def merge_duplicates(
+    keep_id: int,
+    remove_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> Dict[str, str]:
+    """Merge two duplicate transactions, keeping one and deleting the other."""
+    with get_conn() as conn:
+        # Verify both transactions belong to user
+        txn_keep = conn.execute(
+            """
+            SELECT t.id FROM transactions t
+            JOIN accounts a ON t.account_id = a.id
+            WHERE t.id = ? AND a.user_id = ?
+            """,
+            (keep_id, current_user.id)
+        ).fetchone()
+        
+        txn_remove = conn.execute(
+            """
+            SELECT t.id FROM transactions t
+            JOIN accounts a ON t.account_id = a.id
+            WHERE t.id = ? AND a.user_id = ?
+            """,
+            (remove_id, current_user.id)
+        ).fetchone()
+        
+        if not txn_keep or not txn_remove:
+            raise HTTPException(status_code=404, detail="Transactions not found")
+        
+        # Delete the duplicate
+        conn.execute(
+            "DELETE FROM transactions WHERE id = ?",
+            (remove_id,)
+        )
+        conn.commit()
+        
+        return {"status": "ok", "message": "Duplicates merged successfully"}
+
+
+# ============================================================================
+# ARCHIVE MANAGEMENT (Feature 15)
+# ============================================================================
+
+@app.post("/archive/transactions")
+def archive_old_transactions(
+    before_date: str,
+    dry_run: bool = True,
+    current_user: schemas.User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Archive transactions older than the given date."""
+    with get_conn() as conn:
+        # Count transactions to archive
+        cursor = conn.execute(
+            """
+            SELECT COUNT(*) as count FROM transactions t
+            JOIN accounts a ON t.account_id = a.id
+            WHERE a.user_id = ? AND t.posted_at < ?
+            """,
+            (current_user.id, before_date)
+        )
+        count = cursor.fetchone()["count"]
+        
+        if dry_run:
+            return {
+                "dry_run": True,
+                "before_date": before_date,
+                "count": count,
+                "message": f"{count} transactions would be archived"
+            }
+        
+        # Get transactions to archive
+        transactions = conn.execute(
+            """
+            SELECT t.*, a.user_id FROM transactions t
+            JOIN accounts a ON t.account_id = a.id
+            WHERE a.user_id = ? AND t.posted_at < ?
+            """,
+            (current_user.id, before_date)
+        ).fetchall()
+        
+        # Archive each transaction
+        archived = 0
+        for txn in transactions:
+            conn.execute(
+                """
+                INSERT INTO archived_transactions
+                (original_transaction_id, user_id, account_id, posted_at, amount,
+                 currency, description_raw, description_norm, category_id,
+                 subcategory_id, notes, archive_reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (txn["id"], txn["user_id"], txn["account_id"], txn["posted_at"],
+                 txn["amount"], txn["currency"], txn["description_raw"],
+                 txn["description_norm"], txn["category_id"],
+                 txn["subcategory_id"], txn.get("notes"), "old_data")
+            )
+            archived += 1
+        
+        # Delete archived transactions
+        conn.execute(
+            """
+            DELETE FROM transactions WHERE id IN (
+                SELECT t.id FROM transactions t
+                JOIN accounts a ON t.account_id = a.id
+                WHERE a.user_id = ? AND t.posted_at < ?
+            )
+            """,
+            (current_user.id, before_date)
+        )
+        conn.commit()
+        
+        return {
+            "archived": archived,
+            "before_date": before_date,
+            "message": f"{archived} transactions archived"
+        }
+
+
+# ============================================================================
+# SMART TAGS (Feature 16)
+# ============================================================================
+
+@app.get("/tags")
+def get_tags(
+    current_user: schemas.User = Depends(get_current_user)
+) -> List[Dict[str, Any]]:
+    """Get all tags for the user."""
+    with get_conn() as conn:
+        tags = conn.execute(
+            """
+            SELECT t.*,
+                   (SELECT COUNT(*) FROM transaction_tags tt WHERE tt.tag_id = t.id) as usage_count
+            FROM tags t
+            WHERE t.user_id = ?
+            ORDER BY t.name
+            """,
+            (current_user.id,)
+        ).fetchall()
+        return [dict(tag) for tag in tags]
+
+@app.post("/tags")
+def create_tag(
+    name: str,
+    color: str = "#3b82f6",
+    description: Optional[str] = None,
+    current_user: schemas.User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Create a new tag."""
+    with get_conn() as conn:
+        try:
+            cursor = conn.execute(
+                """INSERT INTO tags (user_id, name, color, description)
+                   VALUES (?, ?, ?, ?)""",
+                (current_user.id, name, color, description)
+            )
+            conn.commit()
+            
+            tag = conn.execute(
+                "SELECT * FROM tags WHERE id = ?",
+                (cursor.lastrowid,)
+            ).fetchone()
+            return dict(tag)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Tag already exists: {str(e)}")
+
+@app.put("/tags/{tag_id}")
+def update_tag(
+    tag_id: int,
+    name: Optional[str] = None,
+    color: Optional[str] = None,
+    description: Optional[str] = None,
+    current_user: schemas.User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Update a tag."""
+    with get_conn() as conn:
+        tag = conn.execute(
+            "SELECT * FROM tags WHERE id = ? AND user_id = ?",
+            (tag_id, current_user.id)
+        ).fetchone()
+        if not tag:
+            raise HTTPException(status_code=404, detail="Tag not found")
+        
+        updates = []
+        values = []
+        if name:
+            updates.append("name = ?")
+            values.append(name)
+        if color:
+            updates.append("color = ?")
+            values.append(color)
+        if description is not None:
+            updates.append("description = ?")
+            values.append(description)
+        
+        if updates:
+            values.extend([tag_id, current_user.id])
+            conn.execute(
+                f"UPDATE tags SET {', '.join(updates)} WHERE id = ? AND user_id = ?",
+                values
+            )
+            conn.commit()
+        
+        tag = conn.execute(
+            "SELECT * FROM tags WHERE id = ?",
+            (tag_id,)
+        ).fetchone()
+        return dict(tag)
+
+@app.delete("/tags/{tag_id}")
+def delete_tag(
+    tag_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> Dict[str, str]:
+    """Delete a tag."""
+    with get_conn() as conn:
+        conn.execute(
+            "DELETE FROM tags WHERE id = ? AND user_id = ?",
+            (tag_id, current_user.id)
+        )
+        conn.commit()
+        return {"status": "ok"}
+
+@app.post("/transactions/{transaction_id}/tags")
+def add_tags_to_transaction(
+    transaction_id: int,
+    tag_ids: List[int],
+    current_user: schemas.User = Depends(get_current_user)
+) -> Dict[str, str]:
+    """Add tags to a transaction."""
+    with get_conn() as conn:
+        # Verify transaction belongs to user
+        txn = conn.execute(
+            """
+            SELECT t.id FROM transactions t
+            JOIN accounts a ON t.account_id = a.id
+            WHERE t.id = ? AND a.user_id = ?
+            """,
+            (transaction_id, current_user.id)
+        ).fetchone()
+        
+        if not txn:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        
+        for tag_id in tag_ids:
+            conn.execute(
+                "INSERT OR IGNORE INTO transaction_tags (transaction_id, tag_id) VALUES (?, ?)",
+                (transaction_id, tag_id)
+            )
+        conn.commit()
+        
+        return {"status": "ok"}
+
+@app.delete("/transactions/{transaction_id}/tags/{tag_id}")
+def remove_tag_from_transaction(
+    transaction_id: int,
+    tag_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+) -> Dict[str, str]:
+    """Remove a tag from a transaction."""
+    with get_conn() as conn:
+        conn.execute(
+            """
+            DELETE FROM transaction_tags 
+            WHERE transaction_id = ? AND tag_id = ?
+            AND EXISTS (
+                SELECT 1 FROM transactions t
+                JOIN accounts a ON t.account_id = a.id
+                WHERE t.id = ? AND a.user_id = ?
+            )
+            """,
+            (transaction_id, tag_id, transaction_id, current_user.id)
+        )
+        conn.commit()
+        return {"status": "ok"}
+
+
+# =============================================================================
+# PHASE 3 FEATURES - Import and register
+# =============================================================================
+from app.phase3_endpoints import router as phase3_router, register_phase3_routes
+
+# Register Phase 3 routes
+app.include_router(phase3_router)
+

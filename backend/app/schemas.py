@@ -206,3 +206,171 @@ class RecurringExpenseStats(BaseModel):
     by_frequency: Dict[str, int]
     by_category: List[Dict[str, Any]]
 
+
+# ========== PHASE 3 FEATURES ==========
+
+# Feature 15: Duplicate Detection
+class DuplicateTransaction(BaseModel):
+    id: int
+    original_transaction_id: int
+    duplicate_transaction_id: int
+    similarity_score: float
+    status: str  # 'pending', 'confirmed_duplicate', 'not_duplicate'
+    created_at: Union[datetime, str]
+    # Original transaction details
+    original_amount: float
+    original_description: str
+    original_date: date
+    # Duplicate transaction details
+    duplicate_amount: float
+    duplicate_description: str
+    duplicate_date: date
+
+
+class DuplicateActionRequest(BaseModel):
+    pair_id: int
+    action: str  # 'mark_duplicate', 'not_duplicate', 'delete_duplicate'
+
+
+# Feature 16: Split Transactions
+class TransactionSplit(BaseModel):
+    id: int
+    transaction_id: int
+    category_id: Optional[int]
+    subcategory_id: Optional[int]
+    amount: float
+    description: Optional[str]
+    category_name: Optional[str] = None
+    subcategory_name: Optional[str] = None
+
+
+class TransactionSplitCreate(BaseModel):
+    category_id: Optional[int] = None
+    subcategory_id: Optional[int] = None
+    amount: float
+    description: Optional[str] = None
+
+
+class TransactionSplitUpdate(BaseModel):
+    category_id: Optional[int] = None
+    subcategory_id: Optional[int] = None
+    amount: Optional[float] = None
+    description: Optional[str] = None
+
+
+class SplitTransactionRequest(BaseModel):
+    splits: List[TransactionSplitCreate]
+
+
+# Feature 17: Goals/Savings Tracking
+class Goal(BaseModel):
+    id: int
+    user_id: int
+    name: str
+    description: Optional[str] = None
+    target_amount: float
+    current_amount: float
+    category_id: Optional[int] = None
+    deadline: Optional[date] = None
+    icon: Optional[str] = None
+    color: Optional[str] = '#6366f1'
+    is_active: bool = True
+    created_at: Union[datetime, str]
+    updated_at: Union[datetime, str]
+    # Joined fields
+    category_name: Optional[str] = None
+    progress_percent: Optional[float] = None
+    days_remaining: Optional[int] = None
+
+
+class GoalCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    target_amount: float
+    category_id: Optional[int] = None
+    deadline: Optional[date] = None
+    icon: Optional[str] = None
+    color: Optional[str] = '#6366f1'
+
+
+class GoalUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    target_amount: Optional[float] = None
+    current_amount: Optional[float] = None
+    category_id: Optional[int] = None
+    deadline: Optional[date] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class GoalContribution(BaseModel):
+    goal_id: int
+    amount: float
+    date: date
+    notes: Optional[str] = None
+
+
+# Feature 18: Net Worth Tracking
+class NetWorthEntry(BaseModel):
+    id: int
+    user_id: int
+    recorded_at: date
+    total_assets: float
+    total_liabilities: float
+    net_worth: float
+    notes: Optional[str] = None
+    created_at: Union[datetime, str]
+
+
+class NetWorthSummary(BaseModel):
+    current_net_worth: float
+    total_assets: float
+    total_liabilities: float
+    change_from_last_month: Optional[float] = None
+    change_percent: Optional[float] = None
+    history: List[NetWorthEntry]
+
+
+class NetWorthCreate(BaseModel):
+    recorded_at: Optional[date] = None
+    total_assets: Optional[float] = None
+    total_liabilities: Optional[float] = None
+    notes: Optional[str] = None
+
+
+# Feature 19: Monthly Reports (enhanced existing Reports)
+class MonthlyReport(BaseModel):
+    month: str
+    year: int
+    total_income: float
+    total_expenses: float
+    net_cashflow: float
+    savings_rate: float
+    category_breakdown: List[ReportItem]
+    top_expenses: List[Dict[str, Any]]
+    compared_to_prev_month: Optional[Dict[str, float]] = None
+
+
+class MonthlyReportRequest(BaseModel):
+    year: int
+    month: Optional[int] = None  # If None, returns all months for the year
+
+
+# Feature 20: Cash Flow Calendar
+class CalendarDayData(BaseModel):
+    date: date
+    income: float
+    expenses: float
+    net: float
+    transaction_count: int
+    transactions: List[Dict[str, Any]]
+
+
+class CashFlowCalendar(BaseModel):
+    year: int
+    month: int
+    days: List[CalendarDayData]
+    month_total: Dict[str, float]
+
