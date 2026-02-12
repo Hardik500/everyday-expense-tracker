@@ -50,8 +50,11 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
         if (response.status === 401) {
             localStorage.removeItem('auth_token');
             localStorage.removeItem('auth_user');
+            // Mark that we're redirecting to prevent error flashes
+            (window as any).__AUTH_REDIRECTING__ = true;
             window.location.reload();
-            throw new APIError('Session expired. Please log in again.', 401);
+            // Return a promise that never resolves to prevent error handling
+            return new Promise(() => {});
         }
 
         // Handle server errors (500+)
