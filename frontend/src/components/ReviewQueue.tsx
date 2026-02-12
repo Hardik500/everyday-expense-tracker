@@ -174,6 +174,10 @@ function ReviewQueue({
   };
 
   const skipTransaction = async (txId: number) => {
+    if (!categories || !Array.isArray(categories)) {
+      console.error("Categories not available");
+      return;
+    }
     setSaving((prev) => ({ ...prev, [txId]: true }));
     const miscCategory = categories.find((c) => c.name.toLowerCase() === "miscellaneous");
     await fetchWithAuth(`${apiBase}/transactions/${txId}`, {

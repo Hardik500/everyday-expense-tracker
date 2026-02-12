@@ -39,8 +39,8 @@ export const CategoriesProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             .then((res) => res.json())
             .then((data) => {
                 if (isMounted) {
-                    setCategories(data.categories || []);
-                    setSubcategories(data.subcategories || []);
+                    setCategories(Array.isArray(data?.categories) ? data.categories : []);
+                    setSubcategories(Array.isArray(data?.subcategories) ? data.subcategories : []);
                 }
             })
             .catch((err) => {
