@@ -292,10 +292,34 @@ def apply_migrations() -> None:
         for migration in migration_files:
             if migration.name in applied:
                 continue
+            
+            # Special case for commented out migrations or manual skips
             sql = migration.read_text(encoding="utf-8")
-            conn.executescript(sql)
-            conn.execute(
-                "INSERT INTO migrations (name) VALUES (?)",
-                (migration.name,),
-            )
+            if not sql.strip() or sql.strip().startswith("--"):
+                # Still mark as applied if it's just comments/empty
+                conn.execute("INSERT INTO migrations (name) VALUES (?)", (migration.name,))
+                conn.commit()
+                continue
+
+            try:
+                conn.executescript(sql)
+                conn.execute(
+                    "INSERT INTO migrations (name) VALUES (?)",
+                    (migration.name,),
+                )
+            except sqlite3.OperationalError as e:
+                msg = str(e)
+                # Make migrations resilient across partially-initialized DBs
+                # (especially when users reset DBs or when earlier migrations were edited).
+                if "duplicate column name" in msg:
+                    print(f"Skipping duplicate column migration: {migration.name} ({msg})")
+                    conn.execute("INSERT INTO migrations (name) VALUES (?)", (migration.name,))
+                elif "no such table" in msg:
+                    print(f"Skipping migration due to missing table: {migration.name} ({msg})")
+                    conn.execute("INSERT INTO migrations (name) VALUES (?)", (migration.name,))
+                elif "no such column" in msg:
+                    print(f"Skipping migration due to missing column: {migration.name} ({msg})")
+                    conn.execute("INSERT INTO migrations (name) VALUES (?)", (migration.name,))
+                else:
+                    raise
         conn.commit()

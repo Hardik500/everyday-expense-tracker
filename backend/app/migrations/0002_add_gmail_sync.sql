@@ -1,5 +1,5 @@
--- Migration: Add Gmail Sync columns to users
-ALTER TABLE users ADD COLUMN gmail_refresh_token TEXT;
-ALTER TABLE users ADD COLUMN gmail_enabled BOOLEAN DEFAULT FALSE;
-ALTER TABLE users ADD COLUMN gmail_last_sync TIMESTAMP;
-ALTER TABLE users ADD COLUMN gmail_filter_query TEXT;
+-- Migration: Add Gmail Sync columns to users (commented out as handled in backfill)
+-- ALTER TABLE users ADD COLUMN gmail_refresh_token TEXT;
+-- ALTER TABLE users ADD COLUMN gmail_enabled BOOLEAN DEFAULT FALSE;
+-- ALTER TABLE users ADD COLUMN gmail_last_sync TIMESTAMP;
+-- ALTER TABLE users ADD COLUMN gmail_filter_query TEXT;

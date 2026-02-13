@@ -13,6 +13,8 @@ from app.main import app, get_current_user
 from app import schemas
 
 
+from datetime import datetime
+
 # Create test client
 client = TestClient(app)
 
@@ -21,7 +23,8 @@ mock_user = schemas.User(
     id=1,
     username="testuser",
     email="test@example.com",
-    full_name="Test User"
+    full_name="Test User",
+    created_at=datetime.now()
 )
 
 @pytest.fixture
