@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -17,26 +17,32 @@ import Layout from "./components/layout/Layout";
 import PullToRefreshIndicator from "./components/common/PullToRefreshIndicator";
 import { usePullToRefresh } from "./hooks/usePullToRefresh";
 
-// Pages
-import DashboardPage from "./pages/DashboardPage";
-import AnalyticsPage from "./pages/AnalyticsPage";
-import CardsPage from "./pages/CardsPage";
-import AccountsPage from "./pages/AccountsPage";
-import CategoriesPage from "./pages/CategoriesPage";
-import RulesPage from "./pages/RulesPage";
-import RecurringPage from "./pages/RecurringPage";
-import UploadPage from "./pages/UploadPage";
-import ReviewPage from "./pages/ReviewPage";
-import TransactionsPage from "./pages/TransactionsPage";
-import ProfilePage from "./pages/ProfilePage";
+// Lazy load pages for better performance
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
+const CardsPage = lazy(() => import("./pages/CardsPage"));
+const AccountsPage = lazy(() => import("./pages/AccountsPage"));
+const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
+const RulesPage = lazy(() => import("./pages/RulesPage"));
+const RecurringPage = lazy(() => import("./pages/RecurringPage"));
+const UploadPage = lazy(() => import("./pages/UploadPage"));
+const ReviewPage = lazy(() => import("./pages/ReviewPage"));
+const TransactionsPage = lazy(() => import("./pages/TransactionsPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 
-// Other pages
+// Auth pages
 import Login from "./components/auth/Login";
 import LandingPage from "./components/auth/LandingPage";
 import ResetPassword from "./components/auth/ResetPassword";
 import GoogleCallback from "./components/auth/GoogleCallback";
 import FloatingActionButton from "./components/layout/FloatingActionButton";
+
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+// Loading fallback for lazy-loaded routes
+function PageLoader() {
+  return <PageLoading text="Loading..." />;
+}
 
 // Main app content with routing and auth
 function AppContent() {
@@ -152,144 +158,146 @@ function AppContent() {
         pullY={pullY}
       />
 
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <DashboardPage
-              apiBase={API_BASE}
-              refreshKey={refreshKey}
-              onRefresh={handleRefresh}
-              onCategorySelect={handleCategorySelect}
-            />
-          }
-        />
-        <Route
-          path="/dashboard"
-          element={
-            <DashboardPage
-              apiBase={API_BASE}
-              refreshKey={refreshKey}
-              onRefresh={handleRefresh}
-              onCategorySelect={handleCategorySelect}
-            />
-          }
-        />
-        <Route
-          path="/analytics"
-          element={
-            <AnalyticsPage
-              apiBase={API_BASE}
-              refreshKey={refreshKey}
-              initialCategoryId={selectedCategoryId}
-              categories={categories}
-              subcategories={subcategories}
-              onRefresh={handleRefresh}
-            />
-          }
-        />
-        <Route
-          path="/cards"
-          element={
-            <CardsPage
-              apiBase={API_BASE}
-              refreshKey={refreshKey}
-              onRefresh={handleRefresh}
-            />
-          }
-        />
-        <Route
-          path="/accounts"
-          element={
-            <AccountsPage
-              apiBase={API_BASE}
-              refreshKey={refreshKey}
-              onRefresh={handleRefresh}
-            />
-          }
-        />
-        <Route
-          path="/categories"
-          element={
-            <CategoriesPage
-              apiBase={API_BASE}
-              refreshKey={refreshKey}
-              onRefresh={() => {
-                setRefreshKey((k) => k + 1);
-                refreshCategories();
-              }}
-              onViewTransactions={handleTransactionsFilter}
-            />
-          }
-        />
-        <Route
-          path="/rules"
-          element={
-            <RulesPage
-              apiBase={API_BASE}
-              categories={categories}
-              subcategories={subcategories}
-              refreshKey={refreshKey}
-              onRefresh={handleRefresh}
-            />
-          }
-        />
-        <Route
-          path="/recurring"
-          element={
-            <RecurringPage
-              apiBase={API_BASE}
-              refreshKey={refreshKey}
-              onRefresh={handleRefresh}
-            />
-          }
-        />
-        <Route
-          path="/upload"
-          element={
-            <UploadPage
-              apiBase={API_BASE}
-              onDone={handleUploadDone}
-            />
-          }
-        />
-        <Route
-          path="/review"
-          element={
-            <ReviewPage
-              apiBase={API_BASE}
-              categories={categories}
-              subcategories={subcategories}
-              refreshKey={refreshKey}
-              reviewCount={reviewCount}
-              onUpdated={() => setRefreshKey((k) => k + 1)}
-            />
-          }
-        />
-        <Route
-          path="/transactions"
-          element={
-            <TransactionsPage
-              apiBase={API_BASE}
-              categories={categories}
-              subcategories={subcategories}
-              refreshKey={refreshKey}
-              onUpdated={() => setRefreshKey((k) => k + 1)}
-            />
-          }
-        />
-        <Route
-          path="/profile"
-          element={<ProfilePage apiBase={API_BASE} />}
-        />
-        {/* Handle Google callback when authenticated */}
-        <Route
-          path="/auth/google/callback"
-          element={<GoogleCallback apiBase={API_BASE} />}
-        />
-        {/* Catch all - redirect to dashboard */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <DashboardPage
+                apiBase={API_BASE}
+                refreshKey={refreshKey}
+                onRefresh={handleRefresh}
+                onCategorySelect={handleCategorySelect}
+              />
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <DashboardPage
+                apiBase={API_BASE}
+                refreshKey={refreshKey}
+                onRefresh={handleRefresh}
+                onCategorySelect={handleCategorySelect}
+              />
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <AnalyticsPage
+                apiBase={API_BASE}
+                refreshKey={refreshKey}
+                initialCategoryId={selectedCategoryId}
+                categories={categories}
+                subcategories={subcategories}
+                onRefresh={handleRefresh}
+              />
+            }
+          />
+          <Route
+            path="/cards"
+            element={
+              <CardsPage
+                apiBase={API_BASE}
+                refreshKey={refreshKey}
+                onRefresh={handleRefresh}
+              />
+            }
+          />
+          <Route
+            path="/accounts"
+            element={
+              <AccountsPage
+                apiBase={API_BASE}
+                refreshKey={refreshKey}
+                onRefresh={handleRefresh}
+              />
+            }
+          />
+          <Route
+            path="/categories"
+            element={
+              <CategoriesPage
+                apiBase={API_BASE}
+                refreshKey={refreshKey}
+                onRefresh={() => {
+                  setRefreshKey((k) => k + 1);
+                  refreshCategories();
+                }}
+                onViewTransactions={handleTransactionsFilter}
+              />
+            }
+          />
+          <Route
+            path="/rules"
+            element={
+              <RulesPage
+                apiBase={API_BASE}
+                categories={categories}
+                subcategories={subcategories}
+                refreshKey={refreshKey}
+                onRefresh={handleRefresh}
+              />
+            }
+          />
+          <Route
+            path="/recurring"
+            element={
+              <RecurringPage
+                apiBase={API_BASE}
+                refreshKey={refreshKey}
+                onRefresh={handleRefresh}
+              />
+            }
+          />
+          <Route
+            path="/upload"
+            element={
+              <UploadPage
+                apiBase={API_BASE}
+                onDone={handleUploadDone}
+              />
+            }
+          />
+          <Route
+            path="/review"
+            element={
+              <ReviewPage
+                apiBase={API_BASE}
+                categories={categories}
+                subcategories={subcategories}
+                refreshKey={refreshKey}
+                reviewCount={reviewCount}
+                onUpdated={() => setRefreshKey((k) => k + 1)}
+              />
+            }
+          />
+          <Route
+            path="/transactions"
+            element={
+              <TransactionsPage
+                apiBase={API_BASE}
+                categories={categories}
+                subcategories={subcategories}
+                refreshKey={refreshKey}
+                onUpdated={() => setRefreshKey((k) => k + 1)}
+              />
+            }
+          />
+          <Route
+            path="/profile"
+            element={<ProfilePage apiBase={API_BASE} />}
+          />
+          {/* Handle Google callback when authenticated */}
+          <Route
+            path="/auth/google/callback"
+            element={<GoogleCallback apiBase={API_BASE} />}
+          />
+          {/* Catch all - redirect to dashboard */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </Suspense>
 
       {/* Global API Error Toast */}
       <ApiErrorToast error={apiError} onDismiss={() => setApiError(null)} />
