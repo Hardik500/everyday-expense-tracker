@@ -70,7 +70,7 @@ function AppContent() {
     setRefreshKey((k) => k + 1);
   }, []);
 
-  const { containerRef: contentRef, isPulling, pullProgress, isRefreshing, pullY } = usePullToRefresh({
+  const { _contentRef: _unusedContentRef, isPulling, pullProgress, isRefreshing, pullY } = usePullToRefresh({
     onRefresh: handleRefresh,
     threshold: 120,
     maxPullDistance: 180,
