@@ -36,13 +36,7 @@ import LandingPage from "./components/LandingPage";
 import ResetPassword from "./components/ResetPassword";
 import GoogleCallback from "./components/GoogleCallback";
 import FloatingActionButton from "./components/FloatingActionButton";
-
-import type { Category, Subcategory, Transaction } from "./App";
-
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
-// Re-export types for other components
-export type { Category, Subcategory, Transaction };
 
 // Main app content with routing and auth
 function AppContent() {

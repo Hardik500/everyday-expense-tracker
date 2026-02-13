@@ -6,7 +6,7 @@ import Select from "./ui/Select";
 import StatCard from "./StatCard";
 import SpendingInsights from "./SpendingInsights";
 import TrendChart from "./TrendChart";
-import type { Category } from "../App";
+import type { Category } from "../types";
 import { useCategories } from "../contexts/CategoriesContext";
 import useSWR from "swr";
 import { cacheKeys } from "../hooks/useSWRConfig";
@@ -223,7 +223,7 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
 
     const topCat = spendingItems.length > 0
       ? spendingItems.reduce((max: ReportItem, item: ReportItem) =>
-          Math.abs(item.total) > Math.abs(max.total) ? item : max, spendingItems[0])
+        Math.abs(item.total) > Math.abs(max.total) ? item : max, spendingItems[0])
       : null;
 
     const prevItems = prevMonthData?.items || [];
@@ -259,9 +259,9 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
 
   const budgetTrend = dashboardStats.totalBudget > 0
     ? {
-        value: Math.round((dashboardStats.budgetRemaining / dashboardStats.totalBudget) * 100),
-        type: "neutral" as const,
-      }
+      value: Math.round((dashboardStats.budgetRemaining / dashboardStats.totalBudget) * 100),
+      type: "neutral" as const,
+    }
     : { value: 0, type: "neutral" as const };
 
   // Prepare chart data for mini income vs expenses
@@ -604,8 +604,8 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
             savingsRate >= 20
               ? "Great job! >20% is excellent"
               : savingsRate >= 10
-              ? "Good progress toward 20%"
-              : "Aim for at least 20% savings"
+                ? "Good progress toward 20%"
+                : "Aim for at least 20% savings"
           }
           icon={
             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -669,14 +669,14 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
         <div className="card-header">
           <h2>Spending Insights</h2>
         </div>
-        <SpendingInsights 
-          apiBase={apiBase} 
-          categories={categories} 
-          refreshKey={refreshKey} 
+        <SpendingInsights
+          apiBase={apiBase}
+          categories={categories}
+          refreshKey={refreshKey}
         />
       </div>
 
-{/* Daily Expense Trend Chart - Feature 3 & Feature 5: Mobile-Optimized TrendChart */}
+      {/* Daily Expense Trend Chart - Feature 3 & Feature 5: Mobile-Optimized TrendChart */}
       <div className="card">
         <div className="card-header">
           <h2>Expense Trend</h2>
@@ -715,8 +715,8 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
                       budgetState.overallPercentage > 100
                         ? "#ef4444"
                         : budgetState.overallPercentage > 80
-                        ? "#f59e0b"
-                        : "#10b981",
+                          ? "#f59e0b"
+                          : "#10b981",
                     transition: "width 0.5s ease",
                   }}
                 />
@@ -729,8 +729,8 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
                     budgetState.overallPercentage > 100
                       ? "#ef4444"
                       : budgetState.overallPercentage > 80
-                      ? "#f59e0b"
-                      : "#10b981",
+                        ? "#f59e0b"
+                        : "#10b981",
                 }}
               >
                 {budgetState.overallPercentage.toFixed(0)}%
@@ -787,8 +787,8 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
                     budgetState.overallPercentage > 100
                       ? "linear-gradient(90deg, #ef4444, #dc2626)"
                       : budgetState.overallPercentage > 80
-                      ? "linear-gradient(90deg, #f59e0b, #d97706)"
-                      : "linear-gradient(90deg, #10b981, #059669)",
+                        ? "linear-gradient(90deg, #f59e0b, #d97706)"
+                        : "linear-gradient(90deg, #10b981, #059669)",
                   borderRadius: 4,
                   transition: "width 0.6s ease, background 0.3s ease",
                   boxShadow:
@@ -887,8 +887,8 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
                             background: isOverBudget
                               ? "rgba(239, 68, 68, 0.15)"
                               : isNearLimit
-                              ? "rgba(245, 158, 11, 0.15)"
-                              : "rgba(16, 185, 129, 0.15)",
+                                ? "rgba(245, 158, 11, 0.15)"
+                                : "rgba(16, 185, 129, 0.15)",
                             color: isOverBudget ? "#ef4444" : isNearLimit ? "#f59e0b" : "#10b981",
                           }}
                         >
@@ -1314,7 +1314,7 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
       <TransferDetector
         apiBase={apiBase}
         refreshKey={refreshKey}
-        onRefresh={onRefresh || (() => {})}
+        onRefresh={onRefresh || (() => { })}
       />
     </div>
   );

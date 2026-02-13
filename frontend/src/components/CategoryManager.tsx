@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchWithAuth } from "../utils/api";
 import { createPortal } from "react-dom";
-import type { Category, Subcategory } from "../App";
+import type { Category, Subcategory } from "../types";
 import { PageLoading } from "./ui/Loading";
 
 type Props = {

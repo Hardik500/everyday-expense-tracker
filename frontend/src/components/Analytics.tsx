@@ -17,7 +17,7 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import type { Category, Subcategory, Transaction as BaseTransaction } from "../App";
+import type { Category, Subcategory, Transaction as BaseTransaction } from "../types";
 import EditTransactionModal from "./EditTransactionModal";
 import Select from "./ui/Select";
 import { PageLoading } from "./ui/Loading";

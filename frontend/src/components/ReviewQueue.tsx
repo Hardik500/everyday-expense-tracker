@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { fetchWithAuth } from "../utils/api";
-import type { Category, Subcategory, Transaction } from "../App";
+import type { Category, Subcategory, Transaction } from "../types";
 import AISuggestions from "./AISuggestions";
 import SubcategorySearch from "./SubcategorySearch";
 import { useToast } from "./Toast";

@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Category, Subcategory } from "../App";
+import type { Category, Subcategory } from "../types";
 
 export interface FilterState {
   searchQuery: string;

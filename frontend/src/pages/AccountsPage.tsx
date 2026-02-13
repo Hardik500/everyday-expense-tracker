@@ -4,7 +4,7 @@ import PageHeader from "../components/PageHeader";
 type Props = {
   apiBase: string;
   refreshKey: number;
-  onRefresh?: () => void;
+  onRefresh: () => void;
 };
 
 export default function AccountsPage({ apiBase, refreshKey, onRefresh }: Props) {

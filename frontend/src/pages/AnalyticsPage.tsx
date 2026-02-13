@@ -1,6 +1,6 @@
 import Analytics from "../components/Analytics";
 import PageHeader from "../components/PageHeader";
-import type { Category, Subcategory } from "../App";
+import type { Category, Subcategory } from "../types";
 
 type Props = {
   apiBase: string;

@@ -3,7 +3,7 @@ import PageHeader from "../components/PageHeader";
 
 type Props = {
   apiBase: string;
-  onDone?: () => void;
+  onDone: () => void;
 };
 
 export default function UploadPage({ apiBase, onDone }: Props) {
