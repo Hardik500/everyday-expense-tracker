@@ -1,13 +1,13 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { fetchWithAuth } from "../utils/api";
+import { fetchWithAuth } from "../../utils/api";
 import type { Category, Subcategory, Transaction } from "../types";
 import LinkTransactionModal from "./LinkTransactionModal";
 import EditTransactionModal from "./EditTransactionModal";
 import SmartFilters, { type FilterState } from "./SmartFilters";
-import { PageLoading } from "./ui/Loading";
+import { PageLoading } from "../ui/Loading";
 import { createPortal } from "react-dom";
-import SwipeableCard from "./SwipeableCard";
-import { useTrashBin } from "../hooks/useTrashBin";
+import SwipeableCard from "../common/SwipeableCard";
+import { useTrashBin } from "../../hooks/useTrashBin";
 
 // Hook to detect mobile view
 const useIsMobile = () => {

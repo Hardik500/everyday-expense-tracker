@@ -1,5 +1,5 @@
-import CategoryManager from "../components/CategoryManager";
-import PageHeader from "../components/PageHeader";
+import CategoryManager from "../components/categories/CategoryManager";
+import PageHeader from "../components/layout/PageHeader";
 import type { Category, Subcategory } from "../types";
 
 type Props = {

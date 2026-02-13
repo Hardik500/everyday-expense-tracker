@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { fetchWithAuth } from "../utils/api";
+import { fetchWithAuth } from "../../utils/api";
 import ReactDOM from "react-dom";
 import type { Category, Subcategory, Transaction } from "../types";
-import SubcategorySearch from "./SubcategorySearch";
+import SubcategorySearch from "../categories/SubcategorySearch";
 
 type Props = {
     transaction: Transaction;

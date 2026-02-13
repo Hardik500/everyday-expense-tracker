@@ -1,5 +1,5 @@
-import ReviewQueue from "../components/ReviewQueue";
-import PageHeader from "../components/PageHeader";
+import ReviewQueue from "../components/transactions/ReviewQueue";
+import PageHeader from "../components/layout/PageHeader";
 import type { Category, Subcategory } from "../types";
 
 type Props = {

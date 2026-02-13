@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchWithAuth } from "../utils/api";
+import { fetchWithAuth } from "../../utils/api";
 import {
   AreaChart,
   Area,
@@ -18,9 +18,9 @@ import {
   Line,
 } from "recharts";
 import type { Category, Subcategory, Transaction as BaseTransaction } from "../types";
-import EditTransactionModal from "./EditTransactionModal";
-import Select from "./ui/Select";
-import { PageLoading } from "./ui/Loading";
+import EditTransactionModal from "../transactions/EditTransactionModal";
+import Select from "../ui/Select";
+import { PageLoading } from "../ui/Loading";
 
 type Transaction = BaseTransaction & {
   subcategory_name?: string | null;

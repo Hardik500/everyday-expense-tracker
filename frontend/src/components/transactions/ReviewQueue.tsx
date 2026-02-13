@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
-import { fetchWithAuth } from "../utils/api";
+import { fetchWithAuth } from "../../utils/api";
 import type { Category, Subcategory, Transaction } from "../types";
 import AISuggestions from "./AISuggestions";
-import SubcategorySearch from "./SubcategorySearch";
-import { useToast } from "./Toast";
+import SubcategorySearch from "../categories/SubcategorySearch";
+import { useToast } from "../common/Toast";
 
 type Props = {
   apiBase: string;

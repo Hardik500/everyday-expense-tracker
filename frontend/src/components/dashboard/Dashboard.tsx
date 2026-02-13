@@ -1,13 +1,13 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchWithAuth } from "../utils/api";
-import TransferDetector from "./TransferDetector";
-import Select from "./ui/Select";
+import { fetchWithAuth } from "../../utils/api";
+import TransferDetector from "../transactions/TransferDetector";
+import Select from "../ui/Select";
 import StatCard from "./StatCard";
 import SpendingInsights from "./SpendingInsights";
 import TrendChart from "./TrendChart";
 import type { Category } from "../types";
-import { useCategories } from "../contexts/CategoriesContext";
+import { useCategories } from "../../contexts/CategoriesContext";
 import useSWR from "swr";
 import { cacheKeys } from "../hooks/useSWRConfig";
 

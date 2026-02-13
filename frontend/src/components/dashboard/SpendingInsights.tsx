@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { fetchWithAuth } from "../utils/api";
-import { PageLoading } from "./ui/Loading";
+import { fetchWithAuth } from "../../utils/api";
+import { PageLoading } from "../ui/Loading";
 import type { Category } from "../types";
 
 type InsightData = {

@@ -1,5 +1,5 @@
-import Analytics from "../components/Analytics";
-import PageHeader from "../components/PageHeader";
+import Analytics from "../components/analytics/Analytics";
+import PageHeader from "../components/layout/PageHeader";
 import type { Category, Subcategory } from "../types";
 
 type Props = {

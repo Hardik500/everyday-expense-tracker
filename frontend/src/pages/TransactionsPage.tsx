@@ -1,5 +1,5 @@
-import Transactions from "../components/Transactions";
-import PageHeader from "../components/PageHeader";
+import Transactions from "../components/transactions/Transactions";
+import PageHeader from "../components/layout/PageHeader";
 import type { Category, Subcategory } from "../types";
 
 type Props = {
