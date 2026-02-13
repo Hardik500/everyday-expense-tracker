@@ -1,98 +1,69 @@
-import { useEffect, useState, useCallback } from "react";
-import Upload from "./components/Upload";
-import Transactions from "./components/Transactions";
-import ReviewQueue from "./components/ReviewQueue";
-import Dashboard from "./components/Dashboard";
-import FloatingActionButton from "./components/FloatingActionButton";
-import Analytics from "./components/Analytics";
-import Cards from "./components/Cards";
-import AccountManager from "./components/AccountManager";
-import RulesManager from "./components/RulesManager";
-import CategoryManager from "./components/CategoryManager";
-import Login from "./components/Login";
-import ResetPassword from "./components/ResetPassword";
+import { useState, useEffect, useCallback } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+  useSearchParams,
+} from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { fetchWithAuth, APIError } from "./utils/api";
-import { ApiErrorToast } from "./components/ApiErrorToast";
-import Profile from "./components/Profile";
-import GoogleCallback from "./components/GoogleCallback";
 import { CategoriesProvider, useCategories } from "./contexts/CategoriesContext";
 import { PageLoading } from "./components/ui/Loading";
-import LandingPage from "./components/LandingPage";
-import RecurringExpenses from "./components/RecurringExpenses";
+import { ApiErrorToast } from "./components/ApiErrorToast";
+import { useReviewCount } from "./hooks/useApiData";
+import Layout from "./components/Layout";
 import PullToRefreshIndicator from "./components/PullToRefreshIndicator";
 import { usePullToRefresh } from "./hooks/usePullToRefresh";
 
+// Pages
+import DashboardPage from "./pages/DashboardPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
+import CardsPage from "./pages/CardsPage";
+import AccountsPage from "./pages/AccountsPage";
+import CategoriesPage from "./pages/CategoriesPage";
+import RulesPage from "./pages/RulesPage";
+import RecurringPage from "./pages/RecurringPage";
+import UploadPage from "./pages/UploadPage";
+import ReviewPage from "./pages/ReviewPage";
+import TransactionsPage from "./pages/TransactionsPage";
+import ProfilePage from "./pages/ProfilePage";
+
+// Other pages
+import Login from "./components/Login";
+import LandingPage from "./components/LandingPage";
+import ResetPassword from "./components/ResetPassword";
+import GoogleCallback from "./components/GoogleCallback";
+import FloatingActionButton from "./components/FloatingActionButton";
+
+import type { Category, Subcategory, Transaction } from "./App";
+
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-export type Category = {
-  id: number;
-  name: string;
-  color?: string | null;
-  monthly_budget?: number | null;
-  icon?: string | null;
-};
+// Re-export types for other components
+export type { Category, Subcategory, Transaction };
 
-export type Subcategory = {
-  id: number;
-  category_id: number;
-  name: string;
-};
-
-export type Transaction = {
-  id: number;
-  account_id: number;
-  posted_at: string;
-  amount: number;
-  currency: string;
-  description_raw: string;
-  description_norm: string;
-  category_id?: number | null;
-  subcategory_id?: number | null;
-  is_uncertain: boolean;
-  notes?: string | null;
-  account_name?: string;
-};
-
-type Tab = "dashboard" | "analytics" | "cards" | "accounts" | "categories" | "rules" | "recurring" | "upload" | "review" | "transactions" | "profile" | "google-callback";
-
-const NavIcon = ({ active, children }: { active: boolean; children: React.ReactNode }) => (
-  <div
-    style={{
-      width: 40,
-      height: 40,
-      borderRadius: 10,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      background: active ? "var(--accent)" : "transparent",
-      color: active ? "#fff" : "var(--text-muted)",
-      transition: "all var(--transition-fast)",
-    }}
-  >
-    {children}
-  </div>
-);
-
+// Main app content with routing and auth
 function AppContent() {
   const { user, token, isLoading, logout } = useAuth();
-  // Initialize from URL
-  const getInitialTab = (): Tab => {
-    if (window.location.pathname === "/auth/google/callback") {
-      return "google-callback";
-    }
-    const params = new URLSearchParams(window.location.search);
-    const tab = params.get("tab") as Tab;
-    const validTabs: Tab[] = ["dashboard", "analytics", "cards", "accounts", "categories", "rules", "recurring", "upload", "review", "transactions", "profile"];
-    return validTabs.includes(tab) ? tab : "dashboard";
-  };
-
   const { categories, subcategories, refreshCategories } = useCategories();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
   const [refreshKey, setRefreshKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);
-  const [reviewCount, setReviewCount] = useState(0);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [apiError, setApiError] = useState<{ message: string; status?: number; endpoint?: string; recoverable: boolean } | null>(null);
+  const [apiError, setApiError] = useState<{
+    message: string;
+    status?: number;
+    endpoint?: string;
+    recoverable: boolean;
+  } | null>(null);
+
+  // Fetch review count using SWR
+  const { data: reviewData } = useReviewCount(API_BASE);
+  const reviewCount = Array.isArray(reviewData) ? reviewData.length : 0;
 
   // Pull-to-refresh hook
   const handleRefresh = useCallback(async () => {
@@ -105,414 +76,148 @@ function AppContent() {
     maxPullDistance: 180,
   });
 
-  // Sync tab to URL - only when logged in
+  // Handle backward compatibility: convert ?tab=xxx to /xxx routes
   useEffect(() => {
-    if (!token) return; // Don't sync URL when not logged in
-    
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("tab") !== activeTab) {
-      params.set("tab", activeTab);
-      window.history.pushState({}, "", "?" + params.toString());
+    const tab = searchParams.get("tab");
+    if (tab && location.pathname === "/") {
+      // Redirect old ?tab= URLs to new / URLs
+      searchParams.delete("tab");
+      navigate(
+        {
+          pathname: `/${tab}`,
+          search: searchParams.toString(),
+        },
+        { replace: true }
+      );
     }
-  }, [activeTab, token]);
-  // Handle back/forward navigation
-  useEffect(() => {
-    const handlePopState = () => {
-      const params = new URLSearchParams(window.location.search);
-      const tab = params.get("tab") as Tab;
-      const validTabs: Tab[] = ["dashboard", "analytics", "cards", "accounts", "categories", "rules", "recurring", "upload", "review", "transactions"];
-      if (validTabs.includes(tab)) {
-        setActiveTab(tab);
-      }
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+  }, [searchParams, location.pathname, navigate]);
 
+  // Handle category select from dashboard
   const handleCategorySelect = (categoryId: number) => {
-    // Update URL immediately so Analytics component reads the correct value on mount
-    const params = new URLSearchParams(window.location.search);
-    params.set("tab", "analytics");
-    params.set("cat", categoryId.toString());
-    window.history.pushState({}, "", "?" + params.toString());
-
     setSelectedCategoryId(categoryId);
-    setActiveTab("analytics");
+    navigate("/analytics", { state: { categoryId } });
   };
 
-  const handleTransactionsFilter = (filter: { categoryId?: number; subcategoryId?: number }) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set("tab", "transactions");
+  // Handle transactions filter
+  const handleTransactionsFilter = (filter: {
+    categoryId?: number;
+    subcategoryId?: number;
+  }) => {
+    const params = new URLSearchParams();
     if (filter.categoryId) params.set("cat", filter.categoryId.toString());
     if (filter.subcategoryId) params.set("sub", filter.subcategoryId.toString());
-    window.history.pushState({}, "", "?" + params.toString());
-    setActiveTab("transactions");
+    navigate(`/transactions?${params.toString()}`);
   };
 
+  // Handle upload done
+  const handleUploadDone = () => {
+    setRefreshKey((k) => k + 1);
+    navigate("/review");
+  };
 
-  useEffect(() => {
-    if (!token) return;
-    fetchWithAuth(`${API_BASE}/transactions?uncertain=true`)
-      .then((res) => res.json())
-      .then((data) => setReviewCount(Array.isArray(data) ? data.length : 0))
-      .catch((err) => {
-        setReviewCount(0);
-        if (err instanceof APIError && err.status >= 500) {
-          setApiError({
-            message: err.message,
-            status: err.status,
-            endpoint: '/transactions?uncertain=true',
-            recoverable: true
-          });
-        }
-      });
-  }, [refreshKey]);
-
-  const navItems: { id: Tab; label: string; icon: JSX.Element }[] = [
-    {
-      id: "dashboard",
-      label: "Dashboard",
-      icon: (
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-        </svg>
-      ),
-    },
-    {
-      id: "analytics",
-      label: "Analytics",
-      icon: (
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      ),
-    },
-    {
-      id: "cards",
-      label: "Cards",
-      icon: (
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-        </svg>
-      ),
-    },
-    {
-      id: "accounts",
-      label: "Accounts",
-      icon: (
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-        </svg>
-      ),
-    },
-    {
-      id: "categories",
-      label: "Categories",
-      icon: (
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-        </svg>
-      ),
-    },
-    {
-      id: "rules",
-      label: "Rules",
-      icon: (
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-        </svg>
-      ),
-    },
-    {
-      id: "recurring",
-      label: "Recurring",
-      icon: (
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-      ),
-    },
-    {
-      id: "upload",
-      label: "Import",
-      icon: (
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-        </svg>
-      ),
-    },
-    {
-      id: "review",
-      label: "Review",
-      icon: (
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-        </svg>
-      ),
-    },
-    {
-      id: "transactions",
-      label: "History",
-      icon: (
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-        </svg>
-      ),
-    },
-  ];
-
+  // Show loading state during auth
   if (isLoading) {
     return <PageLoading text="Authenticating..." />;
   }
 
+  // Show login/landing page if not authenticated
   if (!token || !user) {
-    // Show Landing Page on root URL, Login for login page or when explicitly accessing with tab
-    const params = new URLSearchParams(window.location.search);
-    const hasTab = params.get("tab");
-    const isRootUrl = window.location.pathname === "/" || window.location.pathname === "";
-    
-    if (window.location.pathname === "/reset-password") {
-      return <ResetPassword />;
-    }
-    
-    // Show landing page on root URL without tab parameter
-    if (isRootUrl && !hasTab) {
-      return <LandingPage />;
-    }
-    
-    return <Login apiBase={API_BASE} />;
+    return (
+      <Routes>
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/auth/google/callback" element={<GoogleCallback apiBase={API_BASE} />} />
+        <Route path="/login" element={<Login apiBase={API_BASE} />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
   }
 
+  // Authenticated routes with layout
+  const handleLogOut = async () => {
+    try {
+      logout();
+      // Navigate to landing page after logout
+      navigate("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
+
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
-      {/* Sidebar */}
-      <aside
-        style={{
-          width: 72,
-          background: "var(--bg-secondary)",
-          borderRight: "1px solid var(--border-color)",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          padding: "1.5rem 0",
-          position: "fixed",
-          top: 0,
-          left: 0,
-          bottom: 0,
-          zIndex: 50,
-        }}
-      >
-        {/* Logo */}
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: "linear-gradient(135deg, var(--accent) 0%, #059669 100%)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: "2rem",
-            boxShadow: "var(--shadow-glow)",
-          }}
-        >
-          <svg width="24" height="24" fill="none" stroke="#fff" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
+    <Layout
+      reviewCount={reviewCount}
+      user={user}
+      onLogout={handleLogOut}
+    >
+      {/* Pull to Refresh Indicator */}
+      <PullToRefreshIndicator
+        isPulling={isPulling}
+        pullProgress={pullProgress}
+        isRefreshing={isRefreshing}
+        pullY={pullY}
+      />
 
-        {/* Nav items */}
-        <nav style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                // Skip if already on this tab - prevents unnecessary re-renders and re-fetches
-                if (activeTab === item.id) return;
-
-                const params = new URLSearchParams(window.location.search);
-                params.set("tab", item.id);
-                // Clear transaction and analytics specific filters on manual tab switch
-                ["q", "cat", "sub", "range", "start", "end", "page", "id"].forEach(p => params.delete(p));
-                window.history.pushState({}, "", "?" + params.toString());
-                setActiveTab(item.id);
-              }}
-              style={{
-                background: "transparent",
-                border: "none",
-                padding: 0,
-                cursor: activeTab === item.id ? "default" : "pointer",
-                position: "relative",
-                opacity: activeTab === item.id ? 1 : 0.7,
-              }}
-              title={item.label}
-            >
-              <NavIcon active={activeTab === item.id}>{item.icon}</NavIcon>
-              {item.id === "review" && reviewCount > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: -4,
-                    right: -4,
-                    minWidth: 18,
-                    height: 18,
-                    padding: "0 4px",
-                    borderRadius: 9,
-                    background: "var(--danger)",
-                    color: "#fff",
-                    fontSize: 10,
-                    fontWeight: 600,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    border: "2px solid var(--bg-secondary)",
-                  }}
-                >
-                  {reviewCount > 99 ? "99+" : reviewCount}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
-
-        {/* User Info & Logout */}
-        <div style={{
-          marginTop: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 12
-        }}>
-          <button
-            onClick={() => setActiveTab("profile")}
-            title={user?.full_name || user?.username}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              background: 'var(--bg-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: activeTab === "profile" ? '2px solid var(--accent)' : '1px solid var(--border-color)',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              color: 'var(--accent)',
-              cursor: 'pointer',
-              padding: 0,
-              transition: 'all var(--transition-fast)'
-            }}
-          >
-            {(user?.full_name || user?.username || "?")?.[0].toUpperCase()}
-          </button>
-          <button
-            onClick={logout}
-            title="Logout"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              padding: 8,
-              borderRadius: 8,
-              transition: 'all 0.2s'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.color = 'var(--danger)'}
-            onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-          >
-            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main content with Pull-to-Refresh */}
-      <main
-        style={{
-          marginLeft: 72,
-          flex: 1,
-          padding: "2rem 2.5rem",
-          overflowY: "auto",
-          height: "100vh",
-          position: "relative",
-        }}
-        ref={contentRef}
-      >
-        {/* Pull to Refresh Indicator */}
-        <PullToRefreshIndicator
-          isPulling={isPulling}
-          pullProgress={pullProgress}
-          isRefreshing={isRefreshing}
-          pullY={pullY}
-        />
-        {/* Header */}
-        <header style={{ marginBottom: "2rem" }}>
-          <h1 style={{ marginBottom: 4 }}>
-            {activeTab === "dashboard" && "Dashboard"}
-            {activeTab === "analytics" && "Analytics"}
-            {activeTab === "cards" && "Credit Cards"}
-            {activeTab === "accounts" && "Accounts"}
-            {activeTab === "categories" && "Categories"}
-            {activeTab === "rules" && "Categorization Rules"}
-            {activeTab === "recurring" && "Recurring Expenses"}
-            {activeTab === "upload" && "Import Statement"}
-            {activeTab === "review" && "Review Transactions"}
-            {activeTab === "transactions" && "Transaction History"}
-            {activeTab === "profile" && "Profile & Settings"}
-            {activeTab === "google-callback" && "Connecting Google"}
-          </h1>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
-            {activeTab === "dashboard" && "Your financial overview at a glance"}
-            {activeTab === "analytics" && "Visualize your income and expenses over time"}
-            {activeTab === "cards" && "Spending breakdown and statement coverage by card"}
-            {activeTab === "accounts" && "Manage your bank accounts, credit cards, and cash wallets"}
-            {activeTab === "categories" && "Organize your transactions with categories and subcategories"}
-            {activeTab === "rules" && "Manage rules for automatic transaction categorization"}
-            {activeTab === "recurring" && "Track your recurring bills and subscriptions"}
-            {activeTab === "upload" && "Upload bank statements, credit card bills, or cash records"}
-            {activeTab === "review" && `${reviewCount} transactions need your attention`}
-            {activeTab === "transactions" && "View and filter all your transactions"}
-            {activeTab === "profile" && "Manage your account and automated integrations"}
-          </p>
-        </header>
-
-        {/* Tab content */}
-        <div className="page-transition">
-          {activeTab === "dashboard" && (
-            <Dashboard
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <DashboardPage
               apiBase={API_BASE}
               refreshKey={refreshKey}
-              onRefresh={() => setRefreshKey((k) => k + 1)}
+              onRefresh={handleRefresh}
               onCategorySelect={handleCategorySelect}
             />
-          )}
-          {activeTab === "analytics" && (
-            <Analytics
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <DashboardPage
+              apiBase={API_BASE}
+              refreshKey={refreshKey}
+              onRefresh={handleRefresh}
+              onCategorySelect={handleCategorySelect}
+            />
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <AnalyticsPage
               apiBase={API_BASE}
               refreshKey={refreshKey}
               initialCategoryId={selectedCategoryId}
               categories={categories}
               subcategories={subcategories}
-              onRefresh={() => setRefreshKey((k) => k + 1)}
+              onRefresh={handleRefresh}
             />
-          )}
-          {activeTab === "cards" && (
-            <Cards
+          }
+        />
+        <Route
+          path="/cards"
+          element={
+            <CardsPage
               apiBase={API_BASE}
               refreshKey={refreshKey}
-              onRefresh={() => setRefreshKey((k) => k + 1)}
+              onRefresh={handleRefresh}
             />
-          )}
-          {activeTab === "accounts" && (
-            <AccountManager
+          }
+        />
+        <Route
+          path="/accounts"
+          element={
+            <AccountsPage
               apiBase={API_BASE}
               refreshKey={refreshKey}
-              onRefresh={() => setRefreshKey((k) => k + 1)}
+              onRefresh={handleRefresh}
             />
-          )}
-          {activeTab === "categories" && (
-            <CategoryManager
+          }
+        />
+        <Route
+          path="/categories"
+          element={
+            <CategoriesPage
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => {
@@ -521,69 +226,80 @@ function AppContent() {
               }}
               onViewTransactions={handleTransactionsFilter}
             />
-          )}
-          {activeTab === "rules" && (
-            <RulesManager
+          }
+        />
+        <Route
+          path="/rules"
+          element={
+            <RulesPage
               apiBase={API_BASE}
               categories={categories}
               subcategories={subcategories}
               refreshKey={refreshKey}
-              onRefresh={() => setRefreshKey((k) => k + 1)}
+              onRefresh={handleRefresh}
             />
-          )}
-          {activeTab === "recurring" && (
-            <RecurringExpenses
+          }
+        />
+        <Route
+          path="/recurring"
+          element={
+            <RecurringPage
               apiBase={API_BASE}
               refreshKey={refreshKey}
-              onRefresh={() => setRefreshKey((k) => k + 1)}
+              onRefresh={handleRefresh}
             />
-          )}
-          {activeTab === "upload" && (
-            <Upload
+          }
+        />
+        <Route
+          path="/upload"
+          element={
+            <UploadPage
               apiBase={API_BASE}
-              onDone={() => {
-                setRefreshKey((k) => k + 1);
-                setActiveTab("review");
-              }}
+              onDone={handleUploadDone}
             />
-          )}
-          {activeTab === "review" && (
-            <ReviewQueue
+          }
+        />
+        <Route
+          path="/review"
+          element={
+            <ReviewPage
+              apiBase={API_BASE}
+              categories={categories}
+              subcategories={subcategories}
+              refreshKey={refreshKey}
+              reviewCount={reviewCount}
+              onUpdated={() => setRefreshKey((k) => k + 1)}
+            />
+          }
+        />
+        <Route
+          path="/transactions"
+          element={
+            <TransactionsPage
               apiBase={API_BASE}
               categories={categories}
               subcategories={subcategories}
               refreshKey={refreshKey}
               onUpdated={() => setRefreshKey((k) => k + 1)}
             />
-          )}
-          {activeTab === "transactions" && (
-            <Transactions
-              apiBase={API_BASE}
-              categories={categories}
-              subcategories={subcategories}
-              refreshKey={refreshKey}
-              onUpdated={() => setRefreshKey((k) => k + 1)}
-            />
-          )}
-          {activeTab === "profile" && (
-            <Profile
-              apiBase={API_BASE}
-            />
-          )}
-          {activeTab === "google-callback" && (
-            <GoogleCallback
-              apiBase={API_BASE}
-            />
-          )}
-        </div>
-      </main>
-      
+          }
+        />
+        <Route
+          path="/profile"
+          element={<ProfilePage apiBase={API_BASE} />}
+        />
+        {/* Handle Google callback when authenticated */}
+        <Route
+          path="/auth/google/callback"
+          element={<GoogleCallback apiBase={API_BASE} />}
+        />
+        {/* Catch all - redirect to dashboard */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+
       {/* Global API Error Toast */}
-      <ApiErrorToast 
-        error={apiError} 
-        onDismiss={() => setApiError(null)} 
-      />
-    </div>
+      <ApiErrorToast error={apiError} onDismiss={() => setApiError(null)} />
+    </Layout>
   );
 }
 
@@ -591,8 +307,10 @@ function App() {
   return (
     <AuthProvider>
       <CategoriesProvider>
-        <AppContent />
-        <FloatingActionButton />
+        <Router>
+          <AppContent />
+          <FloatingActionButton />
+        </Router>
       </CategoriesProvider>
     </AuthProvider>
   );

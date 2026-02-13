@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../utils/api";
 import TransferDetector from "./TransferDetector";
 import Select from "./ui/Select";
@@ -115,6 +116,7 @@ const formatFullCurrency = (amount: number) => {
 };
 
 function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
+  const navigate = useNavigate();
   const { categories } = useCategories();
   const [trendRange, setTrendRange] = useState<"7d" | "30d" | "90d">("30d");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
@@ -468,7 +470,7 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
           {!selectedMonth && (
             <button
               className="primary"
-              onClick={() => (window as any).showTab("upload")}
+              onClick={() => navigate("/upload")}
               style={{ padding: "0.75rem 2rem", fontSize: "1rem" }}
             >
               Import Your First Statement

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../utils/api";
 import TransferDetector from "./TransferDetector";
 import Select from "./ui/Select";
@@ -69,6 +70,7 @@ const formatFullCurrency = (amount: number) => {
 };
 
 function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
+  const navigate = useNavigate();
   const [items, setItems] = useState<ReportItem[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -202,7 +204,7 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
           {!selectedMonth && (
             <button
               className="primary"
-              onClick={() => (window as any).showTab("upload")}
+              onClick={() => navigate("/upload")}
               style={{ padding: "0.75rem 2rem", fontSize: "1rem" }}
             >
               Import Your First Statement
