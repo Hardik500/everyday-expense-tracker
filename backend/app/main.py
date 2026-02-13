@@ -79,6 +79,42 @@ def sanitize_sql_identifier(identifier: str) -> str:
     if not identifier or not all(c.isalnum() or c == '_' for c in identifier):
         raise HTTPException(status_code=400, detail="Invalid SQL identifier")
     return identifier
+
+def parse_date_range(start_date: Optional[str], end_date: Optional[str]) -> tuple:
+    """
+    Parse date range parameters for queries.
+    
+    Returns (clauses, params) where:
+    - start_date uses >= (includes start of day)
+    - end_date uses < next day (includes entire end day)
+    
+    This ensures transactions at any time on end_date are included.
+    """
+    from datetime import timedelta
+    
+    clauses = []
+    params = []
+    
+    if start_date:
+        try:
+            parsed = datetime.strptime(start_date, "%Y-%m-%d").date()
+            clauses.append("t.posted_at >= ?")
+            params.append(parsed.isoformat())
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid start_date format. Use YYYY-MM-DD.")
+    
+    if end_date:
+        try:
+            parsed = datetime.strptime(end_date, "%Y-%m-%d").date()
+            # Use < next day to include entire end_date
+            next_day = parsed + timedelta(days=1)
+            clauses.append("t.posted_at < ?")
+            params.append(next_day.isoformat())
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid end_date format. Use YYYY-MM-DD.")
+    
+    return clauses, params
+
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import schemas
@@ -936,8 +972,12 @@ def list_transactions(
     if end_date:
         try:
             parsed_date = datetime.strptime(end_date, "%Y-%m-%d").date()
-            clauses.append("t.posted_at <= ?")
-            params.append(parsed_date.isoformat())
+            # For end_date, we want to include the entire day, so we use < next day
+            # This ensures transactions at any time on end_date are included
+            from datetime import timedelta
+            next_day = parsed_date + timedelta(days=1)
+            clauses.append("t.posted_at < ?")
+            params.append(next_day.isoformat())
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid end_date format. Use YYYY-MM-DD.")
     if category_id:
@@ -988,21 +1028,11 @@ def export_transactions(
     clauses = ["t.user_id = ?"]
     params: List[object] = [current_user.id]
 
-    # Validate and convert date strings for PostgreSQL compatibility
-    if start_date:
-        try:
-            parsed_date = datetime.strptime(start_date, "%Y-%m-%d").date()
-            clauses.append("t.posted_at >= ?")
-            params.append(parsed_date.isoformat())
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid start_date format. Use YYYY-MM-DD.")
-    if end_date:
-        try:
-            parsed_date = datetime.strptime(end_date, "%Y-%m-%d").date()
-            clauses.append("t.posted_at <= ?")
-            params.append(parsed_date.isoformat())
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid end_date format. Use YYYY-MM-DD.")
+    # Use shared date range parser
+    date_clauses, date_params = parse_date_range(start_date, end_date)
+    clauses.extend(date_clauses)
+    params.extend(date_params)
+    
     if category_id:
         clauses.append("t.category_id = ?")
         params.append(category_id)
@@ -1364,20 +1394,9 @@ async def report_summary(
 ) -> dict:
     clauses = ["l.id IS NULL", "t.user_id = ?"]
     params: List[object] = [current_user.id]
-    if start_date:
-        try:
-            parsed_date = datetime.strptime(start_date, "%Y-%m-%d").date()
-            clauses.append("t.posted_at >= ?")
-            params.append(parsed_date.isoformat())
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD.")
-    if end_date:
-        try:
-            parsed_date = datetime.strptime(end_date, "%Y-%m-%d").date()
-            clauses.append("t.posted_at <= ?")
-            params.append(parsed_date.isoformat())
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD.")
+    date_clauses, date_params = parse_date_range(start_date, end_date)
+    clauses.extend(date_clauses)
+    params.extend(date_params)
     where = f"WHERE {' AND '.join(clauses)}"
     query = f"""
         SELECT c.id as category_id, c.name as category_name, SUM(t.amount) as total
@@ -1425,7 +1444,7 @@ async def report_by_account(
     if end_date:
         try:
             parsed_date = datetime.strptime(end_date, "%Y-%m-%d").date()
-            clauses.append("t.posted_at <= ?")
+            clauses.append("t.posted_at < ?")
             params.append(parsed_date.isoformat())
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD.")
@@ -1543,8 +1562,11 @@ async def report_timeseries(
         date_format = "%Y-%m-%d"
         date_trunc = "CAST(t.posted_at AS DATE)" if IS_POSTGRES else "date(t.posted_at)"
     
-    clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "l.id IS NULL", "(c.name IS NULL OR c.name != 'Transfers')", "t.user_id = ?"]
-    params: List[object] = [start_date, end_date + " 23:59:59", current_user.id]
+    # Calculate next day for end_date to include entire day
+    end_date_next = (datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    clauses = ["t.posted_at >= ?", "t.posted_at < ?", "l.id IS NULL", "(c.name IS NULL OR c.name != 'Transfers')", "t.user_id = ?"]
+    params: List[object] = [start_date, end_date_next, current_user.id]
 
     if account_id:
         clauses.append("t.account_id = ?")
@@ -1661,8 +1683,11 @@ def report_category_trend(
         start_dt = datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=90)
         start_date = start_dt.strftime("%Y-%m-%d")
     
-    clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "l.id IS NULL", "t.amount < 0", "t.user_id = ?"]
-    params: List[object] = [start_date, end_date + " 23:59:59", current_user.id]
+    # Calculate next day for end_date to include entire day
+    end_date_next = (datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    clauses = ["t.posted_at >= ?", "t.posted_at < ?", "l.id IS NULL", "t.amount < 0", "t.user_id = ?"]
+    params: List[object] = [start_date, end_date_next, current_user.id]
     
     if category_id:
         clauses.append("t.category_id = ?")
@@ -1725,8 +1750,11 @@ async def report_stats(
         start_dt = datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=30)
         start_date = start_dt.strftime("%Y-%m-%d")
     
-    clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "l.id IS NULL", "(c.name IS NULL OR c.name != 'Transfers')", "t.user_id = ?"]
-    params: List[object] = [start_date, end_date + " 23:59:59", current_user.id]
+    # Calculate next day for end_date to include entire day
+    end_date_next = (datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    clauses = ["t.posted_at >= ?", "t.posted_at < ?", "l.id IS NULL", "(c.name IS NULL OR c.name != 'Transfers')", "t.user_id = ?"]
+    params: List[object] = [start_date, end_date_next, current_user.id]
 
     if account_id:
         clauses.append("t.account_id = ?")
@@ -1752,8 +1780,8 @@ async def report_stats(
         ).fetchone()
         
         # Get top spending categories
-        top_clauses = ["t.posted_at >= ?", "t.posted_at <= ?", "t.amount < 0", "l.id IS NULL", "c.name != 'Transfers'", "t.user_id = ?"]
-        top_params: List[object] = [start_date, end_date + " 23:59:59", current_user.id]
+        top_clauses = ["t.posted_at >= ?", "t.posted_at < ?", "t.amount < 0", "l.id IS NULL", "c.name != 'Transfers'", "t.user_id = ?"]
+        top_params: List[object] = [start_date, end_date_next, current_user.id]
         if account_id:
             top_clauses.append("t.account_id = ?")
             top_params.append(account_id)
@@ -2091,8 +2119,11 @@ async def report_category_detail(
         start_dt = datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=30)
         start_date = start_dt.strftime("%Y-%m-%d")
     
-    clauses = ["t.category_id = ?", "t.posted_at >= ?", "t.posted_at <= ?", "t.amount < 0", "l.id IS NULL", "t.user_id = ?"]
-    params = [category_id, start_date, end_date + " 23:59:59", current_user.id]
+    # Calculate next day for end_date to include entire day
+    end_date_next = (datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    clauses = ["t.category_id = ?", "t.posted_at >= ?", "t.posted_at < ?", "t.amount < 0", "l.id IS NULL", "t.user_id = ?"]
+    params = [category_id, start_date, end_date_next, current_user.id]
     
     if account_id:
         clauses.append("t.account_id = ?")

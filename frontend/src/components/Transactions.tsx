@@ -406,7 +406,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       params.append("start_date", startDate);
     }
     if (endDate) {
-      params.append("end_date", endDate + " 23:59:59");
+      params.append("end_date", endDate);
     }
 
     if (filters.categoryId) {
@@ -740,7 +740,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       const params = new URLSearchParams();
       const { startDate, endDate } = getDateRange(currentFilters.dateRange, currentFilters.customStartDate, currentFilters.customEndDate);
       if (startDate) params.append("start_date", startDate);
-      if (endDate) params.append("end_date", endDate + " 23:59:59");
+      if (endDate) params.append("end_date", endDate);
       if (currentFilters.categoryId) params.append("category_id", currentFilters.categoryId);
       if (currentFilters.subcategoryId) params.append("subcategory_id", currentFilters.subcategoryId);
       if (currentFilters.minAmount) params.append("min_amount", currentFilters.minAmount);
