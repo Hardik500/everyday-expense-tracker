@@ -1,13 +1,13 @@
-import Transactions from "../components/transactions/Transactions";
-import PageHeader from "../components/layout/PageHeader";
-import type { Category, Subcategory } from "../App";
+import Transactions from "../components/Transactions";
+import PageHeader from "../components/PageHeader";
+import type { Category, Subcategory } from "../types";
 
 type Props = {
   apiBase: string;
-  categories?: Category[];
-  subcategories?: Subcategory[];
+  categories: Category[];
+  subcategories: Subcategory[];
   refreshKey: number;
-  onUpdated?: () => void;
+  onUpdated: () => void;
 };
 
 export default function TransactionsPage({

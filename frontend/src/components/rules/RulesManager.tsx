@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { fetchWithAuth } from "../../utils/api";
+import { fetchWithAuth } from "../utils/api";
 import ReactDOM from "react-dom";
-import Select from "../ui/Select";
-import { Category, Subcategory } from "../../App";
-import SubcategorySearch from "../categories/SubcategorySearch";
-import { PageLoading } from "../ui/Loading";
+import Select from "./ui/Select";
+import { Category, Subcategory } from "../types";
+import SubcategorySearch from "./SubcategorySearch";
+import { PageLoading } from "./ui/Loading";
 
 type Props = {
   apiBase: string;

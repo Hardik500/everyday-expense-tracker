@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
-import { fetchWithAuth } from "../../utils/api";
-import type { Category, Subcategory, Transaction } from "../../App";
+import { fetchWithAuth } from "../utils/api";
+import type { Category, Subcategory, Transaction } from "../types";
 import AISuggestions from "./AISuggestions";
-import SubcategorySearch from "../categories/SubcategorySearch";
-import { useToast } from "../common/Toast";
+import SubcategorySearch from "./SubcategorySearch";
+import { useToast } from "./Toast";
 
 type Props = {
   apiBase: string;
@@ -460,7 +460,7 @@ function ReviewQueue({
       </div>
 
       {/* Transaction cards */}
-      {(pagedTransactions || []).map((tx) => {
+      {pagedTransactions.map((tx) => {
         const similar = similarInfo[tx.id];
         const hasSimilar = similar && similar.count > 1;
         const willApplyToSimilar = applyToSimilar[tx.id] && hasSimilar;

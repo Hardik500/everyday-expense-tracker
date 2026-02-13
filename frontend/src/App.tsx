@@ -11,10 +11,10 @@ import {
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CategoriesProvider, useCategories } from "./contexts/CategoriesContext";
 import { PageLoading } from "./components/ui/Loading";
-import { ApiErrorToast } from "./components/common/ApiErrorToast";
+import { ApiErrorToast } from "./components/ApiErrorToast";
 import { useReviewCount } from "./hooks/useApiData";
-import Layout from "./components/layout/Layout";
-import PullToRefreshIndicator from "./components/common/PullToRefreshIndicator";
+import Layout from "./components/Layout";
+import PullToRefreshIndicator from "./components/PullToRefreshIndicator";
 import { usePullToRefresh } from "./hooks/usePullToRefresh";
 
 // Pages
@@ -31,18 +31,12 @@ import TransactionsPage from "./pages/TransactionsPage";
 import ProfilePage from "./pages/ProfilePage";
 
 // Other pages
-import Login from "./components/auth/Login";
-import LandingPage from "./components/auth/LandingPage";
-import ResetPassword from "./components/auth/ResetPassword";
-import GoogleCallback from "./components/auth/GoogleCallback";
-import FloatingActionButton from "./components/layout/FloatingActionButton";
-
-import type { Category, Subcategory, Transaction } from "./App";
-
+import Login from "./components/Login";
+import LandingPage from "./components/LandingPage";
+import ResetPassword from "./components/ResetPassword";
+import GoogleCallback from "./components/GoogleCallback";
+import FloatingActionButton from "./components/FloatingActionButton";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
-// Re-export types for other components
-export type { Category, Subcategory, Transaction };
 
 // Main app content with routing and auth
 function AppContent() {

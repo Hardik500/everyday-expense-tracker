@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { fetchWithAuth } from '../utils/api';
-import type { Category, Subcategory } from '../App';
+import type { Category, Subcategory } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 

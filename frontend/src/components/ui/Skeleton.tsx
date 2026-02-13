@@ -30,7 +30,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
             ))}
           </div>
         );
-      
+
       case 'card':
         return (
           <div className={`skeleton-card ${className}`}>

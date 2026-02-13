@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchWithAuth } from "../../utils/api";
+import { fetchWithAuth } from "../utils/api";
 import {
   AreaChart,
   Area,
@@ -17,10 +17,10 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import type { Category, Subcategory, Transaction as BaseTransaction } from "../../App";
-import EditTransactionModal from "../transactions/EditTransactionModal";
-import Select from "../ui/Select";
-import { PageLoading } from "../ui/Loading";
+import type { Category, Subcategory, Transaction as BaseTransaction } from "../types";
+import EditTransactionModal from "./EditTransactionModal";
+import Select from "./ui/Select";
+import { PageLoading } from "./ui/Loading";
 
 type Transaction = BaseTransaction & {
   subcategory_name?: string | null;
@@ -421,7 +421,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
               onChange={(val) => setSelectedAccountId(val ? Number(val) : null)}
               options={[
                 { value: "", label: "All Accounts" },
-                ...(accounts || []).map((acc) => ({ value: acc.id, label: acc.name }))
+                ...accounts.map((acc) => ({ value: acc.id, label: acc.name }))
               ]}
               placeholder="Accounts"
               style={{ minWidth: 150 }}
@@ -433,7 +433,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
               onChange={(val) => setSelectedCategoryId(val ? Number(val) : null)}
               options={[
                 { value: "", label: "All Categories" },
-                ...(categories || []).map((cat) => ({ value: cat.id, label: cat.name }))
+                ...categories.map((cat) => ({ value: cat.id, label: cat.name }))
               ]}
               placeholder="Categories"
               style={{ minWidth: 150 }}
@@ -512,11 +512,11 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                 <h2>Subcategory Breakdown</h2>
               </div>
               <div style={{ height: 300 }}>
-                {(categoryDetail.subcategories || []).length > 0 ? (
+                {categoryDetail.subcategories.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={categoryDetail.subcategories || []}
+                        data={categoryDetail.subcategories}
                         dataKey="total"
                         nameKey="name"
                         cx="50%"
@@ -530,7 +530,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                         }}
                         labelLine={true}
                       >
-                        {(categoryDetail.subcategories || []).map((_, index) => (
+                        {categoryDetail.subcategories.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
@@ -551,9 +551,9 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                 <h2>Subcategories</h2>
               </div>
               <div style={{ maxHeight: 300, overflow: "auto" }}>
-                {(categoryDetail.subcategories || []).length > 0 ? (
+                {categoryDetail.subcategories.length > 0 ? (
                   <div style={{ display: "grid", gap: "0.5rem" }}>
-                    {(categoryDetail.subcategories || []).map((sub, index) => (
+                    {categoryDetail.subcategories.map((sub, index) => (
                       <div
                         key={sub.id}
                         style={{
@@ -601,9 +601,9 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
               <h2>Spending Trend</h2>
             </div>
             <div style={{ height: 250 }}>
-              {(categoryDetail.timeseries || []).length > 0 ? (
+              {categoryDetail.timeseries.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={categoryDetail.timeseries || []} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <AreaChart data={categoryDetail.timeseries} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorCategory" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
@@ -639,7 +639,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
               <h2>Recent Transactions</h2>
             </div>
             <div style={{ maxHeight: 400, overflow: "auto" }}>
-              {(categoryDetail.transactions || []).length > 0 ? (
+              {categoryDetail.transactions.length > 0 ? (
                 <table style={{ width: "100%" }}>
                   <thead>
                     <tr>
@@ -650,7 +650,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                     </tr>
                   </thead>
                   <tbody>
-                    {(categoryDetail.transactions || []).map((tx) => (
+                    {categoryDetail.transactions.map((tx) => (
                       <TransactionRow key={tx.id} tx={tx} onClick={setEditingTx} />
                     ))}
                   </tbody>
@@ -807,7 +807,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
           </div>
 
           {/* Top Categories - Clickable */}
-          {stats && (stats.top_categories || []).length > 0 && (
+          {stats && stats.top_categories.length > 0 && (
             <div className="card">
               <div className="card-header">
                 <h2>Top Spending Categories</h2>
@@ -819,7 +819,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={stats.top_categories || []}
+                        data={stats.top_categories}
                         dataKey="total"
                         nameKey="name"
                         cx="50%"
@@ -831,11 +831,11 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                         labelLine={false}
                         style={{ cursor: "pointer" }}
                         onClick={(data) => {
-                          const cat = (categories || []).find((c) => c.name === data.name);
+                          const cat = categories.find((c) => c.name === data.name);
                           if (cat) setSelectedCategoryId(cat.id);
                         }}
                       >
-                        {(stats.top_categories || []).map((_, index) => (
+                        {stats.top_categories.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
@@ -846,8 +846,8 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
 
                 {/* Legend list - Clickable */}
                 <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "0.75rem" }}>
-                  {(stats.top_categories || []).map((cat, index) => {
-                    const catData = (categories || []).find((c) => c.name === cat.name);
+                  {stats.top_categories.map((cat, index) => {
+                    const catData = categories.find((c) => c.name === cat.name);
                     return (
                       <div
                         key={cat.name}

@@ -1,12 +1,12 @@
-import CategoryManager from "../components/categories/CategoryManager";
-import PageHeader from "../components/layout/PageHeader";
-import type { Category, Subcategory } from "../App";
+import CategoryManager from "../components/CategoryManager";
+import PageHeader from "../components/PageHeader";
+import type { Category, Subcategory } from "../types";
 
 type Props = {
   apiBase: string;
   refreshKey: number;
-  onRefresh?: () => void;
-  onViewTransactions?: (filter: { categoryId?: number; subcategoryId?: number }) => void;
+  onRefresh: () => void;
+  onViewTransactions: (filter: { categoryId?: number; subcategoryId?: number }) => void;
 };
 
 export default function CategoriesPage({

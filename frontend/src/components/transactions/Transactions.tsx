@@ -1,24 +1,24 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { fetchWithAuth } from "../../utils/api";
-import type { Category, Subcategory, Transaction } from "../../App";
+import { fetchWithAuth } from "../utils/api";
+import type { Category, Subcategory, Transaction } from "../types";
 import LinkTransactionModal from "./LinkTransactionModal";
 import EditTransactionModal from "./EditTransactionModal";
 import SmartFilters, { type FilterState } from "./SmartFilters";
-import { PageLoading } from "../ui/Loading";
+import { PageLoading } from "./ui/Loading";
 import { createPortal } from "react-dom";
-import SwipeableCard from "../common/SwipeableCard";
-import { useTrashBin } from "../../hooks/useTrashBin";
+import SwipeableCard from "./SwipeableCard";
+import { useTrashBin } from "../hooks/useTrashBin";
 
 // Hook to detect mobile view
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-  
+
   return isMobile;
 };
 
@@ -134,14 +134,14 @@ const MobileTransactionList: React.FC<MobileTransactionListProps> = ({
     });
   };
 
-  const getCategoryName = (categoryId: number | null) => {
+  const getCategoryName = (categoryId: number | null | undefined) => {
     if (!categoryId) return "Uncategorized";
-    return (categories || []).find((c) => c.id === categoryId)?.name || "Unknown";
+    return categories.find((c) => c.id === categoryId)?.name || "Unknown";
   };
 
-  const getCategoryColor = (categoryId: number | null) => {
+  const getCategoryColor = (categoryId: number | null | undefined) => {
     if (!categoryId) return "#64748b";
-    return (categories || []).find((c) => c.id === categoryId)?.color || "#64748b";
+    return categories.find((c) => c.id === categoryId)?.color || "#64748b";
   };
 
   return (
@@ -155,7 +155,7 @@ const MobileTransactionList: React.FC<MobileTransactionListProps> = ({
           }
         `
       }</style>
-      {(transactions || []).map((tx, idx) => {
+      {transactions.map((tx, idx) => {
         const isSelected = selectedTransactions.has(tx.id);
         const categoryName = getCategoryName(tx.category_id);
         const categoryColor = getCategoryColor(tx.category_id);
@@ -415,7 +415,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
     if (filters.subcategoryId) {
       params.append("subcategory_id", filters.subcategoryId);
     }
-    
+
     fetchWithAuth(`${apiBase}/transactions?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
@@ -450,7 +450,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
   const selectAllVisible = () => {
     const newSet = new Set(selectedTransactions);
-    (pagedTransactions || []).forEach(tx => newSet.add(tx.id));
+    pagedTransactions.forEach(tx => newSet.add(tx.id));
     setSelectedTransactions(newSet);
   };
 
@@ -460,10 +460,10 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
   const handleBulkCategorize = async () => {
     if (!bulkCategoryId || selectedTransactions.size === 0) return;
-    
+
     setBulkActionLoading(true);
     setBulkActionError("");
-    
+
     try {
       const formData = new FormData();
       formData.append("transaction_ids", JSON.stringify(Array.from(selectedTransactions)));
@@ -471,17 +471,17 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       if (bulkSubcategoryId) {
         formData.append("subcategory_id", bulkSubcategoryId);
       }
-      
+
       const res = await fetchWithAuth(`${apiBase}/transactions/bulk-update`, {
         method: "POST",
         body: formData,
       });
-      
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.detail || "Failed to categorize transactions");
       }
-      
+
       setShowBulkCategoryModal(false);
       setSelectedTransactions(new Set());
       onUpdated?.();
@@ -494,24 +494,24 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
   const handleBulkDelete = async () => {
     if (selectedTransactions.size === 0) return;
-    
+
     setBulkActionLoading(true);
     setBulkActionError("");
-    
+
     try {
       const formData = new FormData();
       formData.append("transaction_ids", JSON.stringify(Array.from(selectedTransactions)));
-      
+
       const res = await fetchWithAuth(`${apiBase}/transactions/bulk-delete`, {
         method: "POST",
         body: formData,
       });
-      
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.detail || "Failed to delete transactions");
       }
-      
+
       setShowBulkDeleteModal(false);
       setSelectedTransactions(new Set());
       onUpdated?.();
@@ -612,9 +612,9 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
   // Feature 7: Smart filtering - Apply all client-side filters
   const filteredTransactions = useMemo(() => {
     if (isAIMode) return transactions;
-    
+
     let filtered = transactions;
-    
+
     // Search query filter
     if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase();
@@ -623,17 +623,17 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
         (tx.account_name?.toLowerCase().includes(query) ?? false)
       );
     }
-    
+
     // Category filter
     if (filters.categoryId) {
       filtered = filtered.filter((tx) => tx.category_id === parseInt(filters.categoryId));
     }
-    
+
     // Subcategory filter
     if (filters.subcategoryId) {
       filtered = filtered.filter((tx) => tx.subcategory_id === parseInt(filters.subcategoryId));
     }
-    
+
     // Amount filter
     if (filters.minAmount) {
       const min = parseFloat(filters.minAmount);
@@ -643,14 +643,14 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       const max = parseFloat(filters.maxAmount);
       filtered = filtered.filter((tx) => Math.abs(tx.amount) <= max);
     }
-    
+
     // Transaction type filter
     if (filters.transactionType === "expense") {
       filtered = filtered.filter((tx) => tx.amount < 0);
     } else if (filters.transactionType === "income") {
       filtered = filtered.filter((tx) => tx.amount > 0);
     }
-    
+
     // Sort
     filtered = [...filtered].sort((a, b) => {
       let result = 0;
@@ -669,7 +669,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       }
       return filters.sortOrder === "asc" ? -result : result;
     });
-    
+
     return filtered;
   }, [transactions, filters, isAIMode, categories]);
 
@@ -958,8 +958,8 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                       <input
                         type="checkbox"
                         checked={
-                          (pagedTransactions || []).length > 0 &&
-                          (pagedTransactions || []).every(tx => selectedTransactions.has(tx.id))
+                          pagedTransactions.length > 0 &&
+                          pagedTransactions.every(tx => selectedTransactions.has(tx.id))
                         }
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -967,7 +967,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                           } else {
                             setSelectedTransactions(prev => {
                               const newSet = new Set(prev);
-                              (pagedTransactions || []).forEach(tx => newSet.delete(tx.id));
+                              pagedTransactions.forEach(tx => newSet.delete(tx.id));
                               return newSet;
                             });
                           }
@@ -984,7 +984,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                   </tr>
                 </thead>
                 <tbody>
-                  {(pagedTransactions || []).map((tx, idx) => (
+                  {pagedTransactions.map((tx, idx) => (
                     <tr
                       key={tx.id}
                       className="animate-in"
@@ -1063,10 +1063,10 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                           <span
                             className="badge"
                             style={{
-                              background: tx.is_uncertain 
+                              background: tx.is_uncertain
                                 ? "rgba(245, 158, 11, 0.15)"
                                 : getCategoryColor(tx.category_id, categories) ? `${getCategoryColor(tx.category_id, categories)}20`
-                                : "var(--accent-glow)",
+                                  : "var(--accent-glow)",
                               color: tx.is_uncertain ? "var(--warning)" : getCategoryColor(tx.category_id, categories) || "var(--accent)",
                               display: 'flex',
                               alignItems: 'center',
@@ -1150,9 +1150,9 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
             {/* Mobile Swipeable List View */}
             <MobileTransactionList
-              transactions={pagedTransactions || []}
-              categories={categories || []}
-              subcategories={subcategories || []}
+              transactions={pagedTransactions}
+              categories={categories}
+              subcategories={subcategories}
               selectedTransactions={selectedTransactions}
               onToggleSelection={toggleTransactionSelection}
               onEdit={openEdit}
@@ -1267,7 +1267,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
         >
           <div className="card" style={{ width: "100%", maxWidth: "400px", padding: "1.5rem" }}>
             <h3 style={{ marginTop: 0, marginBottom: "1.5rem" }}>Categorize {selectedTransactions.size} Transactions</h3>
-            
+
             <div style={{ display: "grid", gap: "1rem", marginBottom: "1.5rem" }}>
               <div>
                 <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
@@ -1289,13 +1289,13 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                   }}
                 >
                   <option value="">Select category...</option>
-                  {(categories || []).map((cat) => (
+                  {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
               </div>
-              
-              {bulkCategoryId && (subcategories || []).filter((s) => s.category_id === parseInt(bulkCategoryId)).length > 0 && (
+
+              {bulkCategoryId && subcategories.filter((s) => s.category_id === parseInt(bulkCategoryId)).length > 0 && (
                 <div>
                   <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
                     Subcategory
@@ -1313,7 +1313,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                     }}
                   >
                     <option value="">Select subcategory...</option>
-                    {(subcategories || [])
+                    {subcategories
                       .filter((s) => s.category_id === parseInt(bulkCategoryId))
                       .map((sub) => (
                         <option key={sub.id} value={sub.id}>{sub.name}</option>
@@ -1322,13 +1322,13 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                 </div>
               )}
             </div>
-            
+
             {bulkActionError && (
               <div style={{ padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "var(--radius-md)", color: "#ef4444", fontSize: "0.875rem", marginBottom: "1rem" }}>
                 {bulkActionError}
               </div>
             )}
-            
+
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
               <button
                 onClick={() => setShowBulkCategoryModal(false)}
@@ -1415,9 +1415,9 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
             )}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
-              <button 
-                className="secondary" 
-                onClick={() => setShowBulkDeleteModal(false)} 
+              <button
+                className="secondary"
+                onClick={() => setShowBulkDeleteModal(false)}
                 disabled={bulkActionLoading}
               >
                 Cancel

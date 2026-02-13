@@ -16,6 +16,7 @@ interface SwipeableCardProps {
   className?: string;
   onSwipeStart?: () => void;
   onSwipeEnd?: () => void;
+  style?: React.CSSProperties;
 }
 
 const SwipeableCard: React.FC<SwipeableCardProps> = ({
@@ -25,6 +26,7 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
   className = "",
   onSwipeStart,
   onSwipeEnd,
+  style,
 }) => {
   const { elementRef, translateX, swipedOpen, isSwiping, isClosing, maxSwipe } = useSwipeActions({
     actions,
@@ -44,6 +46,7 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
         overflow: "hidden",
         touchAction: "pan-y",
         userSelect: "none",
+        ...style,
       }}
     >
       {/* Background actions layer */}

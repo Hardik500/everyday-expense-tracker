@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { fetchWithAuth } from "../../utils/api";
+import { fetchWithAuth } from "../utils/api";
 import ReactDOM from "react-dom";
-import type { Category, Subcategory, Transaction } from "../../App";
-import SubcategorySearch from "../categories/SubcategorySearch";
+import type { Category, Subcategory, Transaction } from "../types";
+import SubcategorySearch from "./SubcategorySearch";
 
 type Props = {
     transaction: Transaction;
@@ -171,7 +171,7 @@ const EditTransactionModal = ({
                 return;
             }
         }
-        
+
         if (!selectedCategory) return;
         setSaving(true);
 
@@ -419,8 +419,8 @@ const EditTransactionModal = ({
                                         {tx.amount < 0 ? "-" : "+"}{formatCurrency(tx.amount)}
                                     </div>
                                     {tx.category_id ? (
-                                        <span className="badge" style={{ 
-                                            fontSize: "0.6875rem", 
+                                        <span className="badge" style={{
+                                            fontSize: "0.6875rem",
                                             whiteSpace: "nowrap",
                                             display: 'flex',
                                             alignItems: 'center',

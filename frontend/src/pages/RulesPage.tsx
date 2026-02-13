@@ -1,13 +1,13 @@
-import RulesManager from "../components/rules/RulesManager";
-import PageHeader from "../components/layout/PageHeader";
-import type { Category, Subcategory } from "../App";
+import RulesManager from "../components/RulesManager";
+import PageHeader from "../components/PageHeader";
+import type { Category, Subcategory } from "../types";
 
 type Props = {
   apiBase: string;
-  categories?: Category[];
-  subcategories?: Subcategory[];
+  categories: Category[];
+  subcategories: Subcategory[];
   refreshKey: number;
-  onRefresh?: () => void;
+  onRefresh: () => void;
 };
 
 export default function RulesPage({

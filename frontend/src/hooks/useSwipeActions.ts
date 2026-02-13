@@ -25,14 +25,14 @@ interface SwipeState {
 
 export function useSwipeActions(options: UseSwipeActionsOptions) {
   const { threshold = 80, actions, disabled = false, onSwipeStart, onSwipeEnd } = options;
-  
+
   const [state, setState] = useState<SwipeState>({
     isSwiping: false,
     translateX: 0,
     swipedOpen: false,
     isClosing: false,
   });
-  
+
   const startX = useRef<number>(0);
   const currentX = useRef<number>(0);
   const elementRef = useRef<HTMLDivElement>(null);
@@ -52,26 +52,26 @@ export function useSwipeActions(options: UseSwipeActionsOptions) {
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (disabled) return;
-    
+
     isTouch.current = true;
     hasMoved.current = false;
     startX.current = e.touches[0].clientX;
     currentX.current = startX.current;
-    
+
     setState(prev => ({ ...prev, isSwiping: true, isClosing: false }));
     onSwipeStart?.();
   }, [disabled, onSwipeStart]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (disabled || !state.isSwiping) return;
-    
+
     currentX.current = e.touches[0].clientX;
     const deltaX = startX.current - currentX.current;
-    
+
     // Only handle horizontal swipes
     if (Math.abs(deltaX) > 10) {
       hasMoved.current = true;
-      
+
       // Only swipe left (negative translateX)
       const newTranslateX = Math.max(-maxSwipe, Math.min(0, -deltaX));
       setState(prev => ({ ...prev, translateX: newTranslateX }));
@@ -80,9 +80,9 @@ export function useSwipeActions(options: UseSwipeActionsOptions) {
 
   const handleTouchEnd = useCallback(() => {
     if (disabled) return;
-    
+
     const deltaX = startX.current - currentX.current;
-    
+
     if (hasMoved.current && deltaX > threshold / 2) {
       // Swipe far enough - open
       setState({
@@ -101,28 +101,28 @@ export function useSwipeActions(options: UseSwipeActionsOptions) {
         isClosing: state.swipedOpen,
       }));
     }
-    
+
     onSwipeEnd?.();
   }, [disabled, threshold, maxSwipe, state.swipedOpen, onSwipeEnd]);
 
   // Mouse fallback for desktop
   const handleMouseDown = useCallback((e: MouseEvent) => {
     if (disabled || isTouch.current) return;
-    
+
     hasMoved.current = false;
     startX.current = e.clientX;
     currentX.current = startX.current;
-    
+
     setState(prev => ({ ...prev, isSwiping: true, isClosing: false }));
     onSwipeStart?.();
   }, [disabled, onSwipeStart]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (disabled || isTouch.current || !state.isSwiping) return;
-    
+
     currentX.current = e.clientX;
     const deltaX = startX.current - currentX.current;
-    
+
     if (Math.abs(deltaX) > 10) {
       hasMoved.current = true;
       const newTranslateX = Math.max(-maxSwipe, Math.min(0, -deltaX));
@@ -137,7 +137,7 @@ export function useSwipeActions(options: UseSwipeActionsOptions) {
 
   // Close this swipe item when clicking outside
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: Event) => {
       if (elementRef.current && !elementRef.current.contains(e.target as Node)) {
         if (state.swipedOpen) {
           setState(prev => ({
@@ -152,7 +152,7 @@ export function useSwipeActions(options: UseSwipeActionsOptions) {
 
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("touchstart", handleClickOutside);
-    
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);

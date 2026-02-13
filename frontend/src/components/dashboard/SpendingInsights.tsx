@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { fetchWithAuth } from "../../utils/api";
-import { PageLoading } from "../ui/Loading";
-import type { Category } from "../../App";
+import { fetchWithAuth } from "../utils/api";
+import { PageLoading } from "./ui/Loading";
+import type { Category } from "../types";
 
 type InsightData = {
   current_month: {
@@ -199,8 +199,8 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
               comparison.trend === "up"
                 ? "2px solid var(--danger)"
                 : comparison.trend === "down"
-                ? "2px solid var(--success)"
-                : "2px solid var(--border-color)",
+                  ? "2px solid var(--success)"
+                  : "2px solid var(--border-color)",
           }}
         >
           <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", color: "var(--text-muted)" }}>
@@ -240,8 +240,8 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
                   comparison.trend === "up"
                     ? "var(--danger)"
                     : comparison.trend === "down"
-                    ? "var(--success)"
-                    : "var(--text-primary)",
+                      ? "var(--success)"
+                      : "var(--text-primary)",
               }}
             >
               {comparison.percent_change > 0 ? "+" : ""}
@@ -349,8 +349,8 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
                                 (cat.percentUsed || 0) > 100
                                   ? "var(--danger)"
                                   : (cat.percentUsed || 0) > 80
-                                  ? "var(--warning)"
-                                  : cat.color || "var(--accent)",
+                                    ? "var(--warning)"
+                                    : cat.color || "var(--accent)",
                               borderRadius: 3,
                               transition: "width 0.3s ease",
                             }}

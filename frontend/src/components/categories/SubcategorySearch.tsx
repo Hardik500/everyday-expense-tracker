@@ -15,7 +15,7 @@ import {
   FloatingPortal,
   FloatingFocusManager,
 } from "@floating-ui/react";
-import type { Category, Subcategory } from "../../App";
+import type { Category, Subcategory } from "../types";
 
 type Props = {
   categories: Category[];
@@ -107,15 +107,15 @@ function SubcategorySearch({
   // Filter and sort options based on search - memoized
   const sortedOptions = useMemo(() => {
     const searchLower = search.toLowerCase().trim();
-    
+
     // Filter
     const filtered = searchLower
       ? options.filter((opt) =>
-          opt.subcategoryName.toLowerCase().includes(searchLower) ||
-          opt.categoryName.toLowerCase().includes(searchLower)
-        )
+        opt.subcategoryName.toLowerCase().includes(searchLower) ||
+        opt.categoryName.toLowerCase().includes(searchLower)
+      )
       : options;
-    
+
     // Sort: exact matches first, then alphabetically
     return [...filtered].sort((a, b) => {
       if (searchLower) {
@@ -123,7 +123,7 @@ function SubcategorySearch({
         const bSubStart = b.subcategoryName.toLowerCase().startsWith(searchLower);
         const aCatStart = a.categoryName.toLowerCase().startsWith(searchLower);
         const bCatStart = b.categoryName.toLowerCase().startsWith(searchLower);
-        
+
         // Subcategory starts with search term comes first
         if (aSubStart && !bSubStart) return -1;
         if (!aSubStart && bSubStart) return 1;

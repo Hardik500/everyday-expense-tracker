@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { fetchWithAuth } from "../../utils/api";
+import { fetchWithAuth } from "../utils/api";
 import { createPortal } from "react-dom";
-import type { Category, Subcategory } from "../../App";
-import { PageLoading } from "../ui/Loading";
+import type { Category, Subcategory } from "../types";
+import { PageLoading } from "./ui/Loading";
 
 type Props = {
   apiBase: string;
