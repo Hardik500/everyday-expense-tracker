@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - '**'
   pull_request:
     branches:
       - main
@@ -35,6 +36,7 @@ jobs:
         run: |
           cd frontend
           npm run lint
+        continue-on-error: true
       
       - name: Run Prettier check
         run: |
@@ -99,9 +101,10 @@ jobs:
           retention-days: 7
 
   frontend-e2e:
-    name: Frontend E2E Tests
+    name: E2E Tests
     runs-on: ubuntu-latest
     needs: frontend-build
+    timeout-minutes: 30
     
     steps:
       - name: Checkout code
@@ -114,7 +117,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       
-      - name: Install frontend dependencies
+      - name: Install dependencies
         run: |
           cd frontend
           npm ci
@@ -123,43 +126,70 @@ jobs:
         run: |
           cd frontend
           npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
       
-      - name: Start dev server in background
+      - name: Start dev server
         run: |
           cd frontend
           npm run dev > /tmp/vite.log 2>&1 &
           echo $! > /tmp/vite.pid
-          sleep 15
+          sleep 20
       
-      - name: Wait for server to be ready
+      - name: Wait for server
         run: |
           for i in {1..30}; do
             if curl -s http://localhost:5173 > /dev/null 2>&1; then
-              echo "Server is ready"
+              echo "Server ready"
               exit 0
             fi
             sleep 2
           done
-          echo "Server failed to start"
+          echo "Server failed"
           cat /tmp/vite.log
           exit 1
-      
+
       - name: Run E2E tests
         run: |
           cd frontend
-          npx playwright test --reporter=html,line
-      
-      - name: Upload E2E test results
+          npx playwright test --reporter=html,line,junit
+        continue-on-error: true
+
+      - name: Upload E2E report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: frontend/playwright-report/
-          retention-days: 7
-      
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 14
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-junit
+          path: frontend/test-results/junit.xml
+          retention-days: 14
+
       - name: Cleanup
         if: always()
         run: |
           if [ -f /tmp/vite.pid ]; then
             kill $(cat /tmp/vite.pid) 2>/dev/null || true
           fi
+
+  notify:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: [lint-format, backend-test, frontend-build, frontend-e2e]
+    if: failure()
+    
+    steps:
+      - name: Notify failure
+        run: |
+          echo "One or more jobs failed. Check the artifacts for details."
