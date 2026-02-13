@@ -923,12 +923,23 @@ def list_transactions(
     clauses = ["t.user_id = ?"]
     params: List[object] = [current_user.id]
 
+    # Validate and convert date strings to date objects for PostgreSQL compatibility
     if start_date:
-        clauses.append("t.posted_at >= ?")
-        params.append(start_date)
+        try:
+            # Parse the date string and ensure it's in ISO format
+            parsed_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            clauses.append("t.posted_at >= ?")
+            # For PostgreSQL, pass as ISO string to ensure proper conversion
+            params.append(parsed_date.isoformat())
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid start_date format. Use YYYY-MM-DD.")
     if end_date:
-        clauses.append("t.posted_at <= ?")
-        params.append(end_date)
+        try:
+            parsed_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+            clauses.append("t.posted_at <= ?")
+            params.append(parsed_date.isoformat())
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid end_date format. Use YYYY-MM-DD.")
     if category_id:
         clauses.append("t.category_id = ?")
         params.append(category_id)
@@ -938,8 +949,11 @@ def list_transactions(
     if uncertain is not None:
         clauses.append("t.is_uncertain = ?")
         params.append(True if uncertain else False)
+    
+    # Exclude soft-deleted transactions (in trash)
+    clauses.append("(t.is_deleted = FALSE OR t.is_deleted IS NULL)")
 
-    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    where = f"WHERE {' AND '.join(clauses)}"
     query = f"""
         SELECT t.id, t.account_id, t.posted_at, t.amount, t.currency, t.description_raw,
                t.description_norm, t.category_id, t.subcategory_id, t.is_uncertain, t.notes,
@@ -974,15 +988,27 @@ def export_transactions(
     clauses = ["t.user_id = ?"]
     params: List[object] = [current_user.id]
 
+    # Validate and convert date strings for PostgreSQL compatibility
     if start_date:
-        clauses.append("t.posted_at >= ?")
-        params.append(start_date)
+        try:
+            parsed_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            clauses.append("t.posted_at >= ?")
+            params.append(parsed_date.isoformat())
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid start_date format. Use YYYY-MM-DD.")
     if end_date:
-        clauses.append("t.posted_at <= ?")
-        params.append(end_date)
+        try:
+            parsed_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+            clauses.append("t.posted_at <= ?")
+            params.append(parsed_date.isoformat())
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid end_date format. Use YYYY-MM-DD.")
     if category_id:
         clauses.append("t.category_id = ?")
         params.append(category_id)
+    
+    # Exclude soft-deleted transactions (in trash)
+    clauses.append("(t.is_deleted = FALSE OR t.is_deleted IS NULL)")
 
     where = f"WHERE {' AND '.join(clauses)}"
     query = f"""
@@ -1021,6 +1047,11 @@ def export_transactions(
         headers={"Content-Disposition": "attachment; filename=transactions.csv"}
     )
 
+
+# OLD TRASH ENDPOINTS REMOVED - Replaced with new trash table implementation (see below)
+
+
+# ============= TRANSACTION MANAGEMENT =============
 
 @app.patch("/transactions/{transaction_id}")
 def update_transaction(
@@ -1334,11 +1365,19 @@ async def report_summary(
     clauses = ["l.id IS NULL", "t.user_id = ?"]
     params: List[object] = [current_user.id]
     if start_date:
-        clauses.append("t.posted_at >= ?")
-        params.append(start_date)
+        try:
+            parsed_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            clauses.append("t.posted_at >= ?")
+            params.append(parsed_date.isoformat())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD.")
     if end_date:
-        clauses.append("t.posted_at <= ?")
-        params.append(end_date)
+        try:
+            parsed_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+            clauses.append("t.posted_at <= ?")
+            params.append(parsed_date.isoformat())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD.")
     where = f"WHERE {' AND '.join(clauses)}"
     query = f"""
         SELECT c.id as category_id, c.name as category_name, SUM(t.amount) as total
@@ -1377,11 +1416,19 @@ async def report_by_account(
     clauses = ["l.id IS NULL", "t.amount < 0", "t.user_id = ?"]  # Only expenses
     params: List[object] = [current_user.id]
     if start_date:
-        clauses.append("t.posted_at >= ?")
-        params.append(start_date)
+        try:
+            parsed_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            clauses.append("t.posted_at >= ?")
+            params.append(parsed_date.isoformat())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD.")
     if end_date:
-        clauses.append("t.posted_at <= ?")
-        params.append(end_date)
+        try:
+            parsed_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+            clauses.append("t.posted_at <= ?")
+            params.append(parsed_date.isoformat())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD.")
     where = f"WHERE {' AND '.join(clauses)}"
     
     with get_conn() as conn:
@@ -1465,10 +1512,23 @@ async def report_timeseries(
     """Get time-series data for expenses and income."""
     from datetime import datetime, timedelta
     
-    # Default to last 30 days if no dates provided
-    if not end_date:
+    # Validate user-provided dates, then set defaults if needed
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            end_date = end_dt.strftime("%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD.")
+    else:
         end_date = datetime.now().strftime("%Y-%m-%d")
-    if not start_date:
+    
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            start_date = start_dt.strftime("%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD.")
+    else:
         start_dt = datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=30)
         start_date = start_dt.strftime("%Y-%m-%d")
     
@@ -1581,9 +1641,23 @@ def report_category_trend(
     """Get spending trend by category over time."""
     from datetime import datetime, timedelta
     
-    if not end_date:
+    # Validate user-provided dates, then set defaults if needed
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            end_date = end_dt.strftime("%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD.")
+    else:
         end_date = datetime.now().strftime("%Y-%m-%d")
-    if not start_date:
+    
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            start_date = start_dt.strftime("%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD.")
+    else:
         start_dt = datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=90)
         start_date = start_dt.strftime("%Y-%m-%d")
     
@@ -1631,9 +1705,23 @@ async def report_stats(
     """Get overall statistics for the date range."""
     from datetime import datetime, timedelta
     
-    if not end_date:
+    # Validate user-provided dates, then set defaults if needed
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            end_date = end_dt.strftime("%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD.")
+    else:
         end_date = datetime.now().strftime("%Y-%m-%d")
-    if not start_date:
+    
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            start_date = start_dt.strftime("%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD.")
+    else:
         start_dt = datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=30)
         start_date = start_dt.strftime("%Y-%m-%d")
     
@@ -1983,9 +2071,23 @@ async def report_category_detail(
     """Get detailed breakdown for a specific category."""
     from datetime import datetime, timedelta
     
-    if not end_date:
+    # Validate user-provided dates, then set defaults if needed
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            end_date = end_dt.strftime("%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD.")
+    else:
         end_date = datetime.now().strftime("%Y-%m-%d")
-    if not start_date:
+    
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            start_date = start_dt.strftime("%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD.")
+    else:
         start_dt = datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=30)
         start_date = start_dt.strftime("%Y-%m-%d")
     
@@ -4307,30 +4409,169 @@ def remove_tag_from_transaction(
 # =============================================================================
 # TRASH BIN - Soft Delete Feature
 # =============================================================================
-# NOTE: This is a stub implementation. The trash table does not exist yet.
-# The frontend expects this endpoint, so we return empty until the feature is implemented.
+from pydantic import BaseModel
+
+class TrashItemCreate(BaseModel):
+    """Request model for soft deleting an item."""
+    table: str
+    id: int
+    reason: Optional[str] = None
+
+# Valid tables that can be moved to trash
+VALID_TRASH_TABLES = {'transactions', 'categories', 'accounts', 'rules'}
+
+def _fetch_item_data(conn, table: str, item_id: int, user_id: int) -> Optional[Dict[str, Any]]:
+    """Fetch all data from an item in any supported table."""
+    # Validate table name
+    table = sanitize_sql_identifier(table)
+    if table not in VALID_TRASH_TABLES:
+        raise HTTPException(status_code=400, detail=f"Invalid table: {table}")
+
+    # Query all columns from the table
+    query = f"SELECT * FROM {table} WHERE id = ? AND user_id = ?"
+    result = conn.execute(query, (item_id, user_id)).fetchone()
+
+    if not result:
+        return None
+
+    # Convert row to dict (handle both sqlite3.Row and psycopg2 RealDictRow)
+    return dict(result)
+
+def _restore_item(conn, trash_entry: Dict[str, Any]) -> None:
+    """Restore an item from trash back to its original table."""
+    table = trash_entry['original_table']
+    table = sanitize_sql_identifier(table)
+
+    # Parse JSON data (for SQLite it's stored as TEXT, for PostgreSQL it's JSONB)
+    data = trash_entry['data']
+    if isinstance(data, str):
+        import json
+        data = json.loads(data)
+
+    # Remove id from data as it will be auto-generated or we need to preserve it
+    original_id = data.get('id')
+
+    # Build column names and placeholders
+    columns = list(data.keys())
+    values = list(data.values())
+
+    # For PostgreSQL, use $1, $2 etc placeholders; for SQLite use ?
+    placeholders = ','.join(['?' for _ in values])
+    columns_str = ','.join(columns)
+
+    # First, check if the item already exists (it might have been re-created)
+    existing = conn.execute(
+        f"SELECT id FROM {table} WHERE id = ?",
+        (original_id,)
+    ).fetchone()
+
+    if existing:
+        # Item already exists, we can't restore. Just update the trash entry? No.
+        # We should probably raise an error or skip. For now, raise an error.
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot restore: an item with id {original_id} already exists in {table}"
+        )
+
+    # Insert the item preserving the ID
+    # For SQLite with INTEGER PRIMARY KEY AUTOINCREMENT, we can explicitly set the ID
+    # For PostgreSQL SERIAL, we can also explicitly set the ID
+    query = f"INSERT INTO {table} ({columns_str}) VALUES ({placeholders})"
+    conn.execute(query, values)
 
 @app.get("/trash")
 def list_trash_items(
     current_user: schemas.User = Depends(get_current_user)
 ):
     """List items in trash bin (soft-deleted items)."""
-    # Stub: Return empty list until trash table is implemented
-    return {"items": [], "total": 0}
+    with get_conn() as conn:
+        # Trash table may not exist yet in older databases
+        try:
+            rows = conn.execute(
+                """
+                SELECT id, original_table, original_id, data, deleted_at, deleted_by, reason
+                FROM trash
+                WHERE deleted_by = ?
+                ORDER BY deleted_at DESC
+                LIMIT 100
+                """,
+                (current_user.id,)
+            ).fetchall()
+
+            items = []
+            for row in rows:
+                # Parse data if stored as string (SQLite)
+                data = row['data']
+                if isinstance(data, str):
+                    import json
+                    data = json.loads(data)
+
+                items.append({
+                    'id': row['id'],
+                    'original_table': row['original_table'],
+                    'original_id': row['original_id'],
+                    'data': data,
+                    'deleted_at': str(row['deleted_at']) if row['deleted_at'] else None,
+                    'deleted_by': row['deleted_by'],
+                    'reason': row['reason']
+                })
+
+            return {"items": items, "total": len(items)}
+        except Exception as e:
+            # If trash table doesn't exist, return empty
+            print(f"Trash table may not exist: {e}")
+            return {"items": [], "total": 0}
 
 @app.post("/trash")
 def soft_delete_item(
-    table: str,
-    id: int,
-    reason: Optional[str] = None,
+    payload: TrashItemCreate,
     current_user: schemas.User = Depends(get_current_user)
 ):
     """Soft delete an item by moving it to trash."""
-    # Stub: Not implemented yet
-    raise HTTPException(
-        status_code=501, 
-        detail="Trash feature not yet implemented. Use direct delete instead."
-    )
+    # Validate table name
+    if payload.table not in VALID_TRASH_TABLES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid table: {payload.table}. Valid tables: {', '.join(VALID_TRASH_TABLES)}"
+        )
+
+    with get_conn() as conn:
+        # Fetch the item data
+        item_data = _fetch_item_data(conn, payload.table, payload.id, current_user.id)
+        if not item_data:
+            raise HTTPException(status_code=404, detail=f"Item not found in {payload.table}")
+
+        # Serialize data to JSON
+        import json
+        data_json = json.dumps(item_data)
+
+        # Insert into trash table
+        # The trash table may not exist in older databases
+        try:
+            cursor = conn.execute(
+                """
+                INSERT INTO trash (original_table, original_id, data, deleted_by, reason)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (payload.table, payload.id, data_json, current_user.id, payload.reason)
+            )
+            trash_id = cursor.lastrowid
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Trash feature not available: {str(e)}"
+            )
+
+        # Delete from original table (soft delete by actually deleting)
+        table = sanitize_sql_identifier(payload.table)
+        conn.execute(
+            f"DELETE FROM {table} WHERE id = ? AND user_id = ?",
+            (payload.id, current_user.id)
+        )
+
+        conn.commit()
+
+    return {"trash_id": trash_id, "status": "ok"}
 
 @app.post("/trash/{trash_id}/restore")
 def restore_trash_item(
@@ -4338,11 +4579,56 @@ def restore_trash_item(
     current_user: schemas.User = Depends(get_current_user)
 ):
     """Restore an item from trash."""
-    # Stub: Not implemented yet
-    raise HTTPException(
-        status_code=501, 
-        detail="Trash feature not yet implemented."
-    )
+    with get_conn() as conn:
+        # Fetch the trash entry
+        try:
+            row = conn.execute(
+                """
+                SELECT id, original_table, original_id, data, deleted_at, deleted_by, reason
+                FROM trash
+                WHERE id = ? AND deleted_by = ?
+                """,
+                (trash_id, current_user.id)
+            ).fetchone()
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Trash feature not available: {str(e)}"
+            )
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Trash item not found")
+
+        # Convert to dict
+        trash_entry = {
+            'id': row['id'],
+            'original_table': row['original_table'],
+            'original_id': row['original_id'],
+            'data': row['data'],
+            'deleted_at': row['deleted_at'],
+            'deleted_by': row['deleted_by'],
+            'reason': row['reason']
+        }
+
+        try:
+            # Restore the item to original table
+            _restore_item(conn, trash_entry)
+
+            # Delete from trash
+            conn.execute("DELETE FROM trash WHERE id = ?", (trash_id,))
+
+            conn.commit()
+        except HTTPException:
+            # Re-raise HTTPException
+            raise
+        except Exception as e:
+            conn.rollback()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to restore item: {str(e)}"
+            )
+
+    return {"status": "ok", "message": f"Item restored to {trash_entry['original_table']}"}
 
 @app.delete("/trash/{trash_id}")
 def permanently_delete_trash_item(
@@ -4350,11 +4636,30 @@ def permanently_delete_trash_item(
     current_user: schemas.User = Depends(get_current_user)
 ):
     """Permanently delete an item from trash."""
-    # Stub: Not implemented yet
-    raise HTTPException(
-        status_code=501, 
-        detail="Trash feature not yet implemented."
-    )
+    with get_conn() as conn:
+        # Verify ownership
+        try:
+            row = conn.execute(
+                """
+                SELECT id FROM trash
+                WHERE id = ? AND deleted_by = ?
+                """,
+                (trash_id, current_user.id)
+            ).fetchone()
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Trash feature not available: {str(e)}"
+            )
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Trash item not found")
+
+        # Delete from trash (truly gone now)
+        conn.execute("DELETE FROM trash WHERE id = ?", (trash_id,))
+        conn.commit()
+
+    return {"status": "ok", "message": "Item permanently deleted"}
 
 @app.delete("/trash/empty")
 def empty_trash(
@@ -4362,11 +4667,39 @@ def empty_trash(
     current_user: schemas.User = Depends(get_current_user)
 ):
     """Empty the trash bin."""
-    # Stub: Not implemented yet
-    raise HTTPException(
-        status_code=501, 
-        detail="Trash feature not yet implemented."
-    )
+    with get_conn() as conn:
+        try:
+            if before_date:
+                # Delete items deleted before the specified date
+                conn.execute(
+                    """
+                    DELETE FROM trash
+                    WHERE deleted_by = ? AND deleted_at < ?
+                    """,
+                    (current_user.id, before_date)
+                )
+            else:
+                # Delete all items for this user
+                conn.execute(
+                    """
+                    DELETE FROM trash
+                    WHERE deleted_by = ?
+                    """,
+                    (current_user.id,)
+                )
+            deleted_count = conn.rowcount
+            conn.commit()
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Trash feature not available: {str(e)}"
+            )
+
+    return {
+        "status": "ok",
+        "deleted_count": deleted_count,
+        "message": f"Deleted {deleted_count} items from trash"
+    }
 
 
 # =============================================================================
