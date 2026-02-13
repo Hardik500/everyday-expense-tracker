@@ -15,12 +15,18 @@ export const swrConfig = {
   refreshInterval: 0, // Don't auto-refresh
   revalidateOnFocus: false, // Don't revalidate when tab comes into focus
   revalidateOnReconnect: true, // Revalidate when network reconnects
+  revalidateIfStale: false, // Don't revalidate if data is not stale
   dedupingInterval: 2000, // Dedupe requests within 2 seconds
   suspense: false, // Don't use suspense mode
   errorRetryCount: 3,
   errorRetryInterval: 5000,
-  // Keep cached data for 5 minutes even if component unmounts
+  // Keep cached data even if component unmounts
   keepPreviousData: true,
+  // Cache configuration for optimal performance
+  cache: {
+    // Keep data in cache indefinitely - will be revalidated on explicit refresh
+    shouldRevalidate: (url) => false,
+  },
 };
 
 // Cache key helpers
