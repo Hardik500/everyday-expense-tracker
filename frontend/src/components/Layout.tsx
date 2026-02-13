@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect } from "react";
-import { Outlet, useLocation, Link, useNavigate } from "react-router-dom";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 
 type Tab = "dashboard" | "analytics" | "cards" | "accounts" | "categories" | "rules" | "recurring" | "upload" | "review" | "transactions" | "profile";
 
@@ -127,7 +127,7 @@ const navItems: NavItem[] = [
   },
 ];
 
-export default function Layout({ reviewCount = 0, user, onLogout }: LayoutProps) {
+export default function Layout({ reviewCount = 0, user, onLogout, children }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -302,7 +302,7 @@ export default function Layout({ reviewCount = 0, user, onLogout }: LayoutProps)
           position: "relative",
         }}
       >
-        <Outlet />
+        {children}
       </main>
     </div>
   );
