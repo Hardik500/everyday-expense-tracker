@@ -89,7 +89,6 @@ function AppContent() {
 
   const { categories, subcategories, refreshCategories } = useCategories();
   const [refreshKey, setRefreshKey] = useState(0);
-  const [tabResetKey, setTabResetKey] = useState(0);
   const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);
   const [reviewCount, setReviewCount] = useState(0);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
@@ -336,7 +335,6 @@ function AppContent() {
                 // Clear transaction and analytics specific filters on manual tab switch
                 ["q", "cat", "sub", "range", "start", "end", "page", "id"].forEach(p => params.delete(p));
                 window.history.pushState({}, "", "?" + params.toString());
-                setTabResetKey(k => k + 1);
                 setActiveTab(item.id);
               }}
               style={{
@@ -483,7 +481,6 @@ function AppContent() {
         <div className="page-transition">
           {activeTab === "dashboard" && (
             <Dashboard
-              key={`dashboard-${tabResetKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
@@ -492,7 +489,6 @@ function AppContent() {
           )}
           {activeTab === "analytics" && (
             <Analytics
-              key={`analytics-${tabResetKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               initialCategoryId={selectedCategoryId}
@@ -503,7 +499,6 @@ function AppContent() {
           )}
           {activeTab === "cards" && (
             <Cards
-              key={`cards-${tabResetKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
@@ -511,7 +506,6 @@ function AppContent() {
           )}
           {activeTab === "accounts" && (
             <AccountManager
-              key={`accounts-${tabResetKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
@@ -519,7 +513,6 @@ function AppContent() {
           )}
           {activeTab === "categories" && (
             <CategoryManager
-              key={`categories-${tabResetKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => {
@@ -531,7 +524,6 @@ function AppContent() {
           )}
           {activeTab === "rules" && (
             <RulesManager
-              key={`rules-${tabResetKey}`}
               apiBase={API_BASE}
               categories={categories}
               subcategories={subcategories}
@@ -541,7 +533,6 @@ function AppContent() {
           )}
           {activeTab === "recurring" && (
             <RecurringExpenses
-              key={`recurring-${tabResetKey}`}
               apiBase={API_BASE}
               refreshKey={refreshKey}
               onRefresh={() => setRefreshKey((k) => k + 1)}
@@ -549,7 +540,6 @@ function AppContent() {
           )}
           {activeTab === "upload" && (
             <Upload
-              key={`upload-${tabResetKey}`}
               apiBase={API_BASE}
               onDone={() => {
                 setRefreshKey((k) => k + 1);
@@ -559,7 +549,6 @@ function AppContent() {
           )}
           {activeTab === "review" && (
             <ReviewQueue
-              key={`review-${tabResetKey}`}
               apiBase={API_BASE}
               categories={categories}
               subcategories={subcategories}
@@ -569,7 +558,6 @@ function AppContent() {
           )}
           {activeTab === "transactions" && (
             <Transactions
-              key={`transactions-${tabResetKey}`}
               apiBase={API_BASE}
               categories={categories}
               subcategories={subcategories}
@@ -579,7 +567,6 @@ function AppContent() {
           )}
           {activeTab === "profile" && (
             <Profile
-              key={`profile-${tabResetKey}`}
               apiBase={API_BASE}
             />
           )}
