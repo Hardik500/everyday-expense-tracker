@@ -4305,6 +4305,71 @@ def remove_tag_from_transaction(
 
 
 # =============================================================================
+# TRASH BIN - Soft Delete Feature
+# =============================================================================
+# NOTE: This is a stub implementation. The trash table does not exist yet.
+# The frontend expects this endpoint, so we return empty until the feature is implemented.
+
+@app.get("/trash")
+def list_trash_items(
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """List items in trash bin (soft-deleted items)."""
+    # Stub: Return empty list until trash table is implemented
+    return {"items": [], "total": 0}
+
+@app.post("/trash")
+def soft_delete_item(
+    table: str,
+    id: int,
+    reason: Optional[str] = None,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Soft delete an item by moving it to trash."""
+    # Stub: Not implemented yet
+    raise HTTPException(
+        status_code=501, 
+        detail="Trash feature not yet implemented. Use direct delete instead."
+    )
+
+@app.post("/trash/{trash_id}/restore")
+def restore_trash_item(
+    trash_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Restore an item from trash."""
+    # Stub: Not implemented yet
+    raise HTTPException(
+        status_code=501, 
+        detail="Trash feature not yet implemented."
+    )
+
+@app.delete("/trash/{trash_id}")
+def permanently_delete_trash_item(
+    trash_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Permanently delete an item from trash."""
+    # Stub: Not implemented yet
+    raise HTTPException(
+        status_code=501, 
+        detail="Trash feature not yet implemented."
+    )
+
+@app.delete("/trash/empty")
+def empty_trash(
+    before_date: Optional[str] = None,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Empty the trash bin."""
+    # Stub: Not implemented yet
+    raise HTTPException(
+        status_code=501, 
+        detail="Trash feature not yet implemented."
+    )
+
+
+# =============================================================================
 # PHASE 3 FEATURES - Import and register
 # =============================================================================
 from app.phase3_endpoints import router as phase3_router, register_phase3_routes
