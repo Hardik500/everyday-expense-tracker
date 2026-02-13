@@ -1,36 +1,45 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, memo, useCallback } from "react";
 
-export type Option = {
-    value: string | number;
+export type Option<T extends string | number = string | number> = {
+    value: T;
     label: string;
 };
 
-type Props = {
-    value: string | number;
-    onChange: (value: any) => void;
-    options: Option[];
+type Props<T extends string | number = string | number> = {
+    value: T;
+    onChange: (value: T) => void;
+    options: Option<T>[];
     placeholder?: string;
     className?: string;
     style?: React.CSSProperties;
-    label?: string; // Optional label above the dropdown
+    label?: string;
 };
 
-export default function Select({ value, onChange, options, placeholder = "Select...", className, style, label }: Props) {
+function Select<T extends string | number = string | number>({ value, onChange, options, placeholder = "Select...", className, style, label }: Props<T>) {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
     const selectedOption = options.find((opt) => opt.value === value);
 
+    const handleClickOutside = useCallback((event: MouseEvent) => {
+        if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+            setIsOpen(false);
+        }
+    }, []);
+
     // Close when clicking outside
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [handleClickOutside]);
+
+    const handleOptionClick = useCallback((optionValue: T) => {
+        onChange(optionValue);
+        setIsOpen(false);
+    }, [onChange]);
+
+    const toggleOpen = useCallback(() => {
+        setIsOpen(prev => !prev);
     }, []);
 
     return (
@@ -55,7 +64,7 @@ export default function Select({ value, onChange, options, placeholder = "Select
 
             {/* Trigger */}
             <div
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={toggleOpen}
                 style={{
                     padding: "0.5rem 0.75rem",
                     background: "var(--bg-input)",
@@ -114,10 +123,7 @@ export default function Select({ value, onChange, options, placeholder = "Select
                         options.map((option) => (
                             <div
                                 key={option.value}
-                                onClick={() => {
-                                    onChange(option.value);
-                                    setIsOpen(false);
-                                }}
+                                onClick={() => handleOptionClick(option.value)}
                                 style={{
                                     padding: "0.625rem 0.75rem",
                                     fontSize: "0.875rem",
@@ -154,3 +160,5 @@ export default function Select({ value, onChange, options, placeholder = "Select
         </div>
     );
 }
+
+export default Select;
