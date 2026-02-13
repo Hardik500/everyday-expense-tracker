@@ -1,5 +1,5 @@
-import Cards from "../components/Cards";
-import PageHeader from "../components/PageHeader";
+import Cards from "../components/accounts/Cards";
+import PageHeader from "../components/layout/PageHeader";
 
 type Props = {
   apiBase: string;

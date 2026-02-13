@@ -1,5 +1,5 @@
-import Profile from "../components/Profile";
-import PageHeader from "../components/PageHeader";
+import Profile from "../components/profile/Profile";
+import PageHeader from "../components/layout/PageHeader";
 
 type Props = {
   apiBase: string;

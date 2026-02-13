@@ -1,5 +1,5 @@
-import Upload from "../components/Upload";
-import PageHeader from "../components/PageHeader";
+import Upload from "../components/upload/Upload";
+import PageHeader from "../components/layout/PageHeader";
 
 type Props = {
   apiBase: string;

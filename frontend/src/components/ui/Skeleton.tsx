@@ -185,12 +185,12 @@ export const Skeleton: React.FC<SkeletonProps> = ({
 // Page skeleton for dashboard
 export const DashboardSkeleton: React.FC = () => (
   <div className="page-transition-scale" style={{ display: 'grid', gap: '1.5rem' }}>
-    {</* Header */ >}
+    {/* Header */}
     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
       <div className="skeleton" style={{ width: 200, height: 40, borderRadius: 8 }} />
     </div>
 
-    {</* Stat cards */ >}
+    {/* Stat cards */}
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
       {Array.from({ length: 4 }).map((_, i) => (
         <div
@@ -201,10 +201,10 @@ export const DashboardSkeleton: React.FC = () => (
       ))}
     </div>
 
-    {</* Chart */ >}
+    {/* Chart */}
     <Skeleton type="chart" />
 
-    {</* Budget card */ >}
+    {/* Budget card */}
     <Skeleton type="card" />
   </div>
 );

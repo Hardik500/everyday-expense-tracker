@@ -1,5 +1,5 @@
-import Dashboard from "../components/Dashboard";
-import PageHeader from "../components/PageHeader";
+import Dashboard from "../components/dashboard/Dashboard";
+import PageHeader from "../components/layout/PageHeader";
 
 type Props = {
   apiBase: string;

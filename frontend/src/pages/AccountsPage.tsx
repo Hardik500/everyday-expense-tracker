@@ -1,5 +1,5 @@
-import AccountManager from "../components/AccountManager";
-import PageHeader from "../components/PageHeader";
+import AccountManager from "../components/accounts/AccountManager";
+import PageHeader from "../components/layout/PageHeader";
 
 type Props = {
   apiBase: string;

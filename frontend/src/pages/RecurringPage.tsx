@@ -1,5 +1,5 @@
-import RecurringExpenses from "../components/RecurringExpenses";
-import PageHeader from "../components/PageHeader";
+import RecurringExpenses from "../components/recurring/RecurringExpenses";
+import PageHeader from "../components/layout/PageHeader";
 
 type Props = {
   apiBase: string;

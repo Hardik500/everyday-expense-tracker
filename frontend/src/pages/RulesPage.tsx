@@ -1,5 +1,5 @@
-import RulesManager from "../components/RulesManager";
-import PageHeader from "../components/PageHeader";
+import RulesManager from "../components/rules/RulesManager";
+import PageHeader from "../components/layout/PageHeader";
 import type { Category, Subcategory } from "../App";
 
 type Props = {
