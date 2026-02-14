@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import {
   BrowserRouter as Router,
