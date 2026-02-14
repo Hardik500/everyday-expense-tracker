@@ -337,6 +337,10 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const hasIncome = payload.some((p: any) => p.name === "Income" && p.value > 0);
+      const hasExpenses = payload.some((p: any) => p.name === "Expenses" && p.value > 0);
+      const hasData = hasIncome || hasExpenses;
+      
       return (
         <div style={{
           background: "var(--bg-card)",
@@ -348,11 +352,19 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
           <p style={{ fontWeight: 500, marginBottom: "0.5rem", color: "var(--text-primary)" }}>
             {formatDate(label)}
           </p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} style={{ color: entry.color, fontSize: "0.875rem", margin: "0.25rem 0" }}>
-              {entry.name}: {formatFullCurrency(entry.value)}
+          {!hasData ? (
+            <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", fontStyle: "italic" }}>
+              No transactions
             </p>
-          ))}
+          ) : (
+            payload.map((entry: any, index: number) => (
+              entry.value > 0 && (
+                <p key={index} style={{ color: entry.color, fontSize: "0.875rem", margin: "0.25rem 0" }}>
+                  {entry.name}: {formatFullCurrency(entry.value)}
+                </p>
+              )
+            ))
+          )}
         </div>
       );
     }
@@ -749,6 +761,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                       fillOpacity={1}
                       fill="url(#colorIncome)"
                       strokeWidth={2}
+                      connectNulls={true}
                     />
                     <Area
                       type="monotone"
@@ -758,6 +771,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                       fillOpacity={1}
                       fill="url(#colorExpenses)"
                       strokeWidth={2}
+                      connectNulls={true}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
