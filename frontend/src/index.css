@@ -89,6 +89,7 @@
 
 html {
   font-size: 16px;
+  background: var(--bg-primary);
 }
 
 body {
@@ -118,7 +119,12 @@ body::before {
   z-index: 1;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-weight: 600;
   line-height: 1.3;
   color: var(--text-primary);
@@ -198,7 +204,9 @@ button:disabled {
   transform: none;
 }
 
-input, select, textarea {
+input,
+select,
+textarea {
   font-family: var(--font-sans);
   font-size: 0.875rem;
   padding: 0.625rem 0.875rem;
@@ -211,7 +219,9 @@ input, select, textarea {
   width: 100%;
 }
 
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
@@ -391,6 +401,7 @@ tbody td:first-child {
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -420,10 +431,12 @@ tbody td:first-child {
     opacity: 0;
     transform: translateY(-12px) scale(0.96);
   }
+
   70% {
     opacity: 1;
     transform: translateY(2px) scale(1.01);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -432,12 +445,17 @@ tbody td:first-child {
 
 /* Smooth skeleton fade-out */
 @keyframes skeletonFadeOut {
-  from { opacity: 0.7; }
-  to { opacity: 0; }
+  from {
+    opacity: 0.7;
+  }
+
+  to {
+    opacity: 0;
+  }
 }
 
 /* Subtle stagger for similar content elements */
-.similar-section > * {
+.similar-section>* {
   animation: contentFadeIn 250ms ease forwards;
   animation-delay: calc(var(--child-index, 0) * 50ms);
 }
@@ -447,6 +465,7 @@ tbody td:first-child {
     opacity: 0;
     transform: translateX(-8px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -454,9 +473,12 @@ tbody td:first-child {
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
@@ -486,19 +508,36 @@ tbody td:first-child {
 
 /* Animations */
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 /* Consistent loading spinner */
 @keyframes spinWithEasing {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .spinner {
@@ -529,7 +568,8 @@ tbody td:first-child {
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  padding: 3rem;
+  min-height: 100vh;
+  width: 100%;
 }
 
 .loading-text {
@@ -543,6 +583,7 @@ tbody td:first-child {
     opacity: 0;
     transform: translateX(20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -554,6 +595,7 @@ tbody td:first-child {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -565,6 +607,7 @@ tbody td:first-child {
     opacity: 0;
     transform: scale(0.98);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -588,18 +631,17 @@ tbody td:first-child {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
 }
 
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--bg-input) 0%,
-    var(--bg-card) 50%,
-    var(--bg-input) 100%
-  );
+  background: linear-gradient(90deg,
+      var(--bg-input) 0%,
+      var(--bg-card) 50%,
+      var(--bg-input) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-sm);
@@ -636,6 +678,7 @@ tbody td:first-child {
     opacity: 0;
     transform: translateX(-30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -647,6 +690,7 @@ tbody td:first-child {
     opacity: 0;
     transform: translateX(30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -658,6 +702,7 @@ tbody td:first-child {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -677,12 +722,29 @@ tbody td:first-child {
 }
 
 /* Staggered animation delays */
-.stagger-1 { animation-delay: 0.1s; }
-.stagger-2 { animation-delay: 0.2s; }
-.stagger-3 { animation-delay: 0.3s; }
-.stagger-4 { animation-delay: 0.4s; }
-.stagger-5 { animation-delay: 0.5s; }
-.stagger-6 { animation-delay: 0.6s; }
+.stagger-1 {
+  animation-delay: 0.1s;
+}
+
+.stagger-2 {
+  animation-delay: 0.2s;
+}
+
+.stagger-3 {
+  animation-delay: 0.3s;
+}
+
+.stagger-4 {
+  animation-delay: 0.4s;
+}
+
+.stagger-5 {
+  animation-delay: 0.5s;
+}
+
+.stagger-6 {
+  animation-delay: 0.6s;
+}
 
 .animate-spin {
   animation: spin 1s linear infinite;
@@ -698,6 +760,7 @@ tbody td:first-child {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -709,6 +772,7 @@ tbody td:first-child {
     opacity: 0;
     transform: translateX(-30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -720,6 +784,7 @@ tbody td:first-child {
     opacity: 0;
     transform: translateX(30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -731,6 +796,7 @@ tbody td:first-child {
     opacity: 0;
     transform: translateX(-30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -742,6 +808,7 @@ tbody td:first-child {
     opacity: 0;
     transform: translateX(30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -779,12 +846,29 @@ tbody td:first-child {
   animation: fadeInUp 0.5s ease forwards;
 }
 
-.feature-card:nth-child(1).visible { animation-delay: 0ms; }
-.feature-card:nth-child(2).visible { animation-delay: 100ms; }
-.feature-card:nth-child(3).visible { animation-delay: 200ms; }
-.feature-card:nth-child(4).visible { animation-delay: 300ms; }
-.feature-card:nth-child(5).visible { animation-delay: 400ms; }
-.feature-card:nth-child(6).visible { animation-delay: 500ms; }
+.feature-card:nth-child(1).visible {
+  animation-delay: 0ms;
+}
+
+.feature-card:nth-child(2).visible {
+  animation-delay: 100ms;
+}
+
+.feature-card:nth-child(3).visible {
+  animation-delay: 200ms;
+}
+
+.feature-card:nth-child(4).visible {
+  animation-delay: 300ms;
+}
+
+.feature-card:nth-child(5).visible {
+  animation-delay: 400ms;
+}
+
+.feature-card:nth-child(6).visible {
+  animation-delay: 500ms;
+}
 
 /* Smooth scrolling */
 html {
@@ -834,8 +918,13 @@ html {
 }
 
 @keyframes skeleton-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .similar-content {
@@ -848,6 +937,7 @@ html {
     opacity: 0;
     transform: translateY(-12px) scale(0.98);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -855,7 +945,7 @@ html {
 }
 
 /* Staggered fade-in for content children */
-.similar-content > * {
+.similar-content>* {
   opacity: 0;
   animation: child-fade-in 0.3s ease forwards;
   animation-delay: 0.15s;
@@ -872,6 +962,7 @@ html {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -900,6 +991,7 @@ html {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -913,50 +1005,51 @@ html {
 
 /* Responsive chart adjustments */
 @media (max-width: 768px) {
+
   /* Card adjustments for mobile */
   .card {
     padding: 1rem;
     border-radius: var(--radius-md);
   }
-  
+
   .card-header {
     margin-bottom: 1rem;
     padding-bottom: 0.75rem;
   }
-  
+
   .card-header h2 {
     font-size: 1rem;
   }
-  
+
   /* Make chart containers more touch-friendly */
   .recharts-wrapper {
     touch-action: pan-x pan-y pinch-zoom;
   }
-  
+
   /* Better touch targets for chart interactions */
   .recharts-surface {
     cursor: grab;
   }
-  
+
   .recharts-surface:active {
     cursor: grabbing;
   }
-  
+
   /* Improve tooltip visibility on mobile */
   .recharts-tooltip-wrapper {
     z-index: 1000 !important;
   }
-  
+
   /* Mobile chart legend adjustments */
   .recharts-legend-wrapper {
     font-size: 0.6875rem !important;
   }
-  
+
   /* Compact stat cards on mobile */
   .stat-card {
     padding: 0.75rem;
   }
-  
+
   .stat-card-value {
     font-size: 1.125rem;
   }
@@ -967,11 +1060,11 @@ html {
   .card {
     padding: 0.875rem;
   }
-  
+
   .card-header h2 {
     font-size: 0.9375rem;
   }
-  
+
   /* Even smaller padding for very small screens */
   .trend-chart-container button {
     padding: 0.5rem 0.625rem !important;
@@ -984,7 +1077,7 @@ html {
   .trend-chart-container {
     max-width: 100%;
   }
-  
+
   /* Larger touch targets for better UX */
   .trend-chart-container button {
     min-height: 36px;
@@ -1035,6 +1128,7 @@ html {
     transform: scale(0, 0);
     opacity: 0.5;
   }
+
   100% {
     transform: scale(20, 20);
     opacity: 0;
@@ -1047,10 +1141,13 @@ html {
 
 /* Swipe hint animation */
 @keyframes swipeHint {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 0.5;
     transform: translateX(0);
   }
+
   50% {
     opacity: 1;
     transform: translateX(3px);
@@ -1070,6 +1167,7 @@ html {
 
 /* Optimize chart rendering on mobile */
 @media (max-width: 768px) {
+
   /* Disable some visual effects on mobile for performance */
   .recharts-line .recharts-curve {
     will-change: auto;
@@ -1091,6 +1189,7 @@ html {
     opacity: 0;
     transform: translateY(100%);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1102,6 +1201,7 @@ html {
     opacity: 1;
     transform: translateY(0);
   }
+
   to {
     opacity: 0;
     transform: translateY(100%);
@@ -1112,6 +1212,7 @@ html {
   from {
     width: 100%;
   }
+
   to {
     width: 0%;
   }

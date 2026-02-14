@@ -35,7 +35,7 @@ export const LoadingSkeleton = ({ lines = 3 }: { lines?: number }) => (
 );
 
 export const PageLoading = ({ text = "Loading..." }: { text?: string }) => (
-  <div className="card loading-container">
+  <div className="loading-container">
     <div className="spinner spinner-lg" />
     <span className="loading-text">{text}</span>
   </div>
