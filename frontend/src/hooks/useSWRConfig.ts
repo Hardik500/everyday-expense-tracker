@@ -2,7 +2,7 @@ import { fetchWithAuth } from "../utils/api";
 
 // Custom fetcher for SWR that uses our auth system
 export const swrFetcher = async (url: string) => {
-  const response = await fetchWithAuth(url);
+  const response = await fetchWithAuth(url) as Response;
   if (!response.ok) {
     const error = new Error("An error occurred while fetching the data.");
     throw error;
@@ -22,11 +22,6 @@ export const swrConfig = {
   errorRetryInterval: 5000,
   // Keep cached data even if component unmounts
   keepPreviousData: true,
-  // Cache configuration for optimal performance
-  cache: {
-    // Keep data in cache indefinitely - will be revalidated on explicit refresh
-    shouldRevalidate: (url) => false,
-  },
 };
 
 // Cache key helpers

@@ -1,10 +1,10 @@
 import useSWR from "swr";
 import { swrFetcher } from "./useSWRConfig";
-import type { 
-  Category, 
-  Account, 
-  Card, 
-  Rule, 
+import type {
+  Category,
+  Account,
+  Card,
+  Rule,
   RecurringExpense,
   DashboardSummary,
   Transaction,
@@ -101,7 +101,7 @@ export function useTimeSeries(apiBase: string, params?: string) {
  * Hook for fetching review count (uncertain transactions)
  */
 export function useReviewCount(apiBase: string) {
-  return useApiData<number[]>(`${apiBase}/transactions?uncertain=true`);
+  return useApiData<Transaction[]>(`${apiBase}/transactions?uncertain=true`);
 }
 
 /**

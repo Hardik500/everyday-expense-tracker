@@ -62,16 +62,12 @@ function AppContent() {
     recoverable: boolean;
   } | null>(null);
 
-  // Fetch review count using SWR
-  const { data: reviewData } = useReviewCount(API_BASE);
-  const reviewCount = Array.isArray(reviewData) ? reviewData.length : 0;
-
   // Pull-to-refresh hook
   const handleRefresh = useCallback(async () => {
     setRefreshKey((k) => k + 1);
   }, []);
 
-  const { _contentRef: _unusedContentRef, isPulling, pullProgress, isRefreshing, pullY } = usePullToRefresh({
+  const { containerRef: _unusedContainerRef, isPulling, pullProgress, isRefreshing, pullY } = usePullToRefresh({
     onRefresh: handleRefresh,
     threshold: 120,
     maxPullDistance: 180,
@@ -133,6 +129,10 @@ function AppContent() {
       </Routes>
     );
   }
+
+  // Fetch review count using SWR (only after authentication)
+  const { data: reviewData } = useReviewCount(API_BASE);
+  const reviewCount = Array.isArray(reviewData) ? reviewData.length : 0;
 
   // Authenticated routes with layout
   const handleLogOut = async () => {
