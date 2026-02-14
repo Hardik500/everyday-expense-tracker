@@ -27,6 +27,11 @@ function Profile({ apiBase }: Props) {
     const [editingUsername, setEditingUsername] = useState(false);
     const [newUsername, setNewUsername] = useState("");
 
+    // Backup/Restore states
+    const [exporting, setExporting] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const [importFile, setImportFile] = useState<File | null>(null);
+
     const fetchProfile = async () => {
         try {
             const res = await fetchWithAuth(`${apiBase}/auth/me`);
@@ -133,6 +138,90 @@ function Profile({ apiBase }: Props) {
             setError("Network error updating username");
         } finally {
             setSaving(false);
+        }
+    };
+
+    // ====== BACKUP/RESTORE HANDLERS ======
+    const handleExportBackup = async () => {
+        setExporting(true);
+        setError("");
+        setSuccess("");
+        try {
+            const res = await fetchWithAuth(`${apiBase}/backup/export`);
+            if (res.ok) {
+                const result = await res.json();
+                // Download as JSON file
+                const data = result.data || result;
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `expense-tracker-backup-${new Date().toISOString().split("T")[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                setSuccess(`Backup exported! ${data.transactions?.length || 0} transactions, ${data.accounts?.length || 0} accounts`);
+                setTimeout(() => setSuccess(""), 5000);
+            } else {
+                const data = await res.json();
+                setError(data.detail || "Failed to export backup");
+            }
+        } catch (err) {
+            setError("Network error exporting backup");
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    const handleImportBackup = async () => {
+        if (!importFile) {
+            setError("Please select a file first");
+            return;
+        }
+
+        setImporting(true);
+        setError("");
+        setSuccess("");
+        try {
+            const text = await importFile.text();
+            const backupData = JSON.parse(text);
+            
+            const res = await fetchWithAuth(`${apiBase}/backup/import`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(backupData),
+            });
+
+            if (res.ok) {
+                const result = await res.json();
+                setSuccess(`Backup imported! ${result.imported?.transactions || 0} transactions, ${result.imported?.accounts || 0} accounts`);
+                setImportFile(null);
+                setTimeout(() => setSuccess(""), 5000);
+            } else {
+                const data = await res.json();
+                setError(data.detail || "Failed to import backup");
+            }
+        } catch (err) {
+            if (err instanceof SyntaxError) {
+                setError("Invalid backup file format");
+            } else {
+                setError("Network error importing backup");
+            }
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (!file.name.endsWith(".json")) {
+                setError("Please select a JSON file");
+                return;
+            }
+            setImportFile(file);
+            setError("");
         }
     };
 
@@ -284,6 +373,68 @@ function Profile({ apiBase }: Props) {
                         )}
                     </div>
                 )}
+            </section>
+
+            {/* Data Backup/Restore */}
+            <section className="dashboard-card" style={{ marginTop: 30 }}>
+                <h2 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: "1.5rem" }}>💾</span> Data Backup
+                </h2>
+                <p style={{ color: "var(--text-muted)", marginTop: 5, marginBottom: 24 }}>
+                    Export your data as JSON or restore from a previous backup.
+                </p>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                    {/* Export Section */}
+                    <div style={{ padding: 20, background: "var(--bg-input)", borderRadius: 8 }}>
+                        <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 8 }}>Export Backup</h3>
+                        <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: 16 }}>
+                            Download all your transactions, accounts, categories, rules, and goals as a JSON file.
+                        </p>
+                        <button
+                            className="btn btn-primary"
+                            onClick={handleExportBackup}
+                            disabled={exporting}
+                            style={{ width: "100%" }}
+                        >
+                            {exporting ? "Exporting..." : "Export Backup"}
+                        </button>
+                    </div>
+
+                    {/* Import Section */}
+                    <div style={{ padding: 20, background: "var(--bg-input)", borderRadius: 8 }}>
+                        <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 8 }}>Restore Data</h3>
+                        <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: 16 }}>
+                            Import from a backup file. Existing data with matching IDs will be skipped.
+                        </p>
+                        <input
+                            type="file"
+                            accept=".json"
+                            onChange={handleFileChange}
+                            id="import-file"
+                            style={{ display: "none" }}
+                        />
+                        <label htmlFor="import-file" className="btn btn-secondary" style={{ 
+                            display: "inline-block", 
+                            width: "100%", 
+                            textAlign: "center",
+                            cursor: "pointer",
+                            marginBottom: importFile ? 12 : 0
+                        }}>
+                            {importFile ? importFile.name : "Choose File"}
+                        </label>
+                        {importFile && (
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleImportBackup}
+                                disabled={importing}
+                                style={{ width: "100%" }}
+                            >
+                                {importing ? "Importing..." : "Import Backup"}
+                            </button>
+                        )}
+                    </div>
+                </div>
             </section>
 
             <style>{`
