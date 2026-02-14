@@ -135,6 +135,9 @@ jobs:
       
       - name: Start dev server
         run: |
+          # Kill any existing process on port 5173
+          pkill -f "vite" || true
+          sleep 2
           cd frontend
           npm run dev > /tmp/vite.log 2>&1 &
           echo $! > /tmp/vite.pid
@@ -171,6 +174,7 @@ jobs:
 
       - name: Upload test results
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-junit
