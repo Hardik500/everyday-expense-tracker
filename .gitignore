@@ -60,3 +60,4 @@ supabase/functions/.vscode/
 
 # Development logs
 logs/
+frontend/test-results/
