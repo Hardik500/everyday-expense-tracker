@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchWithAuth } from '../../utils/api';
-import { PageLoading, InlineLoading } from '../ui/Loading';
+import { PageLoading, Loading } from '../ui/Loading';
 
 interface DuplicateTransaction {
   id: number;
@@ -133,7 +133,7 @@ export function DuplicateDetection({ apiBase, onRefresh }: Props) {
               </select>
             </label>
             <button onClick={handleScan} disabled={scanning} className="btn-scan">
-              {scanning ? <InlineLoading /> : (
+              {scanning ? <Loading inline size="sm" /> : (
                 <>
                   <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
