@@ -1,7 +1,7 @@
 import { ReactNode, useState, useEffect } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 
-type Tab = "dashboard" | "analytics" | "cards" | "accounts" | "categories" | "rules" | "recurring" | "upload" | "review" | "transactions" | "profile" | "goals" | "duplicates";
+type Tab = "dashboard" | "analytics" | "cards" | "accounts" | "categories" | "rules" | "recurring" | "upload" | "review" | "transactions" | "profile" | "goals" | "duplicates" | "calendar";
 
 type NavItem = {
   id: Tab;
@@ -143,6 +143,15 @@ const navItems: NavItem[] = [
       </svg>
     ),
   },
+  {
+    id: "calendar",
+    label: "Calendar",
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
 ];
 
 export default function Layout({ reviewCount = 0, user, onLogout, children }: LayoutProps) {
@@ -152,7 +161,7 @@ export default function Layout({ reviewCount = 0, user, onLogout, children }: La
   // Get current tab from pathname
   const getCurrentTab = (): Tab => {
     const path = location.pathname.slice(1); // Remove leading /
-    const validTabs: Tab[] = ["dashboard", "analytics", "cards", "accounts", "categories", "rules", "recurring", "upload", "review", "transactions", "profile", "goals", "duplicates"];
+    const validTabs: Tab[] = ["dashboard", "analytics", "cards", "accounts", "categories", "rules", "recurring", "upload", "review", "transactions", "profile", "goals", "duplicates", "calendar"];
     return validTabs.includes(path as Tab) ? (path as Tab) : "dashboard";
   };
 

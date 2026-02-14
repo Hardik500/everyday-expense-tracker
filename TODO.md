@@ -8,23 +8,15 @@
 ## 🔧 Technical Debt
 
 ### Phase 3 Frontend Integration
-- [ ] **Data Backup/Restore UI** - Buttons for JSON export/import
-  - Export button (triggers download)
-  - Import file picker with validation
-  - Progress indicator for large datasets
-  
-- [ ] **Duplicate Detection Interface** - Review and merge duplicates
-  - List view of detected duplicates
-  - Side-by-side comparison
-  - Bulk merge/delete actions
-  
-- [ ] **Goals Dashboard** - Visual progress tracking
+- [ ] **Data Backup/Restore UI** - Buttons for JSON export/import ✅ (Feb 14)
+- [ ] **Duplicate Detection Interface** - Review and merge duplicates ✅ (Feb 14)
+- [ ] **Goals Dashboard** - Visual progress tracking ✅ (Feb 14)
   - Progress bars for each goal
   - Deadline countdown
   - Contribution buttons
   - Category-linked goals
   
-- [ ] **Cash Flow Calendar** - Monthly spending view
+- [ ] **Cash Flow Calendar** - Monthly spending view ✅ (Feb 14)
   - Calendar grid with daily net values
   - Color coding (green/red for positive/negative)
   - Click day to see transactions
