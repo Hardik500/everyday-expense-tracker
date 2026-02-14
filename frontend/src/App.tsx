@@ -30,6 +30,8 @@ const UploadPage = lazy(() => import("./pages/UploadPage"));
 const ReviewPage = lazy(() => import("./pages/ReviewPage"));
 const TransactionsPage = lazy(() => import("./pages/TransactionsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const GoalsPage = lazy(() => import("./pages/GoalsPage"));
+const DuplicatesPage = lazy(() => import("./pages/DuplicatesPage"));
 
 // Auth pages
 import Login from "./components/auth/Login";
@@ -291,6 +293,14 @@ function AppContent() {
           <Route
             path="/profile"
             element={<ProfilePage apiBase={API_BASE} />}
+          />
+          <Route
+            path="/goals"
+            element={<GoalsPage apiBase={API_BASE} />}
+          />
+          <Route
+            path="/duplicates"
+            element={<DuplicatesPage apiBase={API_BASE} />}
           />
           {/* Handle Google callback when authenticated */}
           <Route

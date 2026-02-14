@@ -1,7 +1,7 @@
 import { ReactNode, useState, useEffect } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 
-type Tab = "dashboard" | "analytics" | "cards" | "accounts" | "categories" | "rules" | "recurring" | "upload" | "review" | "transactions" | "profile";
+type Tab = "dashboard" | "analytics" | "cards" | "accounts" | "categories" | "rules" | "recurring" | "upload" | "review" | "transactions" | "profile" | "goals" | "duplicates";
 
 type NavItem = {
   id: Tab;
@@ -125,6 +125,24 @@ const navItems: NavItem[] = [
       </svg>
     ),
   },
+  {
+    id: "goals",
+    label: "Goals",
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+      </svg>
+    ),
+  },
+  {
+    id: "duplicates",
+    label: "Duplicates",
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
 ];
 
 export default function Layout({ reviewCount = 0, user, onLogout, children }: LayoutProps) {
@@ -134,7 +152,7 @@ export default function Layout({ reviewCount = 0, user, onLogout, children }: La
   // Get current tab from pathname
   const getCurrentTab = (): Tab => {
     const path = location.pathname.slice(1); // Remove leading /
-    const validTabs: Tab[] = ["dashboard", "analytics", "cards", "accounts", "categories", "rules", "recurring", "upload", "review", "transactions", "profile"];
+    const validTabs: Tab[] = ["dashboard", "analytics", "cards", "accounts", "categories", "rules", "recurring", "upload", "review", "transactions", "profile", "goals", "duplicates"];
     return validTabs.includes(path as Tab) ? (path as Tab) : "dashboard";
   };
 
