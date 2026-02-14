@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+
 import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../../utils/api";
 import TransferDetector from "../transactions/TransferDetector";
