@@ -1,4 +1,4 @@
-
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import TransferDetector from "../transactions/TransferDetector";
 import Select from "../ui/Select";
@@ -262,7 +262,7 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
     : { value: 0, type: "neutral" as const };
 
   // Prepare chart data for mini income vs expenses
-  const miniChartData = timeSeries.slice(-6).map((d) => ({
+  const miniChartData = timeSeries.slice(-6).map((d: TimeSeriesData) => ({
     name: new Date(d.period).toLocaleDateString("en-IN", { month: "short" }),
     income: d.income,
     expenses: Math.abs(d.expenses),
@@ -350,22 +350,22 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
 
   // Separate items
   const spendingItems = items.filter(
-    (i) => i.total < 0 && !assetMovementCategories.includes(i.category_name || "")
+    (i: ReportItem) => i.total < 0 && !assetMovementCategories.includes(i.category_name || "")
   );
-  const assetItems = items.filter((i) => assetMovementCategories.includes(i.category_name || ""));
+  const assetItems = items.filter((i: ReportItem) => assetMovementCategories.includes(i.category_name || ""));
   const incomeItems = items.filter(
-    (i) => i.total > 0 && !assetMovementCategories.includes(i.category_name || "")
+    (i: ReportItem) => i.total > 0 && !assetMovementCategories.includes(i.category_name || "")
   );
 
-  const totalSpend = Math.abs(spendingItems.reduce((sum, item) => sum + item.total, 0));
-  const totalIncome = incomeItems.reduce((sum, item) => sum + item.total, 0);
-  const cashFlow = items.reduce((sum, item) => sum + item.total, 0);
+  const totalSpend = Math.abs(spendingItems.reduce((sum: number, item: ReportItem) => sum + item.total, 0));
+  const totalIncome = incomeItems.reduce((sum: number, item: ReportItem) => sum + item.total, 0);
+  const cashFlow = items.reduce((sum: number, item: ReportItem) => sum + item.total, 0);
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalSpend) / totalIncome) * 100 : 0;
   const totalInvested = Math.abs(
-    assetItems.filter((i) => i.total < 0).reduce((sum, item) => sum + item.total, 0)
+    assetItems.filter((i: ReportItem) => i.total < 0).reduce((sum: number, item: ReportItem) => sum + item.total, 0)
   );
 
-  const uncategorized = items.find((i) => !i.category_name);
+  const uncategorized = items.find((i: ReportItem) => !i.category_name);
 
   if (loading) {
     return (
@@ -1069,7 +1069,7 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
                 background: "var(--bg-input)",
               }}
             >
-              {spendingItems.map((item, idx) => {
+              {spendingItems.map((item: ReportItem, idx: number) => {
                 const percentage = totalSpend > 0 ? (Math.abs(item.total) / totalSpend) * 100 : 0;
                 return (
                   <div
@@ -1088,7 +1088,7 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
 
           {/* Category list */}
           <div style={{ display: "grid", gap: "0.75rem" }}>
-            {spendingItems.map((item, idx) => {
+            {spendingItems.map((item: ReportItem, idx: number) => {
               const percentage = totalSpend > 0 ? (Math.abs(item.total) / totalSpend) * 100 : 0;
               const isClickable = item.category_id && onCategorySelect;
               return (
@@ -1184,7 +1184,7 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
             <h2>Income Sources</h2>
           </div>
           <div style={{ display: "grid", gap: "0.75rem" }}>
-            {incomeItems.map((item, idx) => {
+            {incomeItems.map((item: ReportItem, idx: number) => {
               const percentage = totalIncome > 0 ? (item.total / totalIncome) * 100 : 0;
               return (
                 <div
@@ -1257,7 +1257,7 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
             </span>
           </div>
           <div style={{ display: "grid", gap: "0.75rem" }}>
-            {assetItems.map((item, idx) => (
+            {assetItems.map((item: ReportItem, idx: number) => (
               <div
                 key={idx}
                 style={{

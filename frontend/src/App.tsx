@@ -62,6 +62,11 @@ function AppContent() {
     recoverable: boolean;
   } | null>(null);
 
+  // Fetch review count using SWR (must be called unconditionally at top of component)
+  // Pass null when not authenticated to prevent the request
+  const { data: reviewData } = useReviewCount(token && user ? API_BASE : null);
+  const reviewCount = Array.isArray(reviewData) ? reviewData.length : 0;
+
   // Pull-to-refresh hook
   const handleRefresh = useCallback(async () => {
     setRefreshKey((k) => k + 1);
@@ -130,9 +135,6 @@ function AppContent() {
     );
   }
 
-  // Fetch review count using SWR (only after authentication)
-  const { data: reviewData } = useReviewCount(API_BASE);
-  const reviewCount = Array.isArray(reviewData) ? reviewData.length : 0;
 
   // Authenticated routes with layout
   const handleLogOut = async () => {

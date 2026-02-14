@@ -100,8 +100,8 @@ export function useTimeSeries(apiBase: string, params?: string) {
 /**
  * Hook for fetching review count (uncertain transactions)
  */
-export function useReviewCount(apiBase: string) {
-  return useApiData<Transaction[]>(`${apiBase}/transactions?uncertain=true`);
+export function useReviewCount(apiBase: string | null) {
+  return useApiData<Transaction[]>(apiBase ? `${apiBase}/transactions?uncertain=true` : null);
 }
 
 /**
