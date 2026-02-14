@@ -14,8 +14,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
 } from "recharts";
 import type { Category, Subcategory, Transaction as BaseTransaction } from "../types";
 import EditTransactionModal from "../transactions/EditTransactionModal";

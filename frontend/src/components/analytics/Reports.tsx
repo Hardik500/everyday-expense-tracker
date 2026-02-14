@@ -156,7 +156,7 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
     assetItems.filter(i => i.total < 0).reduce((sum, item) => sum + item.total, 0)
   );
 
-  const categorizedSpending = spendingItems.filter((i) => i.category_name);
+  const _categorizedSpending = spendingItems.filter((i) => i.category_name);
   const uncategorized = items.find((i) => !i.category_name);
 
   if (loading) {
