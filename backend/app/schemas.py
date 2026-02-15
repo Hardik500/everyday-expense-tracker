@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Optional, Dict, Any, Union, List
+from typing import Optional, Dict, Any, Union, List, Literal
 
 from pydantic import BaseModel, Field
 
@@ -229,7 +229,7 @@ class DuplicateTransaction(BaseModel):
 
 class DuplicateActionRequest(BaseModel):
     pair_id: int
-    action: str  # 'mark_duplicate', 'not_duplicate', 'delete_duplicate'
+    action: Literal["mark_duplicate", "not_duplicate", "delete_duplicate"]
 
 
 # Feature 16: Split Transactions

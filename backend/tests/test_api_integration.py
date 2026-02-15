@@ -164,5 +164,88 @@ class TestPagination:
             assert len(data) <= 10
 
 
+class TestDuplicateDetection:
+    """Test duplicate detection functionality."""
+    
+    @pytest.mark.skip(reason="Requires database setup")
+    def test_detect_duplicates_returns_list(self, mock_auth):
+        """Test that detect_duplicates returns a list of duplicates."""
+        response = client.get("/api/v1/duplicates/detect?days=30&similarity_threshold=0.85")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+    
+    @pytest.mark.skip(reason="Requires database setup")
+    def test_detect_duplicates_validates_days(self, mock_auth):
+        """Test that days parameter is validated."""
+        # Days too large
+        response = client.get("/api/v1/duplicates/detect?days=500")
+        assert response.status_code == 422  # Validation error
+    
+    @pytest.mark.skip(reason="Requires database setup")
+    def test_detect_duplicates_validates_threshold(self, mock_auth):
+        """Test that similarity_threshold parameter is validated."""
+        # Threshold out of range
+        response = client.get("/api/v1/duplicates/detect?days=30&similarity_threshold=1.5")
+        assert response.status_code == 422  # Validation error
+    
+    @pytest.mark.skip(reason="Requires database setup")
+    def test_duplicate_action_invalid_action(self, mock_auth):
+        """Test that invalid action returns error."""
+        response = client.post(
+            "/api/v1/duplicates/action",
+            json={"pair_id": 1, "action": "invalid_action"}
+        )
+        assert response.status_code in [400, 404]  # Bad request or not found
+    
+    @pytest.mark.skip(reason="Requires database setup")
+    def test_duplicate_action_valid_actions(self, mock_auth):
+        """Test that valid actions are accepted."""
+        valid_actions = ["mark_duplicate", "not_duplicate", "delete_duplicate"]
+        
+        for action in valid_actions:
+            # Note: This will fail with 404 since pair_id 99999 doesn't exist,
+            # but it validates the action parameter is accepted
+            response = client.post(
+                "/api/v1/duplicates/action",
+                json={"pair_id": 99999, "action": action}
+            )
+            # Should NOT be 422 (validation error) - action is validated
+            assert response.status_code != 422
+
+
+class TestSimilarityCalculation:
+    """Test description similarity calculation."""
+    
+    def test_calculate_similarity_identical(self):
+        """Test that identical strings return 100% similarity."""
+        from app.phase3_endpoints import calculate_similarity
+        
+        similarity = calculate_similarity("SWIGGY", "SWIGGY")
+        assert similarity == 1.0
+    
+    def test_calculate_similarity_different(self):
+        """Test that completely different strings return low similarity."""
+        from app.phase3_endpoints import calculate_similarity
+        
+        similarity = calculate_similarity("SWIGGY", "AMAZON")
+        assert similarity < 0.5
+    
+    def test_calculate_similarity_case_insensitive(self):
+        """Test that similarity is case-insensitive."""
+        from app.phase3_endpoints import calculate_similarity
+        
+        similarity = calculate_similarity("swiggy", "SWIGGY")
+        assert similarity == 1.0
+    
+    def test_calculate_similarity_partial_match(self):
+        """Test partial matches return appropriate similarity."""
+        from app.phase3_endpoints import calculate_similarity
+        
+        similarity = calculate_similarity("SWIGGY ORDER #12345", "SWIGGY ORDER #67890")
+        assert similarity > 0.7
+        assert similarity < 1.0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
