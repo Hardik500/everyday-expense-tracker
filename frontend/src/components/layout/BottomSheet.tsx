@@ -15,9 +15,7 @@ export function BottomSheet({
   title,
   children,
   maxHeight = '80vh',
-  snapPoints = ['30%', '60%', '80%'],
 }: BottomSheetProps) {
-  const [currentSnap, setCurrentSnap] = useState(0);
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [translateY, setTranslateY] = useState(100);

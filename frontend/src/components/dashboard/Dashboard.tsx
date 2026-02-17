@@ -16,8 +16,6 @@ import {
   YAxis,
   ResponsiveContainer,
   Tooltip,
-  Cell,
-  CartesianGrid,
 } from "recharts";
 
 type Props = {

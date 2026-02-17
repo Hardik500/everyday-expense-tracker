@@ -1,5 +1,5 @@
-import { ReactNode, useState, useEffect } from "react";
-import { useLocation, Link, useNavigate } from "react-router-dom";
+import { ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 type Tab = "dashboard" | "analytics" | "cards" | "accounts" | "categories" | "rules" | "recurring" | "upload" | "review" | "transactions" | "profile" | "goals" | "duplicates" | "calendar";
 
