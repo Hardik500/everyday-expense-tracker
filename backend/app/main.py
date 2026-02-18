@@ -19,6 +19,31 @@ from app.analytics import get_spending_insights, get_year_over_year
 _rate_limit_store: dict = {}
 _rate_limit_lock = None  # Will use threading.Lock if needed
 
+# SECURITY-001: File upload limits
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB max file size
+ALLOWED_EXTENSIONS = {'.csv', '.txt', '.xls', '.xlsx', '.pdf', '.ofx', '.qfx'}
+
+def validate_upload(file: UploadFile) -> None:
+    """Validate file size and extension for security."""
+    # Check file size (requires reading content)
+    file.file.seek(0, 2)  # Seek to end
+    size = file.file.tell()
+    file.file.seek(0)  # Reset to beginning
+    
+    if size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)}MB"
+        )
+    
+    # Check file extension
+    file_ext = '.' + file.filename.split('.')[-1].lower() if '.' in file.filename else ''
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
+
 class RateLimiter:
     """Simple in-memory rate limiter."""
     def __init__(self, max_requests: int = 10, window_seconds: int = 60):
@@ -735,6 +760,9 @@ def detect_account(
     current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
     """Detect which account a statement belongs to based on file content."""
+    # SECURITY-001: Validate file upload
+    validate_upload(file)
+    
     from app.accounts.discovery import detect_statement_account
     
     content = file.file.read()
@@ -808,6 +836,9 @@ def ingest_statement(
     profile: Optional[str] = Form(None),
     current_user: schemas.User = Depends(get_current_user)
 ) -> dict:
+    # SECURITY-001: Validate file upload
+    validate_upload(file)
+    
     if source not in {"csv", "txt", "ofx", "xls", "pdf"}:
         raise HTTPException(
             status_code=400, detail="source must be csv, ofx, xls, or pdf"
