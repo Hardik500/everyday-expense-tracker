@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { fetchWithAuth } from "../../utils/api";
 import TransferDetector from "../transactions/TransferDetector";
 import Select from "../ui/Select";
+import { CSVExportButton } from "./CSVExport";
 import { ReportPDFExport } from "./PDFExport";
 
 type Props = {
@@ -231,17 +232,23 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
         />
         
         {/* Feature 14: PDF Export */}
-        <ReportPDFExport 
-          month={selectedMonth || "All Time"}
-          totalSpent={totalSpend}
-          totalIncome={totalIncome}
-          categories={spendingItems.slice(0, 10).map(item => ({
-            name: item.category_name || "Uncategorized",
-            amount: Math.abs(item.total),
-            color: getColor(item.category_name)
-          }))}
-          reportData={transactions}
-        />
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <ReportPDFExport 
+            month={selectedMonth || "All Time"}
+            totalSpent={totalSpend}
+            totalIncome={totalIncome}
+            categories={spendingItems.slice(0, 10).map(item => ({
+              name: item.category_name || "Uncategorized",
+              amount: Math.abs(item.total),
+              color: getColor(item.category_name)
+            }))}
+            reportData={transactions}
+          />
+          <CSVExportButton 
+            data={transactions}
+            filename={`expense-report-${selectedMonth || "all-time"}`}
+          />
+        </div>
       </div>
 
       {/* Summary Cards */}
