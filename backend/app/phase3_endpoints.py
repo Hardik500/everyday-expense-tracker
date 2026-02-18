@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, date, timedelta
 import calendar
 import json
+import time
 from difflib import SequenceMatcher
 
 from app.db import get_conn, IS_POSTGRES
@@ -13,6 +14,51 @@ from app import schemas
 from app.auth import get_current_user
 
 router = APIRouter(prefix="/api/v1")
+
+# HIGH-003: Simple RateLimiter (inline to avoid circular import with app.main)
+_rate_limit_store: dict = {}
+
+class RateLimiter:
+    """Simple in-memory rate limiter."""
+    def __init__(self, max_requests: int = 10, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+    
+    def is_allowed(self, key: str) -> tuple[bool, dict]:
+        """Check if request is allowed."""
+        now = time.time()
+        
+        if key not in _rate_limit_store:
+            _rate_limit_store[key] = []
+        
+        # Clean old entries
+        _rate_limit_store[key] = [
+            req_time for req_time in _rate_limit_store[key]
+            if now - req_time < self.window_seconds
+        ]
+        
+        if len(_rate_limit_store[key]) >= self.max_requests:
+            reset_time = _rate_limit_store[key][0] + self.window_seconds
+            return False, {
+                "limit": self.max_requests,
+                "remaining": 0,
+                "reset_at": reset_time
+            }
+        
+        _rate_limit_store[key].append(now)
+        
+        return True, {
+            "limit": self.max_requests,
+            "remaining": self.max_requests - len(_rate_limit_store[key]),
+            "reset_at": now + self.window_seconds
+        }
+
+# Rate limiters for Phase 3 expensive operations
+rate_limiter_backup = RateLimiter(max_requests=5, window_seconds=300)  # 5 exports per 5 min
+rate_limiter_import = RateLimiter(max_requests=2, window_seconds=300)  # 2 imports per 5 min
+rate_limiter_duplicates = RateLimiter(max_requests=10, window_seconds=300)  # 10 scans per 5 min
+rate_limiter_reports = RateLimiter(max_requests=10, window_seconds=60)  # 10 reports per minute
+rate_limiter_calendar = RateLimiter(max_requests=30, window_seconds=60)  # 30 calendar views per minute
 
 
 # =============================================================================
@@ -24,6 +70,15 @@ def export_backup(
     current_user: schemas.User = Depends(get_current_user)
 ):
     """Export all user data as JSON for backup."""
+    # HIGH-003: Rate limiting check
+    key = f"backup_export:{current_user.id}"
+    allowed, info = rate_limiter_backup.is_allowed(key)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Try again in {int(info.get('reset_at', 300) - time.time())} seconds."
+        )
+    
     with get_conn() as conn:
         data = {
             "version": "1.0",
@@ -138,6 +193,25 @@ def import_backup(
     current_user: schemas.User = Depends(get_current_user)
 ):
     """Import user data from JSON backup."""
+    # HIGH-003: Rate limiting check
+    key = f"backup_import:{current_user.id}"
+    allowed, info = rate_limiter_import.is_allowed(key)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Try again in {int(info.get('reset_at', 300) - time.time())} seconds."
+        )
+    
+    # SECURITY-002: Validate payload size (max 5MB)
+    import sys
+    payload_size = sys.getsizeof(backup_data)
+    MAX_IMPORT_SIZE = 5 * 1024 * 1024  # 5MB
+    if payload_size > MAX_IMPORT_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Import payload too large. Maximum size is {MAX_IMPORT_SIZE // (1024*1024)}MB"
+        )
+    
     with get_conn() as conn:
         # Validate backup data
         if not backup_data or "version" not in backup_data:
@@ -319,6 +393,15 @@ def detect_duplicates(
     current_user: schemas.User = Depends(get_current_user)
 ):
     """Scan for potential duplicate transactions."""
+    # HIGH-003: Rate limiting check
+    key = f"duplicates_detect:{current_user.id}"
+    allowed, info = rate_limiter_duplicates.is_allowed(key)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Try again in {int(info.get('reset_at', 300) - time.time())} seconds."
+        )
+    
     with get_conn() as conn:
         # Get recent transactions
         cutoff_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
@@ -1058,6 +1141,15 @@ def get_monthly_reports(
     current_user: schemas.User = Depends(get_current_user)
 ):
     """Get monthly reports for a year or all time."""
+    # HIGH-003: Rate limiting check
+    key = f"reports_monthly:{current_user.id}"
+    allowed, info = rate_limiter_reports.is_allowed(key)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Try again in {int(info.get('reset_at', 60) - time.time())} seconds."
+        )
+    
     with get_conn() as conn:
         if year is None:
             year = datetime.now().year
@@ -1153,6 +1245,15 @@ def get_cash_flow_calendar(
     current_user: schemas.User = Depends(get_current_user)
 ):
     """Get daily cash flow data for a calendar month view."""
+    # HIGH-003: Rate limiting check
+    key = f"calendar:{current_user.id}"
+    allowed, info = rate_limiter_calendar.is_allowed(key)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Try again in {int(info.get('reset_at', 60) - time.time())} seconds."
+        )
+    
     if month < 1 or month > 12:
         raise HTTPException(status_code=400, detail="Invalid month")
     
