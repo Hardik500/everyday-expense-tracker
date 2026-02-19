@@ -79,9 +79,12 @@ class RateLimiter:
             "reset_at": now + self.window_seconds
         }
 
-# Create rate limiters for different endpoints
+# Create rate limiters for different endpoints groups
 rate_limiter_ai = RateLimiter(max_requests=10, window_seconds=60)  # 10 AI categorizations per minute
 rate_limiter_search = RateLimiter(max_requests=30, window_seconds=60)  # 30 searches per minute
+rate_limiter_bulk = RateLimiter(max_requests=10, window_seconds=60)  # 10 bulk operations per minute
+rate_limiter_export = RateLimiter(max_requests=5, window_seconds=60)  # 5 exports per minute
+rate_limiter_ingest = RateLimiter(max_requests=5, window_seconds=60)  # 5 file uploads per minute
 
 # CRITICAL-002: Whitelist for safe SQL column names
 def validate_column_name(column: str) -> bool:
@@ -834,7 +837,7 @@ def ingest_statement(
     source: str = Form(...),
     file: UploadFile = File(...),
     profile: Optional[str] = Form(None),
-    current_user: schemas.User = Depends(get_current_user)
+    current_user: schemas.User = Depends(rate_limit_check(rate_limiter_ingest, "ingest"))
 ) -> dict:
     # SECURITY-001: Validate file upload
     validate_upload(file)
@@ -1053,7 +1056,7 @@ def export_transactions(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     category_id: Optional[int] = None,
-    current_user: schemas.User = Depends(get_current_user)
+    current_user: schemas.User = Depends(rate_limit_check(rate_limiter_export, "export"))
 ) -> StreamingResponse:
     """Export transactions as CSV."""
     clauses = ["t.user_id = ?"]
@@ -1272,7 +1275,7 @@ def bulk_update_transactions(
     rule_pattern: Optional[str] = Form(None),
     rule_name: Optional[str] = Form(None),
     update_all_similar: bool = Form(False),
-    current_user: schemas.User = Depends(get_current_user)
+    current_user: schemas.User = Depends(rate_limit_check(rate_limiter_bulk, "bulk_update"))
 ) -> dict:
     """Bulk update multiple transactions and optionally create a rule."""
     # CRITICAL-003: Validate transaction_ids
@@ -1368,7 +1371,7 @@ def bulk_update_transactions(
 @app.post("/transactions/bulk-delete")
 def bulk_delete_transactions(
     transaction_ids: List[int] = Form(...),
-    current_user: schemas.User = Depends(get_current_user)
+    current_user: schemas.User = Depends(rate_limit_check(rate_limiter_bulk, "bulk_delete"))
 ) -> dict:
     """Bulk delete multiple transactions."""
     # CRITICAL-003: Validate transaction_ids
