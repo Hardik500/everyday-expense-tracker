@@ -29,10 +29,12 @@
 
 ## ✅ Quality Assurance
 
-- [ ] ~~**E2E Testing~~** 
+- [ ] **E2E Testing** 
   - Test all 17 new features end-to-end
   - Mobile responsiveness validation
   - Cross-browser testing
+  - ⚠️ Test files exist (`tests/e2e/*.spec.ts`) but not yet executed
+  - Note: No npm test script available - requires manual execution
   
 - [ ] **Load Testing**
   - Performance with 10k+ transactions
@@ -111,7 +113,7 @@
 | Priority | Items |
 |----------|-------|
 | **P0** | Frontend integration for Phase 3 (4 features) ✅ COMPLETE |
-| **P1** | Security audit, E2E testing (next) |
+| **P1** | E2E Testing (test files exist, not yet executed), Load Testing |
 | **P2** | Monitoring, analytics, documentation |
 | **P3** | Future enhancements (Phase 4) |
 
