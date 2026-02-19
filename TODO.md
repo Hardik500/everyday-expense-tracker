@@ -39,12 +39,12 @@
   - API response times
   - Database query optimization
 
-- [x] ~~**Security Audit**~~ (In Progress - Phase 1 complete)
+- [x] ~~**Security Audit**~~ (Complete)
   - [x] Review 19 new Phase 3 endpoints ✅
   - [x] Verify auth on all routes ✅ (all use get_current_user)
-  - [x] Rate limiting on expensive operations ✅ (added to 5 endpoint groups)
+  - [x] Rate limiting on expensive operations ✅ (added to 9 endpoint groups)
   - [x] Input sanitization on file uploads ✅ (existing tests pass)
-  - [ ] Add rate limiting to more backend endpoints (remaining)
+  - [x] Add rate limiting to more backend endpoints ✅ (bulk, export, ingest)
 
 ---
 
