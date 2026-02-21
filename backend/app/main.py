@@ -19,6 +19,64 @@ from app.analytics import get_spending_insights, get_year_over_year
 _rate_limit_store: dict = {}
 _rate_limit_lock = None  # Will use threading.Lock if needed
 
+
+class RateLimiter:
+    """Simple in-memory rate limiter."""
+
+    def __init__(self, max_requests: int, window_seconds: int):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+
+    def is_allowed(self, key: str) -> tuple[bool, dict]:
+        """Check if request is allowed. Returns (allowed, info)."""
+        import threading
+        global _rate_limit_store, _rate_limit_lock
+        if _rate_limit_lock is None:
+            _rate_limit_lock = threading.Lock()
+
+        now = time.time()
+        with _rate_limit_lock:
+            if key not in _rate_limit_store:
+                _rate_limit_store[key] = []
+
+            # Clean old entries
+            _rate_limit_store[key] = [
+                t for t in _rate_limit_store[key]
+                if now - t < self.window_seconds
+            ]
+
+            if len(_rate_limit_store[key]) < self.max_requests:
+                _rate_limit_store[key].append(now)
+                return True, {"reset_at": now + self.window_seconds}
+
+            return False, {
+                "reset_at": min(_rate_limit_store[key]) + self.window_seconds,
+                "retry_after": int(min(_rate_limit_store[key]) + self.window_seconds - now)
+            }
+
+
+# Rate limiters
+rate_limiter_ai = RateLimiter(max_requests=10, window_seconds=60)  # 10 AI categorizations per minute
+rate_limiter_search = RateLimiter(max_requests=30, window_seconds=60)  # 30 searches per minute
+rate_limiter_bulk = RateLimiter(max_requests=10, window_seconds=60)  # 10 bulk operations per minute
+rate_limiter_export = RateLimiter(max_requests=5, window_seconds=60)  # 5 exports per minute
+rate_limiter_ingest = RateLimiter(max_requests=5, window_seconds=60)  # 5 file uploads per minute
+
+
+def rate_limit_check(limiter: RateLimiter, prefix: str = ""):
+    """Dependency to check rate limiting."""
+    def check_rate_limit(request: Request, current_user: schemas.User = Depends(get_current_user)):
+        key = f"{prefix}:{current_user.id}"
+        allowed, info = limiter.is_allowed(key)
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Rate limit exceeded. Try again in {int(info['reset_at'] - time.time())} seconds.",
+                headers={"Retry-After": str(int(info["reset_at"] - time.time()))}
+            )
+        return current_user
+    return check_rate_limit
+
 # SECURITY-001: File upload limits
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB max file size
 ALLOWED_EXTENSIONS = {'.csv', '.txt', '.xls', '.xlsx', '.pdf', '.ofx', '.qfx'}
@@ -2652,21 +2710,6 @@ def link_transfer(
 # ============= AI Categorization APIs =============
 
 from app.rules.ai import ai_classify, clear_category_cache
-
-def rate_limit_check(limiter: RateLimiter, prefix: str = ""):
-    """Dependency to check rate limiting."""
-    def check_rate_limit(request: Request, current_user: schemas.User = Depends(get_current_user)):
-        key = f"{prefix}:{current_user.id}"
-        allowed, info = limiter.is_allowed(key)
-        if not allowed:
-            raise HTTPException(
-                status_code=429,
-                detail=f"Rate limit exceeded. Try again in {int(info['reset_at'] - time.time())} seconds.",
-                headers={"Retry-After": str(int(info["reset_at"] - time.time()))}
-            )
-        return current_user
-    return check_rate_limit
-
 
 @app.get("/ai/status")
 def ai_status(current_user: schemas.User = Depends(get_current_user)) -> dict:
