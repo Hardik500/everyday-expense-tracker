@@ -28,6 +28,28 @@ test.describe('Duplicate Detection Interface', () => {
       });
     });
 
+    // Mock duplicates detection API
+    await page.route('**/api/v1/duplicates/detect**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 1,
+            original_transaction_id: 101,
+            duplicate_transaction_id: 102,
+            similarity_score: 0.95,
+            original_amount: 500,
+            original_description: 'Grocery Store',
+            original_date: '2026-02-15',
+            duplicate_amount: 500,
+            duplicate_description: 'Grocery Store',
+            duplicate_date: '2026-02-15',
+          }
+        ]),
+      });
+    });
+
     // Navigate to duplicates page
     await page.goto('/duplicates');
   });
@@ -36,6 +58,13 @@ test.describe('Duplicate Detection Interface', () => {
     // Look for duplicate detection UI
     await expect(page.getByText('Duplicate Detection')).toBeVisible();
     await expect(page.getByText('Find and manage potential duplicate transactions')).toBeVisible();
+  });
+
+  test('should show results when duplicates found', async ({ page }) => {
+    // Wait for the duplicate card to appear
+    await expect(page.locator('.duplicate-card')).toBeVisible();
+    await expect(page.getByText('Grocery Store')).toHaveCount(2); // One for original, one for duplicate
+    await expect(page.getByText('95% Match')).toBeVisible();
   });
 
   test('should have scan settings with period selector', async ({ page }) => {

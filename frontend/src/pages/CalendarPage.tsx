@@ -210,7 +210,7 @@ export default function CalendarPage({ apiBase }: Props) {
                         className="net-value" 
                         style={{ color: getNetColor(dayData.net) }}
                       >
-                        {dayData.net >= 0 ? '+' : ''}{formatCurrency(dayData.net)}
+                        {dayData.net >= 0 ? '+' : '-'}{formatCurrency(dayData.net)}
                       </div>
                       {dayData.transaction_count > 0 && (
                         <span className="tx-count">{dayData.transaction_count} txns</span>
@@ -259,7 +259,7 @@ export default function CalendarPage({ apiBase }: Props) {
                   <div className="detail-row total">
                     <span>Net</span>
                     <span style={{ color: getNetColor(dayData.net) }}>
-                      {dayData.net >= 0 ? '+' : ''}{formatCurrency(dayData.net)}
+                      {dayData.net >= 0 ? '+' : '-'}{formatCurrency(dayData.net)}
                     </span>
                   </div>
                 </div>

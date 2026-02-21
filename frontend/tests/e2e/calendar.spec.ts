@@ -69,5 +69,14 @@ test.describe('Cash Flow Calendar', () => {
   test('should display calendar grid', async ({ page }) => {
     // Should show day numbers
     await expect(page.locator('.calendar-day').first()).toBeVisible();
+
+    // Should show negative net for day 1 (Feb 1st is Sunday, first day of week in grid?)
+    // Note: The grid layout depends on getFirstDayOfMonth. Feb 1 2026 is a Sunday.
+    // So it should be the first cell in the grid if grid starts Sunday.
+    // Let's just find by text.
+    await expect(page.getByText('-₹500')).toBeVisible();
+
+    // Should show positive net for day 2
+    await expect(page.getByText('+₹25,000')).toBeVisible();
   });
 });

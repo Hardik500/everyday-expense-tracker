@@ -2,6 +2,30 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Backup/Restore UI', () => {
   test.beforeEach(async ({ page }) => {
+    // Mock authentication
+    await page.addInitScript(() => {
+      (window as any).supabase = {
+        auth: {
+          getSession: async () => ({ 
+            data: { session: { user: { id: 'test-user' }, access_token: 'mock-token' } }, 
+            error: null 
+          }),
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } }, error: null }),
+        },
+      };
+      localStorage.setItem('auth_token', 'mock-token');
+      localStorage.setItem('auth_user', JSON.stringify({ id: 1, username: 'testuser' }));
+    });
+
+    // Mock auth/me endpoint
+    await page.route('**/auth/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 1, username: 'testuser', gmail_enabled: false }),
+      });
+    });
+
     // Navigate to profile page
     await page.goto('/profile');
   });

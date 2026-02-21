@@ -92,7 +92,7 @@
 
 ### Phase 4 Ideas
 - [ ] **Split Transactions** - Multi-category transactions (backend ready)
-- [ ] **Recurring Expenses UI** - Manage recurring bills
+- [x] **Recurring Expenses UI** - Manage recurring bills ✅ (Implemented)
 - [ ] **Net Worth Tracking** - Assets vs liabilities over time
 - [ ] **Monthly PDF Reports** - Auto-generated spending summaries
 

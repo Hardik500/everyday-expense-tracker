@@ -74,7 +74,7 @@ test.describe('Goals Dashboard', () => {
   });
 
   test('should show progress bars', async ({ page }) => {
-    const progressBars = page.locator('.goal-progress-bar');
+    const progressBars = page.locator('.progress-bar-fill');
     await expect(progressBars).toHaveCount(2);
   });
 
