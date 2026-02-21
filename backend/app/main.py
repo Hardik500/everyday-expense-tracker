@@ -3795,8 +3795,7 @@ def detect_recurring_from_transactions(
     cutoff_date = (datetime.now() - timedelta(days=months_back * 30)).strftime('%Y-%m-%d')
     
     with get_conn() as conn:
-        # Find merchants that appear multiple times with EXPENSES only (negative amounts)
-        # Use simpler query without subquery in WHERE
+        # Simple query - only look at negative amounts (expenses)
         query = """
         SELECT 
             LOWER(TRIM(description_raw)) as merchant,
@@ -3805,28 +3804,21 @@ def detect_recurring_from_transactions(
             COUNT(*) as occurrence_count,
             AVG(ABS(amount)) as avg_amount,
             MIN(ABS(amount)) as min_amount,
-            MAX(ABS(amount)) as max_amount,
-            (MAX(ABS(amount)) - MIN(ABS(amount))) / NULLIF(AVG(ABS(amount)), 0) * 100 as amount_variance_pct
+            MAX(ABS(amount)) as max_amount
         FROM transactions
         WHERE user_id = ? 
           AND posted_at >= ?
           AND amount < 0
           AND description_raw IS NOT NULL
-          AND TRIM(description_raw) != ''
-          AND LOWER(TRIM(description_raw)) NOT LIKE '%cashback%'
-          AND LOWER(TRIM(description_raw)) NOT LIKE '%refund%'
-          AND LOWER(TRIM(description_raw)) NOT LIKE '%credit%'
-          AND LOWER(TRIM(description_raw)) NOT LIKE '%reversal%'
-          AND LOWER(TRIM(description_raw)) NOT LIKE '%transfer%'
-          AND LOWER(TRIM(description_raw)) NOT LIKE '%upi received%'
-          AND LOWER(TRIM(description_raw)) NOT LIKE '%investment%'
-          AND LOWER(TRIM(description_raw)) NOT LIKE '%insurance%'
-          AND LOWER(TRIM(description_raw)) NOT LIKE '%mutual fund%'
-          AND LOWER(TRIM(description_raw)) NOT LIKE '%sip%'
+          AND LENGTH(TRIM(description_raw)) >= 4
+          AND LOWER(description_raw) NOT LIKE '%cashback%'
+          AND LOWER(description_raw) NOT LIKE '%refund%'
+          AND LOWER(description_raw) NOT LIKE '%credit%'
+          AND LOWER(description_raw) NOT LIKE '%transfer%'
         GROUP BY LOWER(TRIM(description_raw)), category_id, subcategory_id
         HAVING COUNT(*) >= ?
-        ORDER BY occurrence_count DESC, avg_amount DESC
-        LIMIT 50
+        ORDER BY occurrence_count DESC
+        LIMIT 30
         """
         
         rows = conn.execute(query, (current_user.id, cutoff_date, min_occurrences)).fetchall()
@@ -3837,19 +3829,6 @@ def detect_recurring_from_transactions(
         for row in rows:
             merchant = row['merchant']
             
-            # Skip if too generic or short
-            if len(merchant) < 4:
-                continue
-            
-            # Skip exclude patterns
-            merchant_lower = merchant.lower()
-            if any(excl in merchant_lower for excl in EXCLUDE_PATTERNS):
-                continue
-            
-            # Skip if too variable amount (not a fixed subscription)
-            if row['amount_variance_pct'] and row['amount_variance_pct'] > 40:
-                continue
-                
             # Skip already-extracted patterns
             if merchant in seen:
                 continue
