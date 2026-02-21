@@ -3781,7 +3781,7 @@ def detect_recurring_from_transactions(
         # Find merchants that appear multiple times with similar amounts
         query = """
         SELECT 
-            description_norm,
+            LOWER(TRIM(description_raw)) as merchant,
             category_id,
             subcategory_id,
             COUNT(*) as occurrence_count,
@@ -3791,11 +3791,11 @@ def detect_recurring_from_transactions(
         FROM transactions
         WHERE user_id = ? 
           AND posted_at >= ?
-          AND description_norm IS NOT NULL
-          AND description_norm != ''
-        GROUP BY description_norm, category_id, subcategory_id
-        HAVING occurrence_count >= ?
-        ORDER BY occurrence_count DESC, avg_amount DESC
+          AND description_raw IS NOT NULL
+          AND TRIM(description_raw) != ''
+        GROUP BY LOWER(TRIM(description_raw)), category_id, subcategory_id
+        HAVING COUNT(*) >= ?
+        ORDER BY COUNT(*) DESC, AVG(amount) DESC
         """
         
         rows = conn.execute(query, (current_user.id, cutoff_date, min_occurrences)).fetchall()
@@ -3804,7 +3804,7 @@ def detect_recurring_from_transactions(
         seen = set()
         
         for row in rows:
-            merchant = row['description_norm']
+            merchant = row['merchant']
             
             # Skip if too generic
             if len(merchant) < 3:
@@ -3819,7 +3819,7 @@ def detect_recurring_from_transactions(
             dates_query = """
             SELECT posted_at, amount
             FROM transactions
-            WHERE user_id = ? AND description_norm = ?
+            WHERE user_id = ? AND LOWER(TRIM(description_raw)) = ?
             ORDER BY posted_at ASC
             """
             txns = conn.execute(dates_query, (current_user.id, merchant)).fetchall()
