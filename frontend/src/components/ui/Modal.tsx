@@ -43,11 +43,11 @@ export function Modal({
   if (!isOpen) return null;
 
   const sizes = {
-    sm: 'max-w-sm',
-    md: 'max-w-md',
-    lg: 'max-w-lg',
-    xl: 'max-w-xl',
-    full: 'max-w-4xl',
+    sm: '400px',
+    md: '500px',
+    lg: '600px',
+    xl: '800px',
+    full: '900px',
   };
 
   const handleOverlayClick = (e: React.MouseEvent) => {
@@ -59,31 +59,69 @@ export function Modal({
   return createPortal(
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={handleOverlayClick}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        backdropFilter: 'blur(4px)',
+      }}
     >
       <div
-        className={`
-          relative w-full ${sizes[size]} 
-          bg-white dark:bg-gray-800 
-          rounded-2xl shadow-2xl
-          transform transition-all duration-200
-          animate-in fade-in zoom-in-95
-        `}
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: sizes[size],
+          maxHeight: '90vh',
+          backgroundColor: 'var(--bg-secondary, #1a1a1a)',
+          borderRadius: '12px',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}
       >
         {(title || showCloseButton) && (
-          <div className="flex items-start justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid var(--border-color, #333)',
+              flexShrink: 0,
+            }}
+          >
             <div>
               {title && (
-                <h2 id="modal-title" className="text-xl font-semibold text-gray-900 dark:text-white">
+                <h2
+                  id="modal-title"
+                  style={{
+                    fontSize: '1.125rem',
+                    fontWeight: 600,
+                    color: 'var(--text-primary, #fff)',
+                    margin: 0,
+                  }}
+                >
                   {title}
                 </h2>
               )}
               {description && (
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                <p
+                  style={{
+                    marginTop: '0.25rem',
+                    fontSize: '0.875rem',
+                    color: 'var(--text-muted, #888)',
+                  }}
+                >
                   {description}
                 </p>
               )}
@@ -91,21 +129,46 @@ export function Modal({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                style={{
+                  padding: '0.5rem',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--text-muted, #888)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
                 aria-label="Close modal"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             )}
           </div>
         )}
-        <div className="p-6">
+        <div
+          style={{
+            padding: '1.5rem',
+            overflowY: 'auto',
+            flex: 1,
+          }}
+        >
           {children}
         </div>
         {footer && (
-          <div className="flex justify-end gap-3 p-6 pt-0">
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '0.75rem',
+              padding: '1rem 1.5rem',
+              borderTop: '1px solid var(--border-color, #333)',
+              flexShrink: 0,
+            }}
+          >
             {footer}
           </div>
         )}
@@ -117,7 +180,7 @@ export function Modal({
 
 export function ModalFooter({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 ${className}`}>
+    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color, #333)' }}>
       {children}
     </div>
   );
