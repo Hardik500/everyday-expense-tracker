@@ -3795,18 +3795,8 @@ def detect_recurring_from_transactions(
     cutoff_date = (datetime.now() - timedelta(days=months_back * 30)).strftime('%Y-%m-%d')
     
     with get_conn() as conn:
-        # First, get income/credit category IDs to exclude
-        income_cat_ids = set()
-        for cat_name in INCOME_CATEGORIES:
-            cat_rows = conn.execute(
-                "SELECT id FROM categories WHERE LOWER(name) LIKE ?",
-                (f'%{cat_name}%',)
-            ).fetchall()
-            for r in cat_rows:
-                income_cat_ids.add(r['id'])
-        
         # Find merchants that appear multiple times with EXPENSES only (negative amounts)
-        # Only consider transactions where amount < 0 (actual expenses)
+        # Use simpler query without subquery in WHERE
         query = """
         SELECT 
             LOWER(TRIM(description_raw)) as merchant,
@@ -3816,19 +3806,27 @@ def detect_recurring_from_transactions(
             AVG(ABS(amount)) as avg_amount,
             MIN(ABS(amount)) as min_amount,
             MAX(ABS(amount)) as max_amount,
-            -- Calculate amount consistency (lower = more consistent)
             (MAX(ABS(amount)) - MIN(ABS(amount))) / NULLIF(AVG(ABS(amount)), 0) * 100 as amount_variance_pct
         FROM transactions
         WHERE user_id = ? 
           AND posted_at >= ?
-          AND amount < 0  -- Only EXPENSES, not credits
+          AND amount < 0
           AND description_raw IS NOT NULL
           AND TRIM(description_raw) != ''
-          AND category_id NOT IN (SELECT id FROM categories WHERE LOWER(name) IN ('income', 'credit', 'refund', 'transfer', 'investment'))
+          AND LOWER(TRIM(description_raw)) NOT LIKE '%cashback%'
+          AND LOWER(TRIM(description_raw)) NOT LIKE '%refund%'
+          AND LOWER(TRIM(description_raw)) NOT LIKE '%credit%'
+          AND LOWER(TRIM(description_raw)) NOT LIKE '%reversal%'
+          AND LOWER(TRIM(description_raw)) NOT LIKE '%transfer%'
+          AND LOWER(TRIM(description_raw)) NOT LIKE '%upi received%'
+          AND LOWER(TRIM(description_raw)) NOT LIKE '%investment%'
+          AND LOWER(TRIM(description_raw)) NOT LIKE '%insurance%'
+          AND LOWER(TRIM(description_raw)) NOT LIKE '%mutual fund%'
+          AND LOWER(TRIM(description_raw)) NOT LIKE '%sip%'
         GROUP BY LOWER(TRIM(description_raw)), category_id, subcategory_id
         HAVING COUNT(*) >= ?
-           AND (MAX(ABS(amount)) - MIN(ABS(amount))) / NULLIF(AVG(ABS(amount)), 0) * 100 < 50  -- Amount variance < 50%
-        ORDER BY COUNT(*) DESC, AVG(ABS(amount)) DESC
+        ORDER BY occurrence_count DESC, avg_amount DESC
+        LIMIT 50
         """
         
         rows = conn.execute(query, (current_user.id, cutoff_date, min_occurrences)).fetchall()

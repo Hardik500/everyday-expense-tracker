@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { fetchWithAuth } from "../../utils/api";
 import { StatCard } from "../dashboard/StatCard";
 import { LoadingOverlay } from "../ui/Loading";
@@ -890,7 +891,7 @@ export function RecurringExpenses({
       </div>
 
       {/* Add Modal */}
-      {showAddModal && (
+      {showAddModal && createPortal(
         <Modal
           title="Add Recurring Expense"
           onClose={() => setShowAddModal(false)}
@@ -933,11 +934,12 @@ export function RecurringExpenses({
             categories={categories}
             subcategories={subcategories}
           />
-        </Modal>
+        </Modal>,
+        document.body
       )}
 
       {/* Edit Modal */}
-      {showEditModal && editingExpense && (
+      {showEditModal && editingExpense && createPortal(
         <Modal
           title="Edit Recurring Expense"
           onClose={() => {
@@ -986,11 +988,12 @@ export function RecurringExpenses({
             categories={categories}
             subcategories={subcategories}
           />
-        </Modal>
+        </Modal>,
+        document.body
       )}
 
       {/* Detect Modal */}
-      {showDetectModal && (
+      {showDetectModal && createPortal(
         <Modal
           title="Detected Recurring Expenses"
           onClose={() => setShowDetectModal(false)}
@@ -1089,7 +1092,8 @@ export function RecurringExpenses({
               ))}
             </div>
           )}
-        </Modal>
+        </Modal>,
+        document.body
       )}
     </div>
   );
