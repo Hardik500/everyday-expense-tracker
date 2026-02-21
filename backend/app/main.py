@@ -3830,9 +3830,15 @@ def detect_recurring_from_transactions(
             # Calculate date intervals to detect frequency
             intervals = []
             for i in range(1, len(txns)):
-                d1 = date.fromisoformat(txns[i-1]['posted_at'])
-                d2 = date.fromisoformat(txns[i]['posted_at'])
-                intervals.append((d2 - d1).days)
+                try:
+                    # Handle various date formats
+                    d1_str = str(txns[i-1]['posted_at'])[:10]
+                    d2_str = str(txns[i]['posted_at'])[:10]
+                    d1 = date.fromisoformat(d1_str)
+                    d2 = date.fromisoformat(d2_str)
+                    intervals.append((d2 - d1).days)
+                except (ValueError, TypeError):
+                    continue
             
             if not intervals:
                 continue
@@ -3840,6 +3846,8 @@ def detect_recurring_from_transactions(
             avg_interval = sum(intervals) / len(intervals)
             
             # Determine frequency
+            frequency = "custom"
+            interval_days = None
             if 27 <= avg_interval <= 33:
                 frequency = "monthly"
                 interval_days = None
@@ -3876,7 +3884,7 @@ def detect_recurring_from_transactions(
                 "suggested_frequency": frequency,
                 "detected_interval_days": interval_days,
                 "avg_interval_days": round(avg_interval, 1),
-                "sample_transaction_dates": [t['posted_at'] for t in txns[-5:]]
+                "sample_transaction_dates": [str(t['posted_at'])[:10] for t in txns[-5:]]
             })
         
         # Limit candidates
