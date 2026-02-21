@@ -9,6 +9,7 @@ interface ModalProps {
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   showCloseButton?: boolean;
+  footer?: React.ReactNode;
 }
 
 export function Modal({
@@ -19,6 +20,7 @@ export function Modal({
   children,
   size = 'md',
   showCloseButton = true,
+  footer,
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -102,6 +104,11 @@ export function Modal({
         <div className="p-6">
           {children}
         </div>
+        {footer && (
+          <div className="flex justify-end gap-3 p-6 pt-0">
+            {footer}
+          </div>
+        )}
       </div>
     </div>,
     document.body
