@@ -136,7 +136,7 @@ export function RecurringExpenses({
   const [stats, setStats] = useState<RecurringStats | null>(null);
   const [candidates, setCandidates] = useState<DetectedCandidate[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<"all" | "upcoming" | "overdue">("all");
+  const [selectedTab, setSelectedTab] = useState<"active" | "paused" | "all">("active");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetectModal, setShowDetectModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -312,6 +312,24 @@ export function RecurringExpenses({
     }
   };
 
+  const toggleActive = async (expense: RecurringExpense) => {
+    try {
+      const res = await fetchWithAuth(
+        `${apiBase}/recurring-expenses/${expense.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ is_active: !expense.is_active }),
+        }
+      );
+      if (res.ok) {
+        fetchExpenses();
+        onRefresh?.();
+      }
+    } catch (err) {
+      console.error("Error toggling expense:", err);
+    }
+  };
+
   // Edit handler
   const startEdit = (expense: RecurringExpense) => {
     setEditingExpense(expense);
@@ -353,11 +371,13 @@ export function RecurringExpenses({
 
   // Filter expenses
   const filteredExpenses = expenses.filter((e) => {
-    const days = getDaysUntil(e.next_due_date);
-    if (selectedTab === "upcoming") return days >= 0 && days <= 7;
-    if (selectedTab === "overdue") return days < 0;
+    if (selectedTab === "active") return e.is_active;
+    if (selectedTab === "paused") return !e.is_active;
     return true;
   });
+
+  const activeCount = expenses.filter(e => e.is_active).length;
+  const pausedCount = expenses.filter(e => !e.is_active).length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -373,54 +393,53 @@ export function RecurringExpenses({
       >
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button
+            onClick={() => setSelectedTab("active")}
+            style={{
+              padding: "0.5rem 1rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background: selectedTab === "active" ? "var(--accent)" : "var(--bg-primary)",
+              color: selectedTab === "active" ? "#fff" : "var(--text-primary)",
+              cursor: "pointer",
+              fontWeight: 500,
+              transition: "all 0.2s",
+              boxShadow: selectedTab === "active" ? "var(--shadow-sm)" : "none",
+            }}
+          >
+            Active ({activeCount})
+          </button>
+          <button
+            onClick={() => setSelectedTab("paused")}
+            style={{
+              padding: "0.5rem 1rem",
+              borderRadius: "0.5rem",
+              border: "none",
+              background:
+                selectedTab === "paused" ? "var(--text-muted)" : "var(--bg-primary)",
+              color: selectedTab === "paused" ? "#fff" : "var(--text-primary)",
+              cursor: "pointer",
+              fontWeight: 500,
+              transition: "all 0.2s",
+              boxShadow: selectedTab === "paused" ? "var(--shadow-sm)" : "none",
+            }}
+          >
+            Paused ({pausedCount})
+          </button>
+          <button
             onClick={() => setSelectedTab("all")}
             style={{
               padding: "0.5rem 1rem",
               borderRadius: "0.5rem",
               border: "none",
-              background: selectedTab === "all" ? "var(--accent)" : "var(--bg-primary)",
-              color: selectedTab === "all" ? "#fff" : "var(--text-primary)",
+              background:
+                selectedTab === "all" ? "var(--border-color)" : "var(--bg-primary)",
+              color: selectedTab === "all" ? "var(--text-primary)" : "var(--text-secondary)",
               cursor: "pointer",
               fontWeight: 500,
               transition: "all 0.2s",
-              boxShadow: selectedTab === "all" ? "var(--shadow-sm)" : "none",
             }}
           >
             All
-          </button>
-          <button
-            onClick={() => setSelectedTab("upcoming")}
-            style={{
-              padding: "0.5rem 1rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background:
-                selectedTab === "upcoming" ? "var(--accent)" : "var(--bg-primary)",
-              color: selectedTab === "upcoming" ? "#fff" : "var(--text-primary)",
-              cursor: "pointer",
-              fontWeight: 500,
-              transition: "all 0.2s",
-              boxShadow: selectedTab === "upcoming" ? "var(--shadow-sm)" : "none",
-            }}
-          >
-            This Week
-          </button>
-          <button
-            onClick={() => setSelectedTab("overdue")}
-            style={{
-              padding: "0.5rem 1rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background:
-                selectedTab === "overdue" ? "var(--danger)" : "var(--bg-primary)",
-              color: selectedTab === "overdue" ? "#fff" : "var(--text-primary)",
-              cursor: "pointer",
-              fontWeight: 500,
-              transition: "all 0.2s",
-              boxShadow: selectedTab === "overdue" ? "var(--shadow-sm)" : "none",
-            }}
-          >
-            Overdue {stats?.overdue_count ? `(${stats.overdue_count})` : ""}
           </button>
         </div>
 
@@ -489,7 +508,7 @@ export function RecurringExpenses({
           }}
         >
           <StatCard
-            title="Active Recurring"
+            title="Active"
             value={stats.total_active}
             icon={
               <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -497,11 +516,11 @@ export function RecurringExpenses({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
             }
-            color="var(--accent)"
+            color="var(--success)"
           />
           <StatCard
             title="Monthly Total"
@@ -516,8 +535,25 @@ export function RecurringExpenses({
                 />
               </svg>
             }
-            color="var(--success)"
+            color="var(--accent)"
           />
+          {pausedCount > 0 && (
+            <StatCard
+              title="Paused"
+              value={pausedCount}
+              icon={
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              }
+              color="var(--text-muted)"
+            />
+          )}
           {stats.upcoming_count > 0 && (
             <StatCard
               title="Due This Week"
@@ -533,23 +569,6 @@ export function RecurringExpenses({
                 </svg>
               }
               color="var(--warning)"
-            />
-          )}
-          {stats.overdue_count > 0 && (
-            <StatCard
-              title="Overdue"
-              value={stats.overdue_count}
-              icon={
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              }
-              color="var(--danger)"
             />
           )}
         </div>
@@ -689,6 +708,18 @@ export function RecurringExpenses({
                           Auto
                         </span>
                       )}
+                      <span
+                        style={{
+                          fontSize: "0.625rem",
+                          padding: "0.125rem 0.375rem",
+                          borderRadius: 4,
+                          background: expense.is_active ? "rgba(16, 185, 129, 0.15)" : "rgba(107, 114, 128, 0.15)",
+                          color: expense.is_active ? "var(--success)" : "var(--text-muted)",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {expense.is_active ? "Active" : "Paused"}
+                      </span>
                     </div>
                     <div
                       style={{
@@ -798,6 +829,30 @@ export function RecurringExpenses({
                           d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                         />
                       </svg>
+                    </button>
+                    <button
+                      onClick={() => toggleActive(expense)}
+                      title={expense.is_active ? "Pause" : "Resume"}
+                      style={{
+                        padding: "0.5rem",
+                        borderRadius: "0.375rem",
+                        border: "none",
+                        background: expense.is_active ? "var(--warning-lighter, #fef3c7)" : "var(--success-lighter, #dcfce7)",
+                        color: expense.is_active ? "var(--warning)" : "var(--success)",
+                        cursor: "pointer",
+                        fontSize: "0.75rem",
+                      }}
+                    >
+                      {expense.is_active ? (
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
                     </button>
                     <button
                       onClick={() => deleteRecurring(expense.id)}
