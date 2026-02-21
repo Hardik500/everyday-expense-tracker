@@ -3775,27 +3775,60 @@ def detect_recurring_from_transactions(
     """Auto-detect potential recurring expenses from transaction history using pattern matching."""
     from datetime import datetime, timedelta
     
+    # Patterns to EXCLUDE (not real expenses)
+    EXCLUDE_PATTERNS = [
+        'cashback', 'refund', 'reversal', 'credit', 'reimbursement',
+        'payment received', 'upi transfer', 'bank transfer', 'neft',
+        'imps', 'rtgs', 'internal transfer', 'own account',
+        'wallet load', 'wallet topup', 'amazon pay', 'phonepe wallet',
+        'paytm wallet', 'freecharge', 'mobikwik',
+        'rewards', 'points redemption', 'loyalty',
+        'interest credit', 'dividend', 'yield',
+        'salary', 'income', 'dividend', 'bonus',
+        'repayment', 'principal', 'emi paid', 'loan',
+        'reversal', 'failed', 'declined', 'rejected'
+    ]
+    
+    # Category names that indicate credits/income (to exclude)
+    INCOME_CATEGORIES = ['income', 'credit', 'refund', 'transfer', 'investment', 'returns', 'profit']
+    
     cutoff_date = (datetime.now() - timedelta(days=months_back * 30)).strftime('%Y-%m-%d')
     
     with get_conn() as conn:
-        # Find merchants that appear multiple times with similar amounts
+        # First, get income/credit category IDs to exclude
+        income_cat_ids = set()
+        for cat_name in INCOME_CATEGORIES:
+            cat_rows = conn.execute(
+                "SELECT id FROM categories WHERE LOWER(name) LIKE ?",
+                (f'%{cat_name}%',)
+            ).fetchall()
+            for r in cat_rows:
+                income_cat_ids.add(r['id'])
+        
+        # Find merchants that appear multiple times with EXPENSES only (negative amounts)
+        # Only consider transactions where amount < 0 (actual expenses)
         query = """
         SELECT 
             LOWER(TRIM(description_raw)) as merchant,
             category_id,
             subcategory_id,
             COUNT(*) as occurrence_count,
-            AVG(amount) as avg_amount,
-            MIN(amount) as min_amount,
-            MAX(amount) as max_amount
+            AVG(ABS(amount)) as avg_amount,
+            MIN(ABS(amount)) as min_amount,
+            MAX(ABS(amount)) as max_amount,
+            -- Calculate amount consistency (lower = more consistent)
+            (MAX(ABS(amount)) - MIN(ABS(amount))) / NULLIF(AVG(ABS(amount)), 0) * 100 as amount_variance_pct
         FROM transactions
         WHERE user_id = ? 
           AND posted_at >= ?
+          AND amount < 0  -- Only EXPENSES, not credits
           AND description_raw IS NOT NULL
           AND TRIM(description_raw) != ''
+          AND category_id NOT IN (SELECT id FROM categories WHERE LOWER(name) IN ('income', 'credit', 'refund', 'transfer', 'investment'))
         GROUP BY LOWER(TRIM(description_raw)), category_id, subcategory_id
         HAVING COUNT(*) >= ?
-        ORDER BY COUNT(*) DESC, AVG(amount) DESC
+           AND (MAX(ABS(amount)) - MIN(ABS(amount))) / NULLIF(AVG(ABS(amount)), 0) * 100 < 50  -- Amount variance < 50%
+        ORDER BY COUNT(*) DESC, AVG(ABS(amount)) DESC
         """
         
         rows = conn.execute(query, (current_user.id, cutoff_date, min_occurrences)).fetchall()
@@ -3806,8 +3839,17 @@ def detect_recurring_from_transactions(
         for row in rows:
             merchant = row['merchant']
             
-            # Skip if too generic
-            if len(merchant) < 3:
+            # Skip if too generic or short
+            if len(merchant) < 4:
+                continue
+            
+            # Skip exclude patterns
+            merchant_lower = merchant.lower()
+            if any(excl in merchant_lower for excl in EXCLUDE_PATTERNS):
+                continue
+            
+            # Skip if too variable amount (not a fixed subscription)
+            if row['amount_variance_pct'] and row['amount_variance_pct'] > 40:
                 continue
                 
             # Skip already-extracted patterns
@@ -3815,11 +3857,13 @@ def detect_recurring_from_transactions(
                 continue
             seen.add(merchant)
             
-            # Get actual dates for pattern analysis
+            # Get actual dates and amounts for pattern analysis
             dates_query = """
             SELECT posted_at, amount
             FROM transactions
-            WHERE user_id = ? AND LOWER(TRIM(description_raw)) = ?
+            WHERE user_id = ? 
+              AND LOWER(TRIM(description_raw)) = ?
+              AND amount < 0
             ORDER BY posted_at ASC
             """
             txns = conn.execute(dates_query, (current_user.id, merchant)).fetchall()
@@ -3831,12 +3875,13 @@ def detect_recurring_from_transactions(
             intervals = []
             for i in range(1, len(txns)):
                 try:
-                    # Handle various date formats
                     d1_str = str(txns[i-1]['posted_at'])[:10]
                     d2_str = str(txns[i]['posted_at'])[:10]
                     d1 = date.fromisoformat(d1_str)
                     d2 = date.fromisoformat(d2_str)
-                    intervals.append((d2 - d1).days)
+                    days_diff = (d2 - d1).days
+                    if days_diff > 0:
+                        intervals.append(days_diff)
                 except (ValueError, TypeError):
                     continue
             
@@ -3850,19 +3895,19 @@ def detect_recurring_from_transactions(
             interval_days = None
             if 27 <= avg_interval <= 33:
                 frequency = "monthly"
-                interval_days = None
             elif 6 <= avg_interval <= 8:
                 frequency = "weekly"
-                interval_days = None
+            elif 13 <= avg_interval <= 15:
+                frequency = "biweekly"
             elif 85 <= avg_interval <= 95:
                 frequency = "quarterly"
-                interval_days = None
-            elif 360 <= avg_interval <= 370:
+            elif 178 <= avg_interval <= 185:
+                frequency = "biannual"
+            elif 355 <= avg_interval <= 375:
                 frequency = "yearly"
-                interval_days = None
             else:
-                frequency = "custom"
                 interval_days = int(avg_interval)
+                frequency = "custom"
             
             # Get category name
             cat_name = None
@@ -3872,6 +3917,10 @@ def detect_recurring_from_transactions(
                     (row['category_id'],)
                 ).fetchone()
                 cat_name = cat_row['name'] if cat_row else None
+            
+            # Skip if category is investment/insurance (we handle those separately)
+            if cat_name and any(cat_name.lower() == cat for cat in ['investment', 'investments', 'insurance', 'mutual fund', 'sip', 'stocks', 'fds', 'fixed deposit']):
+                continue
             
             candidates.append({
                 "merchant": merchant,
