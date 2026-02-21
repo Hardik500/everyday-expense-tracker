@@ -3772,84 +3772,61 @@ def detect_recurring_from_transactions(
     min_occurrences: int = 3,
     current_user: schemas.User = Depends(get_current_user)
 ) -> List[dict]:
-    """Auto-detect potential recurring expenses from transaction history using pattern matching."""
-    from datetime import datetime, timedelta
+    """Auto-detect potential recurring expenses from transaction history."""
+    from datetime import timedelta
     
-    # Patterns to EXCLUDE (not real expenses)
-    EXCLUDE_PATTERNS = [
-        'cashback', 'refund', 'reversal', 'credit', 'reimbursement',
-        'payment received', 'upi transfer', 'bank transfer', 'neft',
-        'imps', 'rtgs', 'internal transfer', 'own account',
-        'wallet load', 'wallet topup', 'amazon pay', 'phonepe wallet',
-        'paytm wallet', 'freecharge', 'mobikwik',
-        'rewards', 'points redemption', 'loyalty',
-        'interest credit', 'dividend', 'yield',
-        'salary', 'income', 'dividend', 'bonus',
-        'repayment', 'principal', 'emi paid', 'loan',
-        'reversal', 'failed', 'declined', 'rejected'
-    ]
-    
-    # Category names that indicate credits/income (to exclude)
-    INCOME_CATEGORIES = ['income', 'credit', 'refund', 'transfer', 'investment', 'returns', 'profit']
-    
-    cutoff_date = (datetime.now() - timedelta(days=months_back * 30)).strftime('%Y-%m-%d')
-    
-    with get_conn() as conn:
-        # Simple query - only look at negative amounts (expenses)
-        query = """
-        SELECT 
-            LOWER(TRIM(description_raw)) as merchant,
-            category_id,
-            subcategory_id,
-            COUNT(*) as occurrence_count,
-            AVG(ABS(amount)) as avg_amount,
-            MIN(ABS(amount)) as min_amount,
-            MAX(ABS(amount)) as max_amount
-        FROM transactions
-        WHERE user_id = ? 
-          AND posted_at >= ?
-          AND amount < 0
-          AND description_raw IS NOT NULL
-          AND LENGTH(TRIM(description_raw)) >= 4
-          AND LOWER(description_raw) NOT LIKE '%cashback%'
-          AND LOWER(description_raw) NOT LIKE '%refund%'
-          AND LOWER(description_raw) NOT LIKE '%credit%'
-          AND LOWER(description_raw) NOT LIKE '%transfer%'
-        GROUP BY LOWER(TRIM(description_raw)), category_id, subcategory_id
-        HAVING COUNT(*) >= ?
-        ORDER BY occurrence_count DESC
-        LIMIT 30
-        """
+    try:
+        cutoff_date = (datetime.now() - timedelta(days=months_back * 30)).strftime('%Y-%m-%d')
         
-        rows = conn.execute(query, (current_user.id, cutoff_date, min_occurrences)).fetchall()
-        
-        candidates = []
-        seen = set()
-        
-        for row in rows:
-            merchant = row['merchant']
-            
-            # Skip already-extracted patterns
-            if merchant in seen:
-                continue
-            seen.add(merchant)
-            
-            # Get actual dates and amounts for pattern analysis
-            dates_query = """
-            SELECT posted_at, amount
+        with get_conn() as conn:
+            # Very simple query
+            query = """
+            SELECT 
+                LOWER(TRIM(description_raw)) as merchant,
+                category_id,
+                subcategory_id,
+                COUNT(*) as cnt,
+                AVG(ABS(amount)) as avg_amt
             FROM transactions
-            WHERE user_id = ? 
-              AND LOWER(TRIM(description_raw)) = ?
+            WHERE user_id = %s 
+              AND posted_at >= %s
               AND amount < 0
-            ORDER BY posted_at ASC
+              AND description_raw IS NOT NULL
+            GROUP BY 1, 2, 3
+            HAVING COUNT(*) >= %s
+            ORDER BY cnt DESC
+            LIMIT 20
             """
-            txns = conn.execute(dates_query, (current_user.id, merchant)).fetchall()
             
-            if len(txns) < min_occurrences:
-                continue
+            rows = conn.execute(query, (current_user.id, cutoff_date, min_occurrences)).fetchall()
             
-            # Calculate date intervals to detect frequency
-            intervals = []
+            candidates = []
+            seen = set()
+            
+            for row in rows:
+                merchant = row['merchant']
+                if not merchant or len(merchant) < 4:
+                    continue
+                if merchant in seen:
+                    continue
+                seen.add(merchant)
+                
+                candidates.append({
+                    "merchant": merchant,
+                    "category_id": row['category_id'],
+                    "subcategory_id": row['subcategory_id'],
+                    "occurrence_count": row['cnt'],
+                    "suggested_amount": round(row['avg_amt'], 2),
+                    "suggested_frequency": "monthly",
+                })
+            
+            return candidates
+            
+    except Exception as e:
+        import traceback
+        print(f"ERROR in detect_recurring: {e}")
+        traceback.print_exc()
+        raise
             for i in range(1, len(txns)):
                 try:
                     d1_str = str(txns[i-1]['posted_at'])[:10]
