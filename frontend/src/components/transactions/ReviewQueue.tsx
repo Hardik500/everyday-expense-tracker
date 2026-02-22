@@ -4,6 +4,7 @@ import type { Category, Subcategory, Transaction } from "../types";
 import AISuggestions from "./AISuggestions";
 import SubcategorySearch from "../categories/SubcategorySearch";
 import { useToast } from "../common/Toast";
+import { PageLoading } from "../ui/Loading";
 
 type Props = {
   apiBase: string;
@@ -49,6 +50,7 @@ function ReviewQueue({
   onUpdated,
 }: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<Record<number, string>>({});
   const [subcategory, setSubcategory] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState<Record<number, boolean>>({});
@@ -82,12 +84,14 @@ function ReviewQueue({
   }, [apiBase]);
 
   useEffect(() => {
+    setLoading(true);
     fetchWithAuth(`${apiBase}/transactions?uncertain=true`)
       .then((res) => res.json())
       .then((data) => {
         setTransactions(data);
       })
-      .catch(() => setTransactions([]));
+      .catch(() => setTransactions([]))
+      .finally(() => setLoading(false));
   }, [apiBase, refreshKey]);
 
   // Fetch similar transactions only for visible items
@@ -354,6 +358,9 @@ function ReviewQueue({
   };
 
 
+  if (loading) {
+    return <PageLoading text="Loading transactions..." />;
+  }
 
   if (transactions.length === 0) {
     return (
