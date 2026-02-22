@@ -21,7 +21,6 @@ import { usePullToRefresh } from "./hooks/usePullToRefresh";
 // Lazy load pages for better performance
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
-const CardsPage = lazy(() => import("./pages/CardsPage"));
 const AccountsPage = lazy(() => import("./pages/AccountsPage"));
 const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
 const RulesPage = lazy(() => import("./pages/RulesPage"));
@@ -31,7 +30,6 @@ const ReviewPage = lazy(() => import("./pages/ReviewPage"));
 const TransactionsPage = lazy(() => import("./pages/TransactionsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const GoalsPage = lazy(() => import("./pages/GoalsPage"));
-const DuplicatesPage = lazy(() => import("./pages/DuplicatesPage"));
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 
 // Auth pages
@@ -203,13 +201,7 @@ function AppContent() {
           />
           <Route
             path="/cards"
-            element={
-              <CardsPage
-                apiBase={API_BASE}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
-              />
-            }
+            element={<Navigate to="/accounts" replace />}
           />
           <Route
             path="/accounts"
@@ -301,7 +293,7 @@ function AppContent() {
           />
           <Route
             path="/duplicates"
-            element={<DuplicatesPage apiBase={API_BASE} />}
+            element={<Navigate to="/review" replace />}
           />
           <Route
             path="/calendar"

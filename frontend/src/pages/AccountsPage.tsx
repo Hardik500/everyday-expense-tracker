@@ -1,4 +1,5 @@
 import AccountManager from "../components/accounts/AccountManager";
+import Cards from "../components/accounts/Cards";
 import PageHeader from "../components/layout/PageHeader";
 
 type Props = {
@@ -15,6 +16,7 @@ export default function AccountsPage({ apiBase, refreshKey, onRefresh }: Props) 
         description="Manage your bank accounts, credit cards, and cash wallets"
       />
       <AccountManager apiBase={apiBase} refreshKey={refreshKey} onRefresh={onRefresh} />
+      <Cards apiBase={apiBase} refreshKey={refreshKey} onRefresh={onRefresh} />
     </div>
   );
 }

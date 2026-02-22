@@ -1,4 +1,5 @@
 import ReviewQueue from "../components/transactions/ReviewQueue";
+import DuplicateDetection from "../components/transactions/DuplicateDetection";
 import PageHeader from "../components/layout/PageHeader";
 import type { Category, Subcategory } from "../types";
 
@@ -32,6 +33,7 @@ export default function ReviewPage({
         refreshKey={refreshKey}
         onUpdated={onUpdated}
       />
+      <DuplicateDetection apiBase={apiBase} onRefresh={onUpdated} />
     </div>
   );
 }
