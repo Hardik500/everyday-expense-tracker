@@ -67,59 +67,18 @@ class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div
-          style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1.5rem',
-            background: 'var(--bg-primary)',
-          }}
-        >
-          <div
-            style={{
-              maxWidth: 480,
-              width: '100%',
-              textAlign: 'center',
-              padding: '2.5rem',
-              background: 'var(--bg-card)',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--border-color)',
-              boxShadow: 'var(--shadow-lg)',
-              animation: 'pageScaleIn 0.3s ease',
-            }}
-          >
+        <div className="min-h-screen flex items-center justify-center p-6 bg-bg-primary">
+          <div className="max-w-[480px] w-full text-center p-10 bg-bg-card rounded-xl border border-border-color shadow-lg animate-page-scale-in">
             {/* Animated Error Icon */}
-            <div
-              style={{
-                width: 80,
-                height: 80,
-                borderRadius: '50%',
-                background: 'rgba(239, 68, 68, 0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 1.5rem',
-                position: 'relative',
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  borderRadius: '50%',
-                  border: '2px solid rgba(239, 68, 68, 0.3)',
-                  animation: 'pulse 2s ease-in-out infinite',
-                }}
-              />
+            <div className="w-20 h-20 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-6 relative">
+              <div className="absolute inset-0 rounded-full border-2 border-red-500/30 animate-pulse" />
               <svg
                 width="40"
                 height="40"
                 fill="none"
                 stroke="#ef4444"
                 viewBox="0 0 24 24"
-                style={{ animation: 'shake 0.5s ease' }}
+                className="animate-shake"
               >
                 <path
                   strokeLinecap="round"
@@ -130,63 +89,22 @@ class ErrorBoundary extends Component<Props, State> {
               </svg>
             </div>
 
-            <h1
-              style={{
-                fontSize: '1.5rem',
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                marginBottom: '0.75rem',
-              }}
-            >
+            <h1 className="text-2xl font-semibold text-text-primary mb-3">
               Something went wrong
             </h1>
 
-            <p
-              style={{
-                fontSize: '0.9375rem',
-                color: 'var(--text-secondary)',
-                marginBottom: '1.5rem',
-                lineHeight: 1.6,
-              }}
-            >
+            <p className="text-[0.9375rem] text-text-secondary mb-6 leading-relaxed">
               We encountered an unexpected error. Don't worry, your data is safe.
               Try refreshing the page or go back to the dashboard.
             </p>
 
             {/* Error details (collapsible in production) */}
             {process.env.NODE_ENV === 'development' && this.state.error && (
-              <details
-                style={{
-                  marginBottom: '1.5rem',
-                  textAlign: 'left',
-                  background: 'var(--bg-input)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '1rem',
-                }}
-              >
-                <summary
-                  style={{
-                    fontSize: '0.8125rem',
-                    fontWeight: 500,
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                  }}
-                >
+              <details className="mb-6 text-left bg-bg-input rounded-lg p-4">
+                <summary className="text-sm font-medium text-text-muted cursor-pointer select-none">
                   Error Details
                 </summary>
-                <pre
-                  style={{
-                    marginTop: '1rem',
-                    fontSize: '0.75rem',
-                    color: '#ef4444',
-                    fontFamily: 'var(--font-mono)',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    maxHeight: 200,
-                    overflow: 'auto',
-                  }}
-                >
+                <pre className="mt-4 text-xs text-red-500 font-mono whitespace-pre-wrap break-all max-h-[200px] overflow-auto">
                   {this.state.error.message}
                   {'\n\n'}
                   {this.state.errorInfo?.componentStack}
@@ -195,18 +113,10 @@ class ErrorBoundary extends Component<Props, State> {
             )}
 
             {/* Action Buttons */}
-            <div
-              style={{
-                display: 'flex',
-                gap: '0.75rem',
-                justifyContent: 'center',
-                flexWrap: 'wrap',
-              }}
-            >
+            <div className="flex gap-3 justify-center flex-wrap">
               <button
                 onClick={this.handleReload}
-                className="primary"
-                style={{ minWidth: 120 }}
+                className="primary min-w-[120px]"
               >
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -220,8 +130,7 @@ class ErrorBoundary extends Component<Props, State> {
               </button>
               <button
                 onClick={this.handleGoHome}
-                className="secondary"
-                style={{ minWidth: 120 }}
+                className="secondary min-w-[120px]"
               >
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -237,28 +146,13 @@ class ErrorBoundary extends Component<Props, State> {
 
             <button
               onClick={this.handleClearAndRetry}
-              style={{
-                marginTop: '1rem',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                fontSize: '0.8125rem',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                padding: '0.5rem',
-              }}
+              className="mt-4 bg-transparent border-none text-text-muted text-sm cursor-pointer underline p-2 hover:text-text-primary transition-colors"
             >
               Clear cache and retry
             </button>
 
             {/* Support message */}
-            <p
-              style={{
-                marginTop: '1.5rem',
-                fontSize: '0.75rem',
-                color: 'var(--text-muted)',
-              }}
-            >
+            <p className="mt-6 text-xs text-text-muted">
               If this error persists, please contact support with the error details.
             </p>
           </div>
@@ -268,6 +162,9 @@ class ErrorBoundary extends Component<Props, State> {
               0%, 100% { transform: translateX(0); }
               25% { transform: translateX(-5px); }
               75% { transform: translateX(5px); }
+            }
+            .animate-shake {
+              animation: shake 0.5s ease;
             }
           `}</style>
         </div>

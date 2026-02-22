@@ -49,15 +49,7 @@ function Select<T extends string | number = string | number>({ value, onChange, 
             style={{ minWidth: 150, position: "relative", ...style }}
         >
             {label && (
-                <label
-                    style={{
-                        display: "block",
-                        fontSize: "0.8125rem",
-                        color: "var(--text-muted)",
-                        marginBottom: "0.375rem",
-                        fontWeight: 500,
-                    }}
-                >
+                <label className="block text-sm text-text-muted mb-1 font-medium">
                     {label}
                 </label>
             )}
@@ -65,37 +57,22 @@ function Select<T extends string | number = string | number>({ value, onChange, 
             {/* Trigger */}
             <div
                 onClick={toggleOpen}
-                style={{
-                    padding: "0.5rem 0.75rem",
-                    background: "var(--bg-input)",
-                    border: `1px solid ${isOpen ? "var(--accent)" : "var(--border-color)"}`,
-                    borderRadius: "var(--radius-md)",
-                    fontSize: "0.875rem",
-                    color: selectedOption ? "var(--text-primary)" : "var(--text-muted)",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    transition: "all 0.2s ease",
-                    boxShadow: isOpen ? "0 0 0 2px rgba(99, 102, 241, 0.2)" : "none",
-                    userSelect: "none",
-                }}
+                className={`px-3 py-2 bg-bg-input border rounded-lg text-sm cursor-pointer flex items-center justify-between transition-all duration-200 ${
+                    isOpen
+                        ? "border-accent shadow-[0_0_0_2px_rgba(99,102,241,0.2)]"
+                        : "border-border-color hover:border-accent/50"
+                } ${selectedOption ? "text-text-primary" : "text-text-muted"}`}
             >
-                <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <span className="whitespace-nowrap overflow-hidden text-ellipsis">
                     {selectedOption ? selectedOption.label : placeholder}
                 </span>
                 <svg
                     width="16"
                     height="16"
                     fill="none"
-                    stroke="var(--text-muted)"
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
-                    style={{
-                        transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-                        transition: "transform 0.2s ease",
-                        marginLeft: "0.5rem",
-                        flexShrink: 0,
-                    }}
+                    className={`ml-2 flex-shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
                 >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -103,44 +80,17 @@ function Select<T extends string | number = string | number>({ value, onChange, 
 
             {/* Dropdown Menu */}
             {isOpen && (
-                <div
-                    style={{
-                        position: "absolute",
-                        top: "calc(100% + 4px)",
-                        left: 0,
-                        right: 0,
-                        background: "var(--bg-card)",
-                        border: "1px solid var(--border-color)",
-                        borderRadius: "var(--radius-md)",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-                        zIndex: 100,
-                        maxHeight: 250,
-                        overflowY: "auto",
-                        animation: "fadeIn 0.1s ease",
-                    }}
-                >
+                <div className="absolute top-full left-0 right-0 bg-bg-card border border-border-color rounded-lg shadow-lg z-[100] max-h-[250px] overflow-y-auto animate-fade-in">
                     {options.length > 0 ? (
                         options.map((option) => (
                             <div
                                 key={option.value}
                                 onClick={() => handleOptionClick(option.value)}
-                                style={{
-                                    padding: "0.625rem 0.75rem",
-                                    fontSize: "0.875rem",
-                                    color: option.value === value ? "var(--accent)" : "var(--text-primary)",
-                                    background: option.value === value ? "var(--accent-glow)" : "transparent",
-                                    cursor: "pointer",
-                                    transition: "background 0.1s",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                }}
-                                onMouseEnter={(e) => {
-                                    if (option.value !== value) e.currentTarget.style.background = "var(--bg-hover)";
-                                }}
-                                onMouseLeave={(e) => {
-                                    if (option.value !== value) e.currentTarget.style.background = "transparent";
-                                }}
+                                className={`px-3 py-2.5 text-sm cursor-pointer transition-colors duration-100 flex items-center justify-between ${
+                                    option.value === value
+                                        ? "text-accent bg-accent/10"
+                                        : "text-text-primary hover:bg-bg-hover"
+                                }`}
                             >
                                 {option.label}
                                 {option.value === value && (
@@ -151,7 +101,7 @@ function Select<T extends string | number = string | number>({ value, onChange, 
                             </div>
                         ))
                     ) : (
-                        <div style={{ padding: "0.75rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.875rem" }}>
+                        <div className="p-3 text-center text-text-muted text-sm">
                             No options
                         </div>
                     )}

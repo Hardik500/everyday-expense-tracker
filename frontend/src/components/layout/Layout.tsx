@@ -18,17 +18,9 @@ type LayoutProps = {
 
 const NavIcon = ({ active, children }: { active: boolean; children: ReactNode }) => (
   <div
-    style={{
-      width: 40,
-      height: 40,
-      borderRadius: 10,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      background: active ? "var(--accent)" : "transparent",
-      color: active ? "#fff" : "var(--text-muted)",
-      transition: "all var(--transition-fast)",
-    }}
+    className={`w-10 h-10 rounded-[10px] flex items-center justify-center transition-all duration-150 ${
+      active ? "bg-accent text-white" : "bg-transparent text-text-muted"
+    }`}
   >
     {children}
   </div>
@@ -165,37 +157,14 @@ export default function Layout({ reviewCount = 0, user, onLogout, children }: La
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
+    <div className="flex min-h-screen">
       {/* Sidebar */}
       <aside
-        style={{
-          width: 72,
-          background: "var(--bg-secondary)",
-          borderRight: "1px solid var(--border-color)",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          padding: "1.5rem 0",
-          position: "fixed",
-          top: 0,
-          left: 0,
-          bottom: 0,
-          zIndex: 50,
-        }}
+        className="w-[72px] bg-bg-secondary border-r border-border-color flex flex-col items-center py-6 fixed top-0 left-0 bottom-0 z-50"
       >
         {/* Logo */}
         <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: "linear-gradient(135deg, var(--accent) 0%, #059669 100%)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: "2rem",
-            boxShadow: "var(--shadow-glow)",
-          }}
+          className="w-11 h-11 rounded-xl bg-gradient-to-br from-accent to-emerald-500 flex items-center justify-center mb-8 shadow-[0_0_20px_rgba(99,102,241,0.3)]"
         >
           <svg width="24" height="24" fill="none" stroke="#fff" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -203,41 +172,20 @@ export default function Layout({ reviewCount = 0, user, onLogout, children }: La
         </div>
 
         {/* Nav items */}
-        <nav style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <nav className="flex flex-col gap-2">
           {navItems.map((item) => (
             <button
               key={item.id}
               onClick={() => handleNavClick(item.id)}
-              style={{
-                background: "transparent",
-                border: "none",
-                padding: 0,
-                cursor: activeTab === item.id ? "default" : "pointer",
-                position: "relative",
-                opacity: activeTab === item.id ? 1 : 0.7,
-              }}
+              className={`bg-transparent border-none p-0 relative transition-opacity ${
+                activeTab === item.id ? "cursor-default opacity-100" : "cursor-pointer opacity-70 hover:opacity-100"
+              }`}
               title={item.label}
             >
               <NavIcon active={activeTab === item.id}>{item.icon}</NavIcon>
               {item.id === "review" && reviewCount > 0 && (
                 <span
-                  style={{
-                    position: "absolute",
-                    top: -4,
-                    right: -4,
-                    minWidth: 18,
-                    height: 18,
-                    padding: "0 4px",
-                    borderRadius: 9,
-                    background: "var(--danger)",
-                    color: "#fff",
-                    fontSize: 10,
-                    fontWeight: 600,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    border: "2px solid var(--bg-secondary)",
-                  }}
+                  className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[10px] font-semibold flex items-center justify-center border-2 border-bg-secondary"
                 >
                   {reviewCount > 99 ? "99+" : reviewCount}
                 </span>
@@ -247,32 +195,15 @@ export default function Layout({ reviewCount = 0, user, onLogout, children }: La
         </nav>
 
         {/* User Info & Logout */}
-        <div style={{
-          marginTop: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 12
-        }}>
+        <div className="mt-auto flex flex-col items-center gap-3">
           <button
             onClick={() => navigate("/profile")}
             title={user?.full_name || user?.username || "Profile"}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              background: 'var(--bg-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: activeTab === "profile" ? '2px solid var(--accent)' : '1px solid var(--border-color)',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              color: 'var(--accent)',
-              cursor: 'pointer',
-              padding: 0,
-              transition: 'all var(--transition-fast)'
-            }}
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
+              activeTab === "profile"
+                ? "bg-bg-primary border-2 border-accent text-accent"
+                : "bg-bg-primary border border-border-color text-accent"
+            }`}
           >
             {(user?.full_name || user?.username || "?")?.[0].toUpperCase()}
           </button>
@@ -280,17 +211,7 @@ export default function Layout({ reviewCount = 0, user, onLogout, children }: La
             <button
               onClick={onLogout}
               title="Logout"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                padding: 8,
-                borderRadius: 8,
-                transition: 'all 0.2s'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.color = 'var(--danger)'}
-              onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+              className="bg-transparent border-none text-text-muted cursor-pointer p-2 rounded-lg hover:text-danger transition-colors"
             >
               <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -302,14 +223,7 @@ export default function Layout({ reviewCount = 0, user, onLogout, children }: La
 
       {/* Main content */}
       <main
-        style={{
-          marginLeft: 72,
-          flex: 1,
-          padding: "2rem 2.5rem",
-          overflowY: "auto",
-          height: "100vh",
-          position: "relative",
-        }}
+        className="ml-[72px] flex-1 p-8 overflow-y-auto h-screen relative"
       >
         {children}
       </main>

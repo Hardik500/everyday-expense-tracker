@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
@@ -62,29 +63,21 @@ function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () =>
 
   return (
     <div
+      className={`flex items-start gap-3 p-5 rounded-lg shadow-lg animate-slide-in min-w-[280px] max-w-[400px] ${isExiting ? "animate-slide-out" : ""}`}
       style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: "0.75rem",
-        padding: "1rem 1.25rem",
         background: color.bg,
         borderLeft: `4px solid ${color.border}`,
-        borderRadius: "var(--radius-md)",
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
-        animation: isExiting ? "slideOut 0.3s ease forwards" : "slideIn 0.3s ease",
-        minWidth: 280,
-        maxWidth: 400,
       }}
     >
-      <div style={{ color: color.icon, flexShrink: 0, marginTop: 2 }}>
+      <div className="shrink-0 mt-0.5" style={{ color: color.icon }}>
         {icons[toast.type]}
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--text-primary)" }}>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-sm text-text-primary">
           {toast.title}
         </div>
         {toast.message && (
-          <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+          <div className="text-[0.8125rem] text-text-muted mt-1">
             {toast.message}
           </div>
         )}
@@ -94,15 +87,7 @@ function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () =>
           setIsExiting(true);
           setTimeout(onDismiss, 300);
         }}
-        style={{
-          background: "transparent",
-          border: "none",
-          color: "var(--text-muted)",
-          cursor: "pointer",
-          padding: "0.25rem",
-          marginTop: -2,
-          marginRight: -4,
-        }}
+        className="bg-transparent border-none text-text-muted cursor-pointer p-0.5 -mt-0.5 -mr-1 hover:text-text-primary transition-colors"
       >
         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -112,23 +97,11 @@ function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () =>
   );
 }
 
-import { createPortal } from "react-dom";
-
 function ToastContainer({ toasts, onDismiss }: Props) {
   if (toasts.length === 0) return null;
 
   return createPortal(
-    <div
-      style={{
-        position: "fixed",
-        bottom: 24,
-        right: 24,
-        zIndex: 10000,
-        display: "flex",
-        flexDirection: "column",
-        gap: "0.75rem",
-      }}
-    >
+    <div className="fixed bottom-6 right-6 z-[10000] flex flex-col gap-3">
       <style>{`
         @keyframes slideIn {
           from { opacity: 0; transform: translateX(100%); }
@@ -137,6 +110,12 @@ function ToastContainer({ toasts, onDismiss }: Props) {
         @keyframes slideOut {
           from { opacity: 1; transform: translateX(0); }
           to { opacity: 0; transform: translateX(100%); }
+        }
+        .animate-slide-in {
+          animation: slideIn 0.3s ease forwards;
+        }
+        .animate-slide-out {
+          animation: slideOut 0.3s ease forwards;
         }
       `}</style>
       {toasts.map((toast) => (

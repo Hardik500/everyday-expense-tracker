@@ -74,15 +74,11 @@ export function BottomSheet({
   return (
     <div
       onClick={handleBackdropClick}
+      className="fixed inset-0 z-[9999] flex items-end"
       style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
         background: `rgba(0, 0, 0, ${(100 - translateY) / 200})`,
         opacity: isOpen ? 1 : 0,
         transition: 'opacity 0.3s ease',
-        display: 'flex',
-        alignItems: 'flex-end',
       }}
     >
       <div
@@ -94,75 +90,35 @@ export function BottomSheet({
         onMouseMove={handleTouchMove}
         onMouseUp={handleTouchEnd}
         onMouseLeave={handleTouchEnd}
+        className="w-full bg-bg-card rounded-t-xl border-x border-t border-border-color flex flex-col overflow-hidden"
         style={{
-          width: '100%',
           maxHeight,
-          background: 'var(--bg-card)',
-          borderRadius: '20px 20px 0 0',
-          border: '1px solid var(--border-color)',
-          borderBottom: 'none',
           transform: `translateY(${translateY}%)`,
           transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
         }}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'bottom-sheet-title' : undefined}
       >
         {/* Drag Handle */}
-        <div
-          style={{
-            padding: '12px',
-            display: 'flex',
-            justifyContent: 'center',
-            cursor: 'grab',
-            flexShrink: 0,
-          }}
-        >
-          <div
-            style={{
-              width: 36,
-              height: 4,
-              borderRadius: 2,
-              background: 'var(--border-color)',
-            }}
-          />
+        <div className="p-3 flex justify-center cursor-grab shrink-0">
+          <div className="w-9 h-1 rounded-sm bg-border-color" />
         </div>
 
         {/* Header */}
         {title && (
           <div
             id="bottom-sheet-title"
-            style={{
-              padding: '0 20px 16px',
-              borderBottom: '1px solid var(--border-color)',
-              flexShrink: 0,
-            }}
+            className="px-5 pb-4 border-b border-border-color shrink-0"
           >
-            <h2
-              style={{
-                fontSize: '1.125rem',
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                margin: 0,
-              }}
-            >
+            <h2 className="text-lg font-semibold text-text-primary m-0">
               {title}
             </h2>
           </div>
         )}
 
         {/* Content */}
-        <div
-          style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: 20,
-            WebkitOverflowScrolling: 'touch',
-          }}
-        >
+        <div className="flex-1 overflow-auto p-5" style={{ WebkitOverflowScrolling: 'touch' }}>
           {children}
         </div>
       </div>

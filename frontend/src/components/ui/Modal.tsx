@@ -42,12 +42,12 @@ export function Modal({
 
   if (!isOpen) return null;
 
-  const sizes = {
-    sm: '400px',
-    md: '500px',
-    lg: '600px',
-    xl: '800px',
-    full: '900px',
+  const sizeClasses = {
+    sm: 'max-w-[400px]',
+    md: 'max-w-[500px]',
+    lg: 'max-w-[600px]',
+    xl: 'max-w-[800px]',
+    full: 'max-w-[900px]',
   };
 
   const handleOverlayClick = (e: React.MouseEvent) => {
@@ -60,68 +60,24 @@ export function Modal({
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        backdropFilter: 'blur(4px)',
-      }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
     >
       <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          maxWidth: sizes[size],
-          maxHeight: '90vh',
-          backgroundColor: 'var(--bg-secondary, #1a1a1a)',
-          borderRadius: '12px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
+        className={`relative w-full max-h-[90vh] bg-bg-secondary rounded-xl shadow-2xl overflow-hidden flex flex-col ${sizeClasses[size]}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}
       >
         {(title || showCloseButton) && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              padding: '1.25rem 1.5rem',
-              borderBottom: '1px solid var(--border-color, #333)',
-              flexShrink: 0,
-            }}
-          >
+          <div className="flex items-start justify-between p-5 border-b border-border-color shrink-0">
             <div>
               {title && (
-                <h2
-                  id="modal-title"
-                  style={{
-                    fontSize: '1.125rem',
-                    fontWeight: 600,
-                    color: 'var(--text-primary, #fff)',
-                    margin: 0,
-                  }}
-                >
+                <h2 id="modal-title" className="text-lg font-semibold text-text-primary m-0">
                   {title}
                 </h2>
               )}
               {description && (
-                <p
-                  style={{
-                    marginTop: '0.25rem',
-                    fontSize: '0.875rem',
-                    color: 'var(--text-muted, #888)',
-                  }}
-                >
+                <p className="mt-1 text-sm text-text-muted">
                   {description}
                 </p>
               )}
@@ -129,17 +85,7 @@ export function Modal({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                style={{
-                  padding: '0.5rem',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'transparent',
-                  color: 'var(--text-muted, #888)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
+                className="p-2 rounded-lg bg-transparent text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors"
                 aria-label="Close modal"
               >
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,26 +95,11 @@ export function Modal({
             )}
           </div>
         )}
-        <div
-          style={{
-            padding: '1.5rem',
-            overflowY: 'auto',
-            flex: 1,
-          }}
-        >
+        <div className="p-6 overflow-y-auto flex-1">
           {children}
         </div>
         {footer && (
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '0.75rem',
-              padding: '1rem 1.5rem',
-              borderTop: '1px solid var(--border-color, #333)',
-              flexShrink: 0,
-            }}
-          >
+          <div className="flex justify-end gap-3 p-4 border-t border-border-color shrink-0">
             {footer}
           </div>
         )}
@@ -180,7 +111,7 @@ export function Modal({
 
 export function ModalFooter({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color, #333)' }}>
+    <div className={`flex justify-end gap-3 mt-6 pt-4 border-t border-border-color ${className}`}>
       {children}
     </div>
   );

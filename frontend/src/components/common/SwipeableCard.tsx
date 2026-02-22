@@ -40,27 +40,13 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
   return (
     <div
       ref={elementRef}
-      className={`swipeable-card ${className} ${swipedOpen ? "is-open" : ""} ${isClosing ? "is-closing" : ""}`}
-      style={{
-        position: "relative",
-        overflow: "hidden",
-        touchAction: "pan-y",
-        userSelect: "none",
-        ...style,
-      }}
+      className={`swipeable-card relative overflow-hidden touch-pan-y select-none ${className} ${swipedOpen ? "is-open" : ""} ${isClosing ? "is-closing" : ""}`}
+      style={style}
     >
       {/* Background actions layer */}
       <div
+        className="absolute top-0 right-0 bottom-0 flex items-center justify-end px-2 gap-1"
         style={{
-          position: "absolute",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "flex-end",
-          padding: "0 8px",
-          gap: "4px",
           width: `${maxSwipe}px`,
           maxWidth: "100%",
           background: actions.length > 0 ? actions[actions.length - 1].color : "transparent",
@@ -75,29 +61,13 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
               e.stopPropagation();
               action.onClick();
             }}
+            className="flex flex-col items-center justify-center min-w-[70px] h-full bg-none border-none text-white text-xs font-medium cursor-pointer transition-opacity duration-200 p-2 hover:opacity-90"
             style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              minWidth: "70px",
-              height: "100%",
               background: action.color,
-              border: "none",
               borderRadius: index === 0 ? "0 var(--radius-md) var(--radius-md) 0" : "0",
-              color: "#fff",
-              fontSize: "12px",
-              fontWeight: 500,
-              cursor: "pointer",
-              transition: "opacity 0.2s ease",
-              padding: "8px",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
           >
-            {action.icon && (
-              <div style={{ marginBottom: "4px" }}>{action.icon}</div>
-            )}
+            {action.icon && <div className="mb-1">{action.icon}</div>}
             <span>{action.label}</span>
           </button>
         ))}
@@ -105,13 +75,11 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
 
       {/* Foreground content layer */}
       <div
+        className="relative bg-bg-card rounded-lg"
         style={{
-          position: "relative",
           transform: `translateX(${translateX}px)`,
           transition,
-          background: "var(--bg-card)",
           zIndex: 1,
-          borderRadius: "var(--radius-md)",
         }}
       >
         {children}

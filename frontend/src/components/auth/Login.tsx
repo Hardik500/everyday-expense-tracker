@@ -64,50 +64,21 @@ const Login: React.FC<LoginProps> = ({ apiBase }) => {
     };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--bg-primary)',
-            padding: '2rem'
-        }}>
-            <div style={{
-                width: '100%',
-                maxWidth: 400,
-                background: 'var(--bg-secondary)',
-                padding: '2.5rem',
-                borderRadius: 24,
-                boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
-                border: '1px solid var(--border-color)',
-                animation: 'fadeIn 0.5s ease-out'
-            }}>
+        <div className="min-h-screen flex items-center justify-center bg-bg-primary p-8">
+            <div className="w-full max-w-[400px] bg-bg-secondary p-10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-border-color animate-fade-in">
                 {/* Logo */}
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    marginBottom: '2rem'
-                }}>
-                    <div style={{
-                        width: 64,
-                        height: 64,
-                        borderRadius: 18,
-                        background: 'linear-gradient(135deg, var(--accent) 0%, #059669 100%)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: 'var(--shadow-glow)'
-                    }}>
+                <div className="flex justify-center mb-8">
+                    <div className="w-16 h-16 rounded-[18px] bg-gradient-to-br from-accent to-emerald-500 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.3)]">
                         <svg width="32" height="32" fill="none" stroke="#fff" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </div>
                 </div>
 
-                <h1 style={{ textAlign: 'center', marginBottom: '0.5rem', fontSize: '1.75rem' }}>
+                <h1 className="text-center text-[1.75rem] mb-2">
                     {mode === 'signup' ? 'Create Account' : mode === 'forgot' ? 'Reset Password' : 'Welcome Back'}
                 </h1>
-                <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.875rem' }}>
+                <p className="text-center text-text-muted text-sm mb-8">
                     {mode === 'signup'
                         ? 'Join Expense Tracker to manage your finances'
                         : mode === 'forgot'
@@ -115,7 +86,7 @@ const Login: React.FC<LoginProps> = ({ apiBase }) => {
                             : 'Please enter your details to sign in'}
                 </p>
 
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     {mode === 'signup' && (
                         <div className="input-group">
                             <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>FULL NAME</label>
