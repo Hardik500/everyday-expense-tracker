@@ -31,30 +31,21 @@ function GoogleCallback({ apiBase }: Props) {
                     setError(data.detail || "Failed to complete Google authorization.");
                 }
             })
-            .catch((err) => {
+            .catch(() => {
                 setError("Network error during Google authorization.");
             });
     }, [apiBase]);
 
     return (
-        <div style={{
-            height: "100vh",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "var(--bg-app)",
-            color: "var(--text)"
-        }}>
-            <div className="dashboard-card" style={{ textAlign: "center", minWidth: 300 }}>
+        <div className="h-screen flex flex-col items-center justify-center bg-bg-app text-text">
+            <div className="bg-bg-card border border-border rounded-xl p-10 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.3)] text-center min-w-[300px]">
                 {error ? (
                     <>
-                        <div style={{ fontSize: "3rem", marginBottom: 20 }}>❌</div>
-                        <h2 style={{ color: "#ef4444" }}>Authorization Failed</h2>
-                        <p style={{ marginTop: 10, color: "var(--text-muted)" }}>{error}</p>
+                        <div className="text-[3rem] mb-5">❌</div>
+                        <h2 className="text-red-500">Authorization Failed</h2>
+                        <p className="mt-2.5 text-text-muted">{error}</p>
                         <button
-                            className="btn btn-secondary"
-                            style={{ marginTop: 20 }}
+                            className="btn btn-secondary mt-5"
                             onClick={() => window.location.href = "/?tab=profile"}
                         >
                             Back to Profile
@@ -62,35 +53,12 @@ function GoogleCallback({ apiBase }: Props) {
                     </>
                 ) : (
                     <>
-                        <div className="loader" style={{ marginBottom: 20 }}></div>
+                        <div className="w-10 h-10 border-4 border-border border-t-accent rounded-full animate-spin mx-auto mb-5"></div>
                         <h2>Connecting to Google</h2>
-                        <p style={{ marginTop: 10, color: "var(--text-muted)" }}>{status}</p>
+                        <p className="mt-2.5 text-text-muted">{status}</p>
                     </>
                 )}
             </div>
-
-            <style>{`
-        .dashboard-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-        }
-        .loader {
-            border: 4px solid var(--border);
-            border-top: 4px solid var(--accent);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-      `}</style>
         </div>
     );
 }

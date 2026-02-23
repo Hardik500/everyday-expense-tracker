@@ -9,7 +9,7 @@ type Props = {
 
 export default function CardsPage({ apiBase, refreshKey, onRefresh }: Props) {
   return (
-    <div className="page-transition-scale" style={{ display: "grid", gap: "1.5rem" }}>
+    <div className="page-transition-scale grid gap-6">
       <PageHeader
         title="Credit Cards"
         description="Spending breakdown and statement coverage by card"

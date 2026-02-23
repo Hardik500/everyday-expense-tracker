@@ -9,7 +9,7 @@ type Props = {
 
 export default function RecurringPage({ apiBase, refreshKey, onRefresh }: Props) {
   return (
-    <div className="page-transition-scale" style={{ display: "grid", gap: "1.5rem" }}>
+    <div className="page-transition-scale grid gap-6">
       <PageHeader
         title="Recurring Expenses"
         description="Track your recurring bills and subscriptions"

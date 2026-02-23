@@ -36,130 +36,60 @@ const ResetPassword: React.FC = () => {
     };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--bg-primary)',
-            padding: '2rem'
-        }}>
-            <div style={{
-                width: '100%',
-                maxWidth: 400,
-                background: 'var(--bg-secondary)',
-                padding: '2.5rem',
-                borderRadius: 24,
-                boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
-                border: '1px solid var(--border-color)',
-            }}>
-                <h1 style={{ textAlign: 'center', marginBottom: '0.5rem', fontSize: '1.75rem' }}>
+        <div className="min-h-screen flex items-center justify-center bg-bg-primary p-8">
+            <div className="w-full max-w-[400px] bg-bg-secondary p-10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-border-color">
+                <h1 className="text-center text-[1.75rem] mb-2">
                     New Password
                 </h1>
-                <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.875rem' }}>
-                    Enter your new secret password
+                <p className="text-center text-text-muted text-sm mb-8">
+                    Enter your new secret password below
                 </p>
 
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     <div className="input-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>NEW PASSWORD</label>
+                        <label className="input-label">New Password</label>
                         <input
                             type="password"
+                            className="input-field"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
+                            placeholder="Enter new password"
                             required
-                            style={{
-                                width: '100%',
-                                padding: '0.75rem 1rem',
-                                borderRadius: 12,
-                                background: 'var(--bg-primary)',
-                                border: '1px solid var(--border-color)',
-                                color: 'var(--text-primary)',
-                                outline: 'none'
-                            }}
+                            minLength={6}
                         />
                     </div>
 
                     <div className="input-group">
-                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>CONFIRM PASSWORD</label>
+                        <label className="input-label">Confirm Password</label>
                         <input
                             type="password"
+                            className="input-field"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="••••••••"
+                            placeholder="Confirm new password"
                             required
-                            style={{
-                                width: '100%',
-                                padding: '0.75rem 1rem',
-                                borderRadius: 12,
-                                background: 'var(--bg-primary)',
-                                border: '1px solid var(--border-color)',
-                                color: 'var(--text-primary)',
-                                outline: 'none'
-                            }}
+                            minLength={6}
                         />
                     </div>
 
                     {error && (
-                        <div style={{
-                            padding: '0.75rem',
-                            borderRadius: 12,
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            color: 'var(--danger)',
-                            fontSize: '0.875rem',
-                            border: '1px solid rgba(239, 68, 68, 0.2)'
-                        }}>
+                        <div className="text-red-500 text-sm text-center">
                             {error}
                         </div>
                     )}
 
                     {message && (
-                        <div style={{
-                            padding: '0.75rem',
-                            borderRadius: 12,
-                            background: 'rgba(16, 185, 129, 0.1)',
-                            color: 'var(--accent)',
-                            fontSize: '0.875rem',
-                            border: '1px solid rgba(16, 185, 129, 0.2)'
-                        }}>
+                        <div className="text-green-500 text-sm text-center">
                             {message}
                         </div>
                     )}
 
                     <button
                         type="submit"
+                        className="primary"
                         disabled={isLoading}
-                        style={{
-                            width: '100%',
-                            padding: '1rem',
-                            borderRadius: 12,
-                            background: 'var(--accent)',
-                            color: '#fff',
-                            border: 'none',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            marginTop: '1rem',
-                        }}
                     >
                         {isLoading ? 'Updating...' : 'Update Password'}
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => window.location.href = '/'}
-                        style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            borderRadius: 12,
-                            background: 'transparent',
-                            color: 'var(--text-secondary)',
-                            border: '1px solid var(--border-color)',
-                            fontWeight: 500,
-                            cursor: 'pointer',
-                        }}
-                    >
-                        Cancel
                     </button>
                 </form>
             </div>

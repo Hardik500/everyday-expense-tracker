@@ -381,85 +381,46 @@ export function RecurringExpenses({
   const pausedCount = expenses.filter(e => !e.is_active).length;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    <div className="flex flex-col gap-6">
       {/* Header Actions */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "0.75rem",
-        }}
-      >
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+      <div className="flex justify-between items-center flex-wrap gap-3">
+        <div className="flex gap-2">
           <button
             onClick={() => setSelectedTab("active")}
-            style={{
-              padding: "0.5rem 1rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background: selectedTab === "active" ? "var(--accent)" : "var(--bg-primary)",
-              color: selectedTab === "active" ? "#fff" : "var(--text-primary)",
-              cursor: "pointer",
-              fontWeight: 500,
-              transition: "all 0.2s",
-              boxShadow: selectedTab === "active" ? "var(--shadow-sm)" : "none",
-            }}
+            className={`px-4 py-2 rounded-lg border-none cursor-pointer font-medium transition-all ${
+              selectedTab === "active"
+                ? "bg-accent text-white shadow-sm"
+                : "bg-bg-primary text-text-primary hover:bg-bg-hover"
+            }`}
           >
             Active ({activeCount})
           </button>
           <button
             onClick={() => setSelectedTab("paused")}
-            style={{
-              padding: "0.5rem 1rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background:
-                selectedTab === "paused" ? "var(--text-muted)" : "var(--bg-primary)",
-              color: selectedTab === "paused" ? "#fff" : "var(--text-primary)",
-              cursor: "pointer",
-              fontWeight: 500,
-              transition: "all 0.2s",
-              boxShadow: selectedTab === "paused" ? "var(--shadow-sm)" : "none",
-            }}
+            className={`px-4 py-2 rounded-lg border-none cursor-pointer font-medium transition-all ${
+              selectedTab === "paused"
+                ? "bg-text-muted text-white shadow-sm"
+                : "bg-bg-primary text-text-primary hover:bg-bg-hover"
+            }`}
           >
             Paused ({pausedCount})
           </button>
           <button
             onClick={() => setSelectedTab("all")}
-            style={{
-              padding: "0.5rem 1rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background:
-                selectedTab === "all" ? "var(--border-color)" : "var(--bg-primary)",
-              color: selectedTab === "all" ? "var(--text-primary)" : "var(--text-secondary)",
-              cursor: "pointer",
-              fontWeight: 500,
-              transition: "all 0.2s",
-            }}
+            className={`px-4 py-2 rounded-lg border-none cursor-pointer font-medium transition-all ${
+              selectedTab === "all"
+                ? "bg-border-color text-text-primary"
+                : "bg-bg-primary text-text-secondary hover:bg-bg-hover"
+            }`}
           >
             All
           </button>
         </div>
 
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+        <div className="flex gap-2">
           <button
             onClick={detectRecurring}
-            style={{
-              padding: "0.625rem 1.25rem",
-              borderRadius: "0.5rem",
-              border: "1px solid var(--border-color)",
-              background: "transparent",
-              color: "var(--text-primary)",
-              cursor: "pointer",
-              fontWeight: 500,
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              transition: "all 0.2s",
-            }}
+            className="px-5 py-2.5 rounded-lg border border-border-color bg-transparent text-text-primary cursor-pointer font-medium flex items-center gap-2 transition-all hover:bg-bg-hover"
           >
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -476,20 +437,7 @@ export function RecurringExpenses({
               resetForm();
               setShowAddModal(true);
             }}
-            style={{
-              padding: "0.625rem 1.25rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background: "var(--accent)",
-              color: "#fff",
-              cursor: "pointer",
-              fontWeight: 500,
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              transition: "all 0.2s",
-              boxShadow: "var(--shadow-sm)",
-            }}
+            className="px-5 py-2.5 rounded-lg border-none bg-accent text-white cursor-pointer font-medium flex items-center gap-2 transition-all shadow-sm hover:opacity-90"
           >
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -501,13 +449,7 @@ export function RecurringExpenses({
 
       {/* Stats */}
       {stats && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: "1rem",
-          }}
-        >
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard
             title="Active"
             value={stats.total_active}
@@ -576,31 +518,18 @@ export function RecurringExpenses({
       )}
 
       {/* Expenses List */}
-      <div
-        style={{
-          background: "var(--bg-secondary)",
-          borderRadius: "1rem",
-          border: "1px solid var(--border-color)",
-          overflow: "hidden",
-        }}
-      >
+      <div className="bg-bg-secondary rounded-xl border border-border-color overflow-hidden">
         {loading ? (
           <LoadingOverlay />
         ) : filteredExpenses.length === 0 ? (
-          <div
-            style={{
-              padding: "4rem 2rem",
-              textAlign: "center",
-              color: "var(--text-muted)",
-            }}
-          >
+          <div className="p-8 md:p-16 text-center text-text-muted">
             <svg
               width="48"
               height="48"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
-              style={{ marginBottom: "1rem", opacity: 0.5 }}
+              className="mx-auto mb-4 opacity-50"
             >
               <path
                 strokeLinecap="round"
@@ -609,15 +538,15 @@ export function RecurringExpenses({
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
-            <p style={{ fontSize: "1rem", fontWeight: 500, marginBottom: "0.5rem" }}>
+            <p className="text-base font-medium mb-2">
               No recurring expenses
             </p>
-            <p style={{ fontSize: "0.875rem" }}>
+            <p className="text-sm">
               Add recurring bills or subscriptions to track them automatically.
             </p>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column" }}>
+          <div className="flex flex-col">
             {filteredExpenses.map((expense) => {
               const days = getDaysUntil(expense.next_due_date);
               const status = formatDaysUntil(days);
@@ -639,114 +568,33 @@ export function RecurringExpenses({
               return (
                 <div
                   key={expense.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "1rem",
-                    padding: "1rem 1.25rem",
-                    borderBottom: "1px solid var(--border-color)",
-                    transition: "background 0.2s",
-                    cursor: "pointer",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "var(--bg-primary)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
+                  className="flex items-center gap-4 p-4 md:p-5 border-b border-border-color transition-colors cursor-pointer hover:bg-bg-primary"
                 >
                   {/* Frequency Icon */}
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      background: "var(--bg-primary)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "var(--text-secondary)",
-                      flexShrink: 0,
-                    }}
-                  >
+                  <div className="w-10 h-10 rounded-xl bg-bg-primary flex items-center justify-center text-text-secondary flex-shrink-0">
                     {frequencyIcons[expense.frequency] ||
                       frequencyIcons.custom}
                   </div>
 
                   {/* Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        marginBottom: "0.25rem",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontWeight: 600,
-                          fontSize: "0.9375rem",
-                          color: "var(--text-primary)",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-base text-text-primary truncate">
                         {expense.name}
                       </span>
                       {expense.auto_detected && (
-                        <span
-                          style={{
-                            fontSize: "0.625rem",
-                            padding: "0.125rem 0.375rem",
-                            borderRadius: 4,
-                            background: "rgba(16, 185, 129, 0.15)",
-                            color: "var(--success)",
-                            fontWeight: 500,
-                          }}
-                        >
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-success/15 text-success font-medium">
                           Auto
                         </span>
                       )}
-                      <span
-                        style={{
-                          fontSize: "0.625rem",
-                          padding: "0.125rem 0.375rem",
-                          borderRadius: 4,
-                          background: expense.is_active ? "rgba(16, 185, 129, 0.15)" : "rgba(107, 114, 128, 0.15)",
-                          color: expense.is_active ? "var(--success)" : "var(--text-muted)",
-                          fontWeight: 500,
-                        }}
-                      >
+                      <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-success/15 text-success">
                         {expense.is_active ? "Active" : "Paused"}
                       </span>
                     </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        fontSize: "0.8125rem",
-                        color: "var(--text-muted)",
-                      }}
-                    >
+                    <div className="flex items-center gap-2 text-sm text-text-muted">
                       {expense.category_name && (
-                        <span
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.25rem",
-                          }}
-                        >
-                          <span
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: "50%",
-                              background: categoryColor,
-                            }}
-                          />
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full" style={{ background: categoryColor }} />
                           {expense.category_name}
                           {expense.subcategory_name &&
                             ` › ${expense.subcategory_name}`}
@@ -758,91 +606,41 @@ export function RecurringExpenses({
                   </div>
 
                   {/* Amount & Status */}
-                  <div
-                    style={{
-                      textAlign: "right",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontWeight: 600,
-                        fontSize: "0.9375rem",
-                        color: "var(--text-primary)",
-                        marginBottom: "0.125rem",
-                      }}
-                    >
+                  <div className="text-right flex-shrink-0">
+                    <div className="font-semibold text-base text-text-primary mb-0.5">
                       {formatCurrency(expense.amount, expense.currency)}
                     </div>
-                    <div
-                      style={{
-                        fontSize: "0.75rem",
-                        color: status.color,
-                        fontWeight: 500,
-                      }}
-                    >
+                    <div className="text-xs font-medium" style={{ color: status.color }}>
                       {status.text}
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div style={{ display: "flex", gap: "0.375rem", flexShrink: 0 }}>
+                  <div className="flex gap-1.5 flex-shrink-0">
                     {days <= 0 && (
                       <button
                         onClick={() => recordPayment(expense.id)}
-                        style={{
-                          padding: "0.5rem 0.75rem",
-                          borderRadius: "0.375rem",
-                          border: "none",
-                          background: "var(--success)",
-                          color: "#fff",
-                          cursor: "pointer",
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
-                        }}
+                        className="px-3 py-2 rounded-lg border-none bg-success text-white cursor-pointer text-xs font-semibold"
                       >
                         Mark Paid
                       </button>
                     )}
                     <button
                       onClick={() => startEdit(expense)}
-                      style={{
-                        padding: "0.5rem",
-                        borderRadius: "0.375rem",
-                        border: "none",
-                        background: "var(--bg-primary)",
-                        color: "var(--text-secondary)",
-                        cursor: "pointer",
-                        fontSize: "0.75rem",
-                      }}
+                      className="p-2 rounded-lg border-none bg-bg-primary text-text-secondary cursor-pointer text-xs"
                     >
-                      <svg
-                        width="14"
-                        height="14"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                        />
+                      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
                     <button
                       onClick={() => toggleActive(expense)}
                       title={expense.is_active ? "Pause" : "Resume"}
-                      style={{
-                        padding: "0.5rem",
-                        borderRadius: "0.375rem",
-                        border: "none",
-                        background: expense.is_active ? "var(--warning-lighter, #fef3c7)" : "var(--success-lighter, #dcfce7)",
-                        color: expense.is_active ? "var(--warning)" : "var(--success)",
-                        cursor: "pointer",
-                        fontSize: "0.75rem",
-                      }}
+                      className={`p-2 rounded-lg border-none cursor-pointer text-xs ${
+                        expense.is_active
+                          ? "bg-warning/15 text-warning"
+                          : "bg-success/15 text-success"
+                      }`}
                     >
                       {expense.is_active ? (
                         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -857,29 +655,10 @@ export function RecurringExpenses({
                     </button>
                     <button
                       onClick={() => deleteRecurring(expense.id)}
-                      style={{
-                        padding: "0.5rem",
-                        borderRadius: "0.375rem",
-                        border: "none",
-                        background: "var(--danger-lighter, #fef2f2)",
-                        color: "var(--danger)",
-                        cursor: "pointer",
-                        fontSize: "0.75rem",
-                      }}
+                      className="p-2 rounded-lg border-none bg-danger/15 text-danger cursor-pointer text-xs"
                     >
-                      <svg
-                        width="14"
-                        height="14"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
+                      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
                   </div>
@@ -1028,38 +807,21 @@ export function RecurringExpenses({
               </p>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", margin: 0 }}>
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-text-muted m-0">
                 Found {candidates.length} potential recurring expenses from your transaction
                 history.
               </p>
               {candidates.slice(0, 10).map((c, i) => (
                 <div
                   key={i}
-                  style={{
-                    padding: "1rem",
-                    borderRadius: "0.5rem",
-                    border: "1px solid var(--border-color)",
-                    background: "var(--bg-primary)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: "1rem",
-                  }}
+                  className="p-4 rounded-lg border border-border-color bg-bg-primary flex justify-between items-center gap-4"
                 >
                   <div>
-                    <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
+                    <div className="font-semibold mb-1">
                       {c.merchant}
                     </div>
-                    <div
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "var(--text-muted)",
-                        display: "flex",
-                        gap: "0.75rem",
-                        flexWrap: "wrap",
-                      }}
-                    >
+                    <div className="text-xs text-text-muted flex gap-3 flex-wrap">
                       <span>{frequencyLabels[c.suggested_frequency]}</span>
                       {c.category_name && <span>• {c.category_name}</span>}
                       <span>
@@ -1067,23 +829,13 @@ export function RecurringExpenses({
                       </span>
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontWeight: 600, fontSize: "1rem" }}>
+                  <div className="text-right">
+                    <div className="font-semibold text-base">
                       {formatCurrency(c.suggested_amount)}
                     </div>
                     <button
                       onClick={() => createRecurring(c)}
-                      style={{
-                        padding: "0.375rem 0.75rem",
-                        borderRadius: "0.375rem",
-                        border: "none",
-                        background: "var(--accent)",
-                        color: "#fff",
-                        cursor: "pointer",
-                        fontSize: "0.75rem",
-                        fontWeight: 500,
-                        marginTop: "0.5rem",
-                      }}
+                      className="mt-2 px-3 py-1.5 rounded-lg border-none bg-accent text-white cursor-pointer text-xs font-medium"
                     >
                       Add
                     </button>
@@ -1113,82 +865,29 @@ function Modal({
 }) {
   return (
     <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 100,
-        padding: "1rem",
-      }}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4"
       onClick={onClose}
     >
       <div
-        style={{
-          background: "var(--bg-secondary)",
-          borderRadius: "1rem",
-          width: "100%",
-          maxWidth: 500,
-          maxHeight: "90vh",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-        }}
+        className="bg-bg-secondary rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          style={{
-            padding: "1.25rem 1.5rem",
-            borderBottom: "1px solid var(--border-color)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <h2
-            style={{
-              margin: 0,
-              fontSize: "1.125rem",
-              fontWeight: 600,
-            }}
-          >
+        <div className="p-5 border-b border-border-color flex justify-between items-center">
+          <h2 className="m-0 text-lg font-semibold text-text-primary">
             {title}
           </h2>
           <button
             onClick={onClose}
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-            }}
+            className="bg-transparent border-none cursor-pointer text-text-muted hover:text-text-primary"
           >
             <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <div style={{ padding: "1.5rem", overflow: "auto" }}>{children}</div>
+        <div className="p-6 overflow-auto">{children}</div>
         {footer && (
-          <div
-            style={{
-              padding: "1rem 1.5rem",
-              borderTop: "1px solid var(--border-color)",
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: "0.75rem",
-            }}
-          >
+          <div className="p-4 border-t border-border-color flex justify-end gap-3">
             {footer}
           </div>
         )}
@@ -1214,72 +913,49 @@ function RecurringForm({
     setFormData({ ...formData, [key]: value });
   };
 
-  const fieldStyle: React.CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.375rem",
-  };
-
-  const labelStyle: React.CSSProperties = {
-    fontSize: "0.75rem",
-    fontWeight: 600,
-    color: "var(--text-secondary)",
-    textTransform: "uppercase",
-    letterSpacing: "0.025em",
-  };
-
-  const inputStyle: React.CSSProperties = {
-    padding: "0.625rem 0.875rem",
-    borderRadius: "0.5rem",
-    border: "1px solid var(--border-color)",
-    background: "var(--bg-primary)",
-    color: "var(--text-primary)",
-    fontSize: "0.875rem",
-  };
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-      <div style={fieldStyle}>
-        <label style={labelStyle}>Name</label>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Name</label>
         <input
           type="text"
           value={formData.name}
           onChange={(e) => updateField("name", e.target.value)}
           placeholder="e.g., Netflix, Electricity Bill"
-          style={inputStyle}
+          className="px-3 py-2.5 rounded-lg border border-border-color bg-bg-primary text-text-primary text-sm"
         />
       </div>
 
-      <div style={fieldStyle}>
-        <label style={labelStyle}>Description (optional)</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Description (optional)</label>
         <input
           type="text"
           value={formData.description}
           onChange={(e) => updateField("description", e.target.value)}
           placeholder="Additional details..."
-          style={inputStyle}
+          className="px-3 py-2.5 rounded-lg border border-border-color bg-bg-primary text-text-primary text-sm"
         />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Amount</label>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Amount</label>
           <input
             type="number"
             step="0.01"
             value={formData.amount}
             onChange={(e) => updateField("amount", e.target.value)}
             placeholder="0.00"
-            style={inputStyle}
+            className="px-3 py-2.5 rounded-lg border border-border-color bg-bg-primary text-text-primary text-sm"
           />
         </div>
 
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Frequency</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Frequency</label>
           <select
             value={formData.frequency}
             onChange={(e) => updateField("frequency", e.target.value)}
-            style={inputStyle}
+            className="px-3 py-2.5 rounded-lg border border-border-color bg-bg-primary text-text-primary text-sm"
           >
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
@@ -1292,28 +968,28 @@ function RecurringForm({
       </div>
 
       {formData.frequency === "custom" && (
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Interval (days)</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Interval (days)</label>
           <input
             type="number"
             value={formData.interval_days}
             onChange={(e) => updateField("interval_days", e.target.value)}
             placeholder="e.g., 15 for every 15 days"
-            style={inputStyle}
+            className="px-3 py-2.5 rounded-lg border border-border-color bg-bg-primary text-text-primary text-sm"
           />
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Category</label>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Category</label>
           <select
             value={formData.category_id}
             onChange={(e) => {
               updateField("category_id", e.target.value);
               updateField("subcategory_id", "");
             }}
-            style={inputStyle}
+            className="px-3 py-2.5 rounded-lg border border-border-color bg-bg-primary text-text-primary text-sm"
           >
             <option value="">Select category</option>
             {categories.map((c) => (
@@ -1324,21 +1000,21 @@ function RecurringForm({
           </select>
         </div>
 
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Alert (days before)</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Alert (days before)</label>
           <input
             type="number"
             min="0"
             max="30"
             value={formData.alert_days_before}
             onChange={(e) => updateField("alert_days_before", e.target.value)}
-            style={inputStyle}
+            className="px-3 py-2.5 rounded-lg border border-border-color bg-bg-primary text-text-primary text-sm"
           />
         </div>
       </div>
 
-      <div style={fieldStyle}>
-        <label style={labelStyle}>Start Date</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Start Date</label>
         <input
           type="date"
           value={formData.start_date}

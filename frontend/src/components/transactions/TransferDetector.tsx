@@ -180,28 +180,17 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
   return (
     <div className="card" style={{ borderLeft: "4px solid #f59e0b" }}>
       <div className="card-header">
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: "rgba(245, 158, 11, 0.15)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#f59e0b",
-            }}
-          >
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-500">
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
             </svg>
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: "0.9375rem" }}>
+            <h3 className="m-0 text-[0.9375rem]">
               Potential Internal Transfers
             </h3>
-            <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            <p className="m-0 text-xs text-text-muted">
               {visibleTransfers.length} possible transfer{visibleTransfers.length !== 1 ? "s" : ""} detected
             </p>
           </div>
@@ -211,23 +200,14 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
             type="button"
             onClick={handleAutoLink}
             disabled={autoLinking}
-            style={{
-              padding: "0.5rem 1rem",
-              fontSize: "0.8125rem",
-              background: "#f59e0b",
-              color: "#000",
-              border: "none",
-              borderRadius: "var(--radius-md)",
-              cursor: "pointer",
-              fontWeight: 500,
-            }}
+            className="px-4 py-2 text-sm bg-amber-500 text-black border-none rounded-md cursor-pointer font-medium hover:bg-amber-600 transition-colors"
           >
             {autoLinking ? "Linking..." : `Auto-link ${highConfidence.length} high confidence`}
           </button>
         )}
       </div>
 
-      <div style={{ display: "grid", gap: "0.75rem" }}>
+      <div className="grid gap-3">
         {visibleTransfers.slice(0, 5).map((pair) => {
           const key = `${pair.source.id}-${pair.target.id}`;
           const isLinking = linking.has(key);
@@ -235,86 +215,62 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
           return (
             <div
               key={key}
-              style={{
-                padding: "1rem",
-                background: "var(--bg-input)",
-                borderRadius: "var(--radius-md)",
-                display: "grid",
-                gap: "0.75rem",
-              }}
+              className="p-4 bg-bg-input rounded-lg grid gap-3"
             >
               {/* Transfer visualization */}
-              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <div className="flex items-center gap-4">
                 {/* Source (debit) */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
+                <div className="flex-1">
+                  <div className="text-xs text-text-muted mb-1">
                     {pair.source.account_name} • {formatDate(pair.source.posted_at)}
                   </div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+                  <div className="text-sm text-text-secondary">
                     {pair.source.description_raw?.slice(0, 40)}...
                   </div>
-                  <div className="mono" style={{ color: "#ef4444", fontWeight: 600 }}>
+                  <div className="font-mono text-red-500 font-semibold">
                     -{formatCurrency(pair.amount)}
                   </div>
                 </div>
 
                 {/* Arrow */}
-                <div style={{ color: "var(--text-muted)" }}>
+                <div className="text-text-muted">
                   <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
                 </div>
 
                 {/* Target (credit) */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
+                <div className="flex-1">
+                  <div className="text-xs text-text-muted mb-1">
                     {pair.target.account_name} • {formatDate(pair.target.posted_at)}
                   </div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+                  <div className="text-sm text-text-secondary">
                     {pair.target.description_raw?.slice(0, 40)}...
                   </div>
-                  <div className="mono" style={{ color: "var(--accent)", fontWeight: 600 }}>
+                  <div className="font-mono text-accent font-semibold">
                     +{formatCurrency(pair.amount)}
                   </div>
                 </div>
               </div>
 
               {/* Actions */}
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <div className="flex items-center gap-3">
                 <div
-                  style={{
-                    fontSize: "0.75rem",
-                    padding: "0.25rem 0.5rem",
-                    borderRadius: "var(--radius-sm)",
-                    background:
-                      pair.confidence >= 80
-                        ? "rgba(34, 197, 94, 0.15)"
-                        : pair.confidence >= 60
-                          ? "rgba(251, 191, 36, 0.15)"
-                          : "var(--bg-secondary)",
-                    color:
-                      pair.confidence >= 80
-                        ? "#22c55e"
-                        : pair.confidence >= 60
-                          ? "#fbbf24"
-                          : "var(--text-muted)",
-                  }}
+                  className={`text-xs px-2 py-1 rounded ${
+                    pair.confidence >= 80
+                      ? "bg-green-500/15 text-green-500"
+                      : pair.confidence >= 60
+                        ? "bg-yellow-500/15 text-yellow-500"
+                        : "bg-bg-secondary text-text-muted"
+                  }`}
                 >
                   {pair.confidence}% confidence
                 </div>
-                <div style={{ marginLeft: "auto", display: "flex", gap: "0.5rem" }}>
+                <div className="ml-auto flex gap-2">
                   <button
                     type="button"
                     onClick={() => handleDismiss(pair)}
-                    style={{
-                      padding: "0.375rem 0.75rem",
-                      fontSize: "0.75rem",
-                      background: "transparent",
-                      border: "1px solid var(--border-subtle)",
-                      borderRadius: "var(--radius-sm)",
-                      color: "var(--text-muted)",
-                      cursor: "pointer",
-                    }}
+                    className="px-3 py-1.5 text-xs bg-transparent border border-border-subtle rounded text-text-muted hover:text-text-primary"
                   >
                     Not a transfer
                   </button>
@@ -322,16 +278,7 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
                     type="button"
                     onClick={() => handleLink(pair)}
                     disabled={isLinking}
-                    style={{
-                      padding: "0.375rem 0.75rem",
-                      fontSize: "0.75rem",
-                      background: "var(--accent)",
-                      border: "none",
-                      borderRadius: "var(--radius-sm)",
-                      color: "#fff",
-                      cursor: "pointer",
-                      fontWeight: 500,
-                    }}
+                    className="px-3 py-1.5 text-xs bg-accent text-white border-none rounded font-medium disabled:opacity-50"
                   >
                     {isLinking ? "Linking..." : "Link as Transfer"}
                   </button>
@@ -343,8 +290,8 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
       </div>
 
       {visibleTransfers.length > 5 && (
-        <div style={{ marginTop: "0.75rem", textAlign: "center" }}>
-          <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+        <div className="mt-3 text-center">
+          <span className="text-sm text-text-muted">
             +{visibleTransfers.length - 5} more potential transfers
           </span>
         </div>

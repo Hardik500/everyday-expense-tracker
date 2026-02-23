@@ -45,8 +45,8 @@ function Select<T extends string | number = string | number>({ value, onChange, 
     return (
         <div
             ref={containerRef}
-            className={className}
-            style={{ minWidth: 150, position: "relative", ...style }}
+            className={`min-w-[150px] relative ${className || ""}`}
+            style={style}
         >
             {label && (
                 <label className="block text-sm text-text-muted mb-1 font-medium">

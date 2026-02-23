@@ -18,7 +18,7 @@ export default function RulesPage({
   onRefresh,
 }: Props) {
   return (
-    <div className="page-transition-scale" style={{ display: "grid", gap: "1.5rem" }}>
+    <div className="page-transition-scale grid gap-6">
       <PageHeader
         title="Categorization Rules"
         description="Manage rules for automatic transaction categorization"

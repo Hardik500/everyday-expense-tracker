@@ -8,7 +8,7 @@ type Props = {
 
 export default function UploadPage({ apiBase, onDone }: Props) {
   return (
-    <div className="page-transition-scale" style={{ display: "grid", gap: "1.5rem" }}>
+    <div className="page-transition-scale grid gap-6">
       <PageHeader
         title="Import Statement"
         description="Upload bank statements, credit card bills, or cash records"

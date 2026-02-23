@@ -65,17 +65,9 @@ export function CSVExportButton({
     <button
       onClick={exportToCSV}
       disabled={isExporting || data.length === 0}
-      className={isExporting ? "secondary" : "primary"}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "0.5rem",
-        background: isExporting ? undefined : "var(--bg-card)", // Use card bg for outline style to differentiate from main PDF button? Or stick to primary?
-        // Let's match the style of PDF button but maybe different color or outline? 
-        // For now, simple primary/secondary logic.
-        border: "1px solid var(--border-color)", // Add border for outline look
-        color: "var(--text-primary)",
-      }}
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg border border-border-color text-text-primary transition-colors ${
+        isExporting ? "secondary" : "primary bg-bg-card hover:bg-bg-hover"
+      }`}
     >
       {isExporting ? (
         <>

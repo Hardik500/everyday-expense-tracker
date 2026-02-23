@@ -20,7 +20,7 @@ export default function AnalyticsPage({
   onRefresh,
 }: Props) {
   return (
-    <div className="page-transition-scale" style={{ display: "grid", gap: "1.5rem" }}>
+    <div className="page-transition-scale grid gap-6">
       <PageHeader
         title="Analytics"
         description="Visualize your income and expenses over time"

@@ -168,10 +168,12 @@ export function DuplicateDetection({ apiBase, onRefresh }: Props) {
             {duplicates.map((dup) => (
               <div key={dup.id} className="duplicate-card">
                 {/* Similarity Score */}
-                <div className="similarity-badge" style={{ 
-                  background: dup.similarity_score >= 0.95 ? '#ef4444' : 
-                             dup.similarity_score >= 0.9 ? '#f59e0b' : '#3b82f6'
-                }}>
+                <div
+                  className="similarity-badge text-white text-xs font-medium px-2 py-1 rounded"
+                  style={{
+                    background: dup.similarity_score >= 0.95 ? '#ef4444' :
+                               dup.similarity_score >= 0.9 ? '#f59e0b' : '#3b82f6'
+                  }}>
                   {(dup.similarity_score * 100).toFixed(0)}% Match
                 </div>
 

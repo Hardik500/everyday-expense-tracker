@@ -132,46 +132,30 @@ export function TrendChart({
     
     return (
       <div
+        className="bg-bg-card border border-border-color rounded-lg shadow-lg"
         style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: 'var(--radius-md)',
           padding: isMobile ? '0.75rem' : '1rem',
-          boxShadow: 'var(--shadow-lg)',
           fontSize: isMobile ? '0.8125rem' : '0.875rem',
           minWidth: isMobile ? 140 : 180,
         }}
       >
-        <div
-          style={{
-            fontWeight: 600,
-            marginBottom: '0.5rem',
-            color: 'var(--text-primary)',
-          }}
-        >
+        <div className="font-semibold mb-2 text-text-primary">
           {label}
         </div>
         {payload.map((entry: any, index: number) => (
           <div
             key={index}
+            className="flex items-center justify-between gap-3"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '0.75rem',
               marginBottom: index < payload.length - 1 ? '0.375rem' : 0,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div className="flex items-center gap-2">
               <div
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: entry.color,
-                }}
+                className="w-2 h-2 rounded-full"
+                style={{ background: entry.color }}
               />
-              <span style={{ color: 'var(--text-secondary)' }}>
+              <span className="text-text-secondary">
                 {entry.name}
               </span>
             </div>

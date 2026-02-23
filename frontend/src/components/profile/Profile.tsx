@@ -186,7 +186,7 @@ function Profile({ apiBase }: Props) {
         try {
             const text = await importFile.text();
             const backupData = JSON.parse(text);
-            
+
             const res = await fetchWithAuth(`${apiBase}/backup/import`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -228,62 +228,51 @@ function Profile({ apiBase }: Props) {
     if (loading) return <PageLoading text="Loading profile..." />;
 
     return (
-        <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 20px" }}>
-            <h1 style={{ fontSize: "2rem", marginBottom: 30, color: "var(--text)" }}>Profile & Settings</h1>
+        <div className="max-w-3xl mx-auto px-5 py-10">
+            <h1 className="text-3xl mb-8 text-text">Profile & Settings</h1>
 
-            {error && <div className="error-message" style={{ marginBottom: 20 }}>{error}</div>}
-            {success && <div className="success-message" style={{ marginBottom: 20 }}>{success}</div>}
+            {error && <div className="error-message mb-5">{error}</div>}
+            {success && <div className="success-message mb-5">{success}</div>}
 
             {/* Account Info */}
-            <section className="dashboard-card" style={{ marginBottom: 30 }}>
-                <h2>Account Information</h2>
-                <div style={{ marginTop: 20 }}>
-                    <div style={{ marginBottom: 15 }}>
-                        <label style={{ display: "block", fontWeight: 500, marginBottom: 5, color: "var(--text-secondary)" }}>
+            <section className="bg-bg-card border border-border rounded-xl p-6 mb-8">
+                <h2 className="text-xl font-semibold">Account Information</h2>
+                <div className="mt-5">
+                    <div className="mb-4">
+                        <label className="block font-medium mb-1.5 text-text-secondary">
                             Username
                         </label>
                         {editingUsername ? (
-                            <div style={{ display: "flex", gap: 10, alignItems: "center", maxWidth: 400 }}>
+                            <div className="flex gap-2.5 items-center max-w-md">
                                 <input
                                     type="text"
                                     value={newUsername}
                                     onChange={(e) => setNewUsername(e.target.value)}
                                     placeholder="Enter new username"
-                                    className="input-field"
-                                    style={{ flex: 1 }}
+                                    className="flex-1 px-3 py-2 bg-bg-input border border-border rounded-lg text-text text-sm focus:outline-none focus:border-accent"
                                     autoFocus
                                     onKeyDown={(e) => e.key === "Enter" && handleSaveUsername()}
                                 />
                                 <button
                                     onClick={handleSaveUsername}
                                     disabled={saving}
-                                    className="btn btn-primary"
-                                    style={{ padding: "8px 16px", fontSize: "0.875rem" }}
+                                    className="px-4 py-2 bg-accent text-white rounded-lg font-medium text-sm hover:opacity-90 disabled:opacity-50"
                                 >
                                     {saving ? "Saving..." : "Save"}
                                 </button>
                                 <button
                                     onClick={handleCancelEditUsername}
-                                    className="btn btn-secondary"
-                                    style={{ padding: "8px 16px", fontSize: "0.875rem" }}
+                                    className="px-4 py-2 bg-bg-input text-text-secondary border border-border rounded-lg font-medium text-sm hover:bg-bg-hover"
                                 >
                                     Cancel
                                 </button>
                             </div>
                         ) : (
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                <span style={{ fontSize: "1rem", color: "var(--text)" }}>{user?.username}</span>
+                            <div className="flex items-center gap-2.5">
+                                <span className="text-base text-text">{user?.username}</span>
                                 <button
                                     onClick={handleStartEditUsername}
-                                    style={{
-                                        background: "transparent",
-                                        border: "1px solid var(--border)",
-                                        color: "var(--text-muted)",
-                                        padding: "4px 10px",
-                                        borderRadius: 4,
-                                        cursor: "pointer",
-                                        fontSize: "0.75rem"
-                                    }}
+                                    className="bg-transparent border border-border text-text-muted px-2.5 py-1 rounded cursor-pointer text-xs hover:text-text-primary"
                                     title="Edit username"
                                 >
                                     Edit
@@ -292,30 +281,29 @@ function Profile({ apiBase }: Props) {
                         )}
                     </div>
                     <div>
-                        <label style={{ display: "block", fontWeight: 500, marginBottom: 5, color: "var(--text-secondary)" }}>
+                        <label className="block font-medium mb-1.5 text-text-secondary">
                             Email
                         </label>
-                        <p style={{ color: "var(--text)" }}>{user?.email || "Not provided"}</p>
+                        <p className="text-text">{user?.email || "Not provided"}</p>
                     </div>
                 </div>
             </section>
 
             {/* Gmail Integration */}
-            <section className="dashboard-card">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <section className="bg-bg-card border border-border rounded-xl p-6">
+                <div className="flex justify-between items-start">
                     <div>
-                        <h2 style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <span style={{ fontSize: "1.5rem" }}>📧</span> Gmail Sync (Beta)
+                        <h2 className="flex items-center gap-2.5 text-xl font-semibold">
+                            <span className="text-2xl">📧</span> Gmail Sync (Beta)
                         </h2>
-                        <p style={{ color: "var(--text-muted)", marginTop: 5 }}>
+                        <p className="text-text-muted mt-1">
                             Automatically fetch and process bank statements from your Gmail inbox.
                         </p>
                     </div>
                     {!user?.gmail_enabled && (
                         <button
-                            className="btn btn-primary"
+                            className="px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600"
                             onClick={handleConnectGmail}
-                            style={{ background: "#4285F4" }}
                         >
                             Connect Google Account
                         </button>
@@ -323,17 +311,17 @@ function Profile({ apiBase }: Props) {
                 </div>
 
                 {user?.gmail_enabled && (
-                    <div style={{ marginTop: 30, paddingTop: 30, borderTop: "1px solid var(--border)" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                    <div className="mt-8 pt-8 border-t border-border">
+                        <div className="flex items-center justify-between mb-5">
                             <div>
-                                <label style={{ display: "block", fontWeight: "bold", marginBottom: 5 }}>Status</label>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22c55e" }}></div>
+                                <label className="block font-bold mb-1.5">Status</label>
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
                                     <span>Sync Active</span>
                                 </div>
                             </div>
                             <button
-                                className="btn btn-danger"
+                                className="px-4 py-2 bg-transparent text-danger border border-danger rounded-lg font-medium hover:bg-danger/10"
                                 onClick={() => handleUpdateConfig(false)}
                                 disabled={saving}
                             >
@@ -341,24 +329,24 @@ function Profile({ apiBase }: Props) {
                             </button>
                         </div>
 
-                        <div style={{ marginBottom: 20 }}>
-                            <label style={{ display: "block", fontWeight: "bold", marginBottom: 10 }}>Search Filter</label>
+                        <div className="mb-5">
+                            <label className="block font-bold mb-2.5">Search Filter</label>
                             <input
                                 type="text"
-                                className="input-field"
+                                className="w-full px-3 py-2 bg-bg-input border border-border rounded-lg text-text focus:outline-none focus:border-accent"
                                 value={filterQuery}
                                 onChange={(e) => setFilterQuery(e.target.value)}
                                 placeholder="e.g. from:examplebank.com has:attachment filename:pdf"
                             />
-                            <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: 10 }}>
+                            <p className="text-sm text-text-muted mt-2.5">
                                 Only emails matching this Gmail search query will be processed.
                                 Use common Gmail search operators.
                             </p>
                         </div>
 
-                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                        <div className="flex justify-end gap-2.5">
                             <button
-                                className="btn btn-secondary"
+                                className="px-4 py-2 bg-bg-input text-text-secondary border border-border rounded-lg font-medium hover:bg-bg-hover"
                                 onClick={() => handleUpdateConfig(true)}
                                 disabled={saving}
                             >
@@ -367,7 +355,7 @@ function Profile({ apiBase }: Props) {
                         </div>
 
                         {user.gmail_last_sync && (
-                            <div style={{ marginTop: 20, fontSize: "0.9rem", color: "var(--text-muted)" }}>
+                            <div className="mt-5 text-sm text-text-muted">
                                 Last Sync: {new Date(user.gmail_last_sync).toLocaleString()}
                             </div>
                         )}
@@ -376,35 +364,34 @@ function Profile({ apiBase }: Props) {
             </section>
 
             {/* Data Backup/Restore */}
-            <section className="dashboard-card" style={{ marginTop: 30 }}>
-                <h2 style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: "1.5rem" }}>💾</span> Data Backup
+            <section className="bg-bg-card border border-border rounded-xl p-6 mt-8">
+                <h2 className="flex items-center gap-2.5 text-xl font-semibold">
+                    <span className="text-2xl">💾</span> Data Backup
                 </h2>
-                <p style={{ color: "var(--text-muted)", marginTop: 5, marginBottom: 24 }}>
+                <p className="text-text-muted mt-1 mb-6">
                     Export your data as JSON or restore from a previous backup.
                 </p>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                <div className="grid grid-cols-2 gap-6">
                     {/* Export Section */}
-                    <div style={{ padding: 20, background: "var(--bg-input)", borderRadius: 8 }}>
-                        <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 8 }}>Export Backup</h3>
-                        <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: 16 }}>
+                    <div className="p-5 bg-bg-input rounded-lg">
+                        <h3 className="text-base font-semibold mb-2">Export Backup</h3>
+                        <p className="text-sm text-text-muted mb-4">
                             Download all your transactions, accounts, categories, rules, and goals as a JSON file.
                         </p>
                         <button
-                            className="btn btn-primary"
+                            className="w-full px-4 py-2 bg-accent text-white rounded-lg font-medium hover:opacity-90 disabled:opacity-50"
                             onClick={handleExportBackup}
                             disabled={exporting}
-                            style={{ width: "100%" }}
                         >
                             {exporting ? "Exporting..." : "Export Backup"}
                         </button>
                     </div>
 
                     {/* Import Section */}
-                    <div style={{ padding: 20, background: "var(--bg-input)", borderRadius: 8 }}>
-                        <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 8 }}>Restore Data</h3>
-                        <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: 16 }}>
+                    <div className="p-5 bg-bg-input rounded-lg">
+                        <h3 className="text-base font-semibold mb-2">Restore Data</h3>
+                        <p className="text-sm text-text-muted mb-4">
                             Import from a backup file. Existing data with matching IDs will be skipped.
                         </p>
                         <input
@@ -412,23 +399,16 @@ function Profile({ apiBase }: Props) {
                             accept=".json"
                             onChange={handleFileChange}
                             id="import-file"
-                            style={{ display: "none" }}
+                            className="hidden"
                         />
-                        <label htmlFor="import-file" className="btn btn-secondary" style={{ 
-                            display: "inline-block", 
-                            width: "100%", 
-                            textAlign: "center",
-                            cursor: "pointer",
-                            marginBottom: importFile ? 12 : 0
-                        }}>
+                        <label htmlFor="import-file" className="block w-full px-4 py-2 bg-bg-input text-text-secondary border border-border rounded-lg font-medium text-center cursor-pointer mb-3 hover:bg-bg-hover">
                             {importFile ? importFile.name : "Choose File"}
                         </label>
                         {importFile && (
                             <button
-                                className="btn btn-primary"
+                                className="w-full px-4 py-2 bg-accent text-white rounded-lg font-medium hover:opacity-90 disabled:opacity-50"
                                 onClick={handleImportBackup}
                                 disabled={importing}
-                                style={{ width: "100%" }}
                             >
                                 {importing ? "Importing..." : "Import Backup"}
                             </button>
@@ -436,123 +416,6 @@ function Profile({ apiBase }: Props) {
                     </div>
                 </div>
             </section>
-
-            <style>{`
-        .dashboard-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 24px;
-        }
-        .dashboard-card h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-        .input-field {
-            width: 100%;
-            padding: 12px;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text);
-            font-size: 1rem;
-            outline: none;
-        .input-field:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-glow);
-        }
-        .btn {
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .btn-primary {
-            background: var(--accent);
-            color: white;
-            border: none;
-        }
-        .btn-primary:hover:not(:disabled) {
-            background: var(--accent-hover);
-        }
-        .btn-secondary {
-            background: var(--bg-input);
-            color: var(--text-secondary);
-            border: 1px solid var(--border);
-        }
-        .btn-secondary:hover {
-            background: var(--bg-card);
-            border-color: var(--accent);
-        }
-        .btn-danger {
-            background: transparent;
-            color: var(--danger);
-            border: 1px solid var(--danger);
-        }
-        .btn-danger:hover {
-            background: rgba(239, 68, 68, 0.1);
-        }
-        }
-        .input-field:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-glow);
-        }
-        .btn {
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .btn-primary {
-            background: var(--accent);
-            color: white;
-            border: none;
-        }
-        .btn-primary:hover:not(:disabled) {
-            background: var(--accent-hover);
-        }
-        .btn-secondary {
-            background: var(--bg-input);
-            color: var(--text-secondary);
-            border: 1px solid var(--border);
-        }
-        .btn-secondary:hover {
-            background: var(--bg-card);
-            border-color: var(--accent);
-        }
-        .btn-danger {
-            background: transparent;
-            color: var(--danger);
-            border: 1px solid var(--danger);
-        }
-        .btn-danger:hover {
-            background: rgba(239, 68, 68, 0.1);
-        }
-        .success-message {
-            background: rgba(34, 197, 94, 0.1);
-            color: #22c55e;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid rgba(34, 197, 94, 0.2);
-        }
-        .error-message {
-            background: rgba(239, 68, 68, 0.1);
-            color: #ef4444;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid rgba(239, 68, 68, 0.2);
-        }
-      `}</style>
         </div>
     );
 }

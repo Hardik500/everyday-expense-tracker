@@ -281,7 +281,7 @@ export function DataBackupRestore({ apiBase, onBackupComplete, onRestoreComplete
         <p className="subtitle">Secure your data with encrypted backups</p>
       </div>
 
-      <div style={{ display: 'grid', gap: '1.5rem' }}>
+      <div className="grid gap-6">
         {/* Backup Section */}
         <div className="backup-section">
           <div className="section-row">
@@ -362,7 +362,7 @@ export function DataBackupRestore({ apiBase, onBackupComplete, onRestoreComplete
             type="file"
             accept=".json"
             onChange={handleFileSelect}
-            style={{ display: 'none' }}
+            className="hidden"
           />
 
           <button
