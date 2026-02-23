@@ -369,27 +369,20 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
     return (
       <div className="page-transition-scale">
         {/* Skeleton header */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
-          <div className="skeleton" style={{ width: 200, height: 40, borderRadius: 8 }} />
+        <div className="flex items-center gap-4 mb-6">
+          <div className="skeleton w-[200px] h-10 rounded-lg" />
         </div>
 
         {/* Skeleton stat cards */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: "1rem",
-            marginBottom: "1.5rem",
-          }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 mb-6">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="skeleton skeleton-card" style={{ height: 140 }} />
+            <div key={i} className="skeleton skeleton-card h-[140px]" />
           ))}
         </div>
 
         {/* Skeleton chart */}
         <div className="card">
-          <div className="skeleton skeleton-card" style={{ height: 300 }} />
+          <div className="skeleton skeleton-card h-[300px]" />
         </div>
       </div>
     );
@@ -397,39 +390,21 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
 
   if (items.length === 0) {
     return (
-      <div className="page-transition-scale" style={{ display: "grid", gap: "1.5rem" }}>
+      <div className="page-transition-scale grid gap-6">
         {/* Month Selector - Always visible */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <div className="flex items-center gap-4">
           <Select
             label="Period"
             value={selectedMonth || ""}
             onChange={(val) => setSelectedMonth(String(val))}
             options={[{ value: "", label: "All Time" }, ...getMonthOptions()]}
-            style={{ minWidth: 200 }}
+            className="min-w-[200px]"
           />
         </div>
 
-        <div
-          style={{
-            padding: "4rem 2rem",
-            textAlign: "center",
-            background: "var(--bg-card)",
-            borderRadius: "var(--radius-lg)",
-            border: "1px dashed var(--border-color)",
-          }}
-        >
+        <div className="p-16 text-center bg-bg-card rounded-xl border border-dashed border-border-color">
           <div
-            style={{
-              width: 64,
-              height: 64,
-              background: "var(--accent-glow)",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 1.5rem",
-              color: "var(--accent)",
-            }}
+            className="w-16 h-16 bg-accent-glow rounded-full flex items-center justify-center mx-auto mb-6 text-accent"
           >
             <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -440,24 +415,10 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
               />
             </svg>
           </div>
-          <h2
-            style={{
-              fontSize: "1.5rem",
-              marginBottom: "0.5rem",
-              color: "var(--text-primary)",
-            }}
-          >
+          <h2 className="text-2xl mb-2 text-text-primary">
             {selectedMonth ? "No transactions in this period" : "Welcome to Expense Tracker!"}
           </h2>
-          <p
-            style={{
-              color: "var(--text-secondary)",
-              marginBottom: "2rem",
-              maxWidth: 400,
-              margin: "0 auto 2rem",
-              lineHeight: 1.5,
-            }}
-          >
+          <p className="text-text-secondary mb-8 max-w-[400px] mx-auto leading-normal">
             {selectedMonth
               ? "Try selecting a different month from the dropdown above, or view All Time to see your complete transaction history."
               : "It looks like you haven't imported any transactions yet. Start by uploading a bank statement to see your financial analytics."}
@@ -466,7 +427,6 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
             <button
               className="primary"
               onClick={() => navigate("/upload")}
-              style={{ padding: "0.75rem 2rem", fontSize: "1rem" }}
             >
               Import Your First Statement
             </button>
@@ -483,49 +443,29 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
   };
 
   return (
-    <div className="page-transition-scale" style={{ display: "grid", gap: "1.5rem" }}>
+    <div className="page-transition-scale grid gap-6">
       {/* Header with Period Selector */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "1rem",
-        }}
-      >
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <Select
           label="Period"
           value={selectedMonth || ""}
           onChange={(val) => setSelectedMonth(String(val))}
           options={[{ value: "", label: "All Time" }, ...getMonthOptions()]}
-          style={{ minWidth: 200 }}
+          className="min-w-[200px]"
         />
 
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div className="flex items-center gap-2">
           <div
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: "#10b981",
-              animation: "pulse 2s ease-in-out infinite",
-            }}
+            className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"
           />
-          <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          <span className="text-xs text-text-muted">
             Live data
           </span>
         </div>
       </div>
 
       {/* 🎯 Feature 1: Dashboard Spending Overview Cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: "1rem",
-        }}
-      >
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
         {/* Total Balance Card */}
         <StatCard
           title="Net Balance"
@@ -622,11 +562,11 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
         <div className="card">
           <div className="card-header">
             <h2>Income vs Expenses Trend</h2>
-            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+            <span className="text-sm text-text-muted">
               Last {miniChartData.length} months
             </span>
           </div>
-          <div style={{ height: 180 }}>
+          <div className="h-[180px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={miniChartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                 <XAxis
@@ -684,42 +624,34 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
           formatCurrency={formatCurrency}
           formatFullCurrency={formatFullCurrency}
         />
-      </div>      {/* 📊 Feature 6 - Budget Progress Bars */}
+      </div>
+
+      {/* 📊 Feature 6 - Budget Progress Bars */}
       {budgetState.categories.length > 0 && (
         <div className="card">
           <div className="card-header">
             <h2>Budget Progress</h2>
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-text-muted">
                 {formatCurrency(budgetState.totalSpent)} / {formatCurrency(budgetState.totalBudget)}
               </span>
-              <div
-                style={{
-                  width: 100,
-                  height: 6,
-                  borderRadius: 3,
-                  background: "var(--bg-input)",
-                  overflow: "hidden",
-                }}
-              >
+              <div className="w-[100px] h-1.5 rounded-full bg-bg-input overflow-hidden">
                 <div
+                  className="h-full transition-all duration-500"
                   style={{
                     width: `${Math.min(100, budgetState.overallPercentage)}%`,
-                    height: "100%",
                     background:
                       budgetState.overallPercentage > 100
                         ? "#ef4444"
                         : budgetState.overallPercentage > 80
                           ? "#f59e0b"
                           : "#10b981",
-                    transition: "width 0.5s ease",
                   }}
                 />
               </div>
               <span
+                className="text-xs font-semibold"
                 style={{
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
                   color:
                     budgetState.overallPercentage > 100
                       ? "#ef4444"
@@ -734,58 +666,34 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
           </div>
 
           {/* Overall Budget Bar */}
-          <div
-            style={{
-              marginBottom: "1.5rem",
-              padding: "1rem",
-              background: "var(--bg-input)",
-              borderRadius: "var(--radius-md)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--text-primary)" }}>
+          <div className="mb-6 p-4 bg-bg-input rounded-lg">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-text-primary">
                 Overall Budget
               </span>
-              <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+              <span className="text-sm text-text-muted">
                 {budgetState.overallPercentage > 100 ? (
-                  <span style={{ color: "#ef4444", fontWeight: 500 }}>
+                  <span className="text-danger font-medium">
                     Over budget by {formatCurrency(budgetState.totalSpent - budgetState.totalBudget)}
                   </span>
                 ) : (
-                  <span style={{ color: "#10b981", fontWeight: 500 }}>
+                  <span className="text-success font-medium">
                     {formatCurrency(budgetState.totalBudget - budgetState.totalSpent)} remaining
                   </span>
                 )}
               </span>
             </div>
-            <div
-              style={{
-                width: "100%",
-                height: 8,
-                borderRadius: 4,
-                background: "rgba(0,0,0,0.1)",
-                overflow: "hidden",
-              }}
-            >
+            <div className="w-full h-2 rounded bg-black/10 overflow-hidden">
               <div
+                className="h-full rounded transition-all duration-500"
                 style={{
                   width: `${Math.min(100, budgetState.overallPercentage)}%`,
-                  height: "100%",
                   background:
                     budgetState.overallPercentage > 100
                       ? "linear-gradient(90deg, #ef4444, #dc2626)"
                       : budgetState.overallPercentage > 80
                         ? "linear-gradient(90deg, #f59e0b, #d97706)"
                         : "linear-gradient(90deg, #10b981, #059669)",
-                  borderRadius: 4,
-                  transition: "width 0.6s ease, background 0.3s ease",
                   boxShadow:
                     budgetState.overallPercentage > 90
                       ? "0 0 10px rgba(239, 68, 68, 0.5)"
@@ -796,9 +704,9 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
           </div>
 
           {/* Category Budget Bars */}
-          <div style={{ display: "grid", gap: "1rem" }}>
+          <div className="grid gap-4">
             {loadingBudget ? (
-              <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
+              <div className="text-center p-8 text-text-muted">
                 Loading budget data...
               </div>
             ) : (
@@ -811,74 +719,25 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
                   <div
                     key={cat.category_id}
                     onClick={() => onCategorySelect?.(cat.category_id)}
-                    style={{
-                      display: "grid",
-                      gap: "0.5rem",
-                      padding: "1rem",
-                      background: "var(--bg-input)",
-                      borderRadius: "var(--radius-md)",
-                      cursor: onCategorySelect ? "pointer" : "default",
-                      transition: "all var(--transition-fast)",
-                      border: isOverBudget ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (onCategorySelect) {
-                        e.currentTarget.style.background = "var(--bg-hover)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (onCategorySelect) {
-                        e.currentTarget.style.background = "var(--bg-input)";
-                      }
-                    }}
+                    className={`grid gap-2 p-4 bg-bg-input rounded-lg transition-all ${onCategorySelect ? "cursor-pointer hover:bg-bg-hover" : ""} ${isOverBudget ? "border border-red-500/30" : "border border-transparent"}`}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
                         <div
-                          style={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            background: cat.color,
-                          }}
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ background: cat.color }}
                         />
-                        <span
-                          style={{
-                            fontSize: "0.875rem",
-                            fontWeight: 500,
-                            color: "var(--text-primary)",
-                          }}
-                        >
+                        <span className="text-sm font-medium text-text-primary">
                           {cat.category_name}
                         </span>
                       </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.75rem",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: "0.8125rem",
-                            color: "var(--text-muted)",
-                          }}
-                        >
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-text-muted">
                           {formatCurrency(cat.spent)} / {formatCurrency(cat.monthly_budget)}
                         </span>
                         <span
+                          className="text-xs font-semibold px-2 py-1 rounded"
                           style={{
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            padding: "0.25rem 0.5rem",
-                            borderRadius: "var(--radius-sm)",
                             background: isOverBudget
                               ? "rgba(239, 68, 68, 0.15)"
                               : isNearLimit
@@ -893,39 +752,29 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
                     </div>
 
                     {/* Progress Bar */}
-                    <div
-                      style={{
-                        width: "100%",
-                        height: 6,
-                        borderRadius: 3,
-                        background: "rgba(0,0,0,0.1)",
-                        overflow: "hidden",
-                      }}
-                    >
+                    <div className="w-full h-1.5 rounded bg-black/10 overflow-hidden">
                       <div
+                        className="h-full rounded transition-all duration-500"
                         style={{
                           width: `${Math.min(100, cat.percentage)}%`,
-                          height: "100%",
                           background: cat.color,
-                          borderRadius: 3,
-                          transition: "width 0.6s ease",
                           opacity: isOverBudget ? 0.8 : 1,
                         }}
                       />
                     </div>
 
                     {/* Status Message */}
-                    <div style={{ fontSize: "0.75rem" }}>
+                    <div className="text-xs">
                       {isOverBudget ? (
-                        <span style={{ color: "#ef4444", fontWeight: 500 }}>
+                        <span className="text-danger font-medium">
                           ⚠️ Over budget by {formatCurrency(cat.spent - cat.monthly_budget)}
                         </span>
                       ) : isNearLimit ? (
-                        <span style={{ color: "#f59e0b" }}>
+                        <span className="text-warning">
                           ⚡ Only {formatCurrency(remaining)} remaining
                         </span>
                       ) : (
-                        <span style={{ color: "var(--text-muted)" }}>
+                        <span className="text-text-muted">
                           {formatCurrency(remaining)} remaining
                         </span>
                       )}
@@ -939,13 +788,7 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
       )}
 
       {/* Quick Stats Grid */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "1rem",
-        }}
-      >
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
         {/* Transactions Count */}
         <StatCard
           title="Transactions"
@@ -1051,31 +894,23 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
         <div className="card page-transition-scale">
           <div className="card-header">
             <h2>Spending by Category</h2>
-            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+            <span className="text-sm text-text-muted">
               Click to view details
             </span>
           </div>
 
           {/* Visual bar chart */}
-          <div style={{ marginBottom: "1.5rem" }}>
-            <div
-              style={{
-                display: "flex",
-                height: 12,
-                borderRadius: 6,
-                overflow: "hidden",
-                background: "var(--bg-input)",
-              }}
-            >
+          <div className="mb-6">
+            <div className="flex h-3 rounded-full overflow-hidden bg-bg-input">
               {spendingItems.map((item: ReportItem, idx: number) => {
                 const percentage = totalSpend > 0 ? (Math.abs(item.total) / totalSpend) * 100 : 0;
                 return (
                   <div
                     key={idx}
+                    className="transition-all duration-500"
                     style={{
                       width: `${percentage}%`,
                       background: getColor(item.category_name),
-                      transition: "width 0.5s ease",
                     }}
                     title={`${item.category_name}: ${formatCurrency(Math.abs(item.total))}`}
                   />
@@ -1085,7 +920,7 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
           </div>
 
           {/* Category list */}
-          <div style={{ display: "grid", gap: "0.75rem" }}>
+          <div className="grid gap-3">
             {spendingItems.map((item: ReportItem, idx: number) => {
               const percentage = totalSpend > 0 ? (Math.abs(item.total) / totalSpend) * 100 : 0;
               const isClickable = item.category_id && onCategorySelect;
@@ -1093,62 +928,22 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
                 <div
                   key={idx}
                   onClick={() => isClickable && onCategorySelect(item.category_id!)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "1rem",
-                    padding: "0.875rem 1rem",
-                    background: "var(--bg-input)",
-                    borderRadius: "var(--radius-md)",
-                    transition: "all var(--transition-fast)",
-                    cursor: isClickable ? "pointer" : "default",
-                  }}
-                  onMouseEnter={(e) =>
-                    isClickable && (e.currentTarget.style.background = "var(--bg-hover)")
-                  }
-                  onMouseLeave={(e) =>
-                    isClickable && (e.currentTarget.style.background = "var(--bg-input)")
-                  }
+                  className={`flex items-center gap-4 px-4 py-3.5 bg-bg-input rounded-lg transition-all ${isClickable ? "cursor-pointer hover:bg-bg-hover" : ""}`}
                 >
                   <div
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      background: getColor(item.category_name),
-                      flexShrink: 0,
-                    }}
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ background: getColor(item.category_name) }}
                   />
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        fontWeight: 500,
-                        color: "var(--text-primary)",
-                        fontSize: "0.875rem",
-                      }}
-                    >
+                  <div className="flex-1">
+                    <div className="font-medium text-text-primary text-sm">
                       {item.category_name || "Uncategorized"}
                     </div>
                   </div>
-                  <div
-                    style={{
-                      fontSize: "0.8125rem",
-                      color: "var(--text-muted)",
-                      width: 50,
-                      textAlign: "right",
-                    }}
-                  >
+                  <div className="text-sm text-text-muted w-[50px] text-right">
                     {percentage.toFixed(1)}%
                   </div>
                   <div
-                    className="mono"
-                    style={{
-                      fontWeight: 500,
-                      color: "var(--text-primary)",
-                      width: 100,
-                      textAlign: "right",
-                      fontSize: "0.875rem",
-                    }}
+                    className="mono font-medium text-text-primary w-[100px] text-right text-sm"
                   >
                     {formatCurrency(Math.abs(item.total))}
                   </div>
@@ -1181,60 +976,25 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
           <div className="card-header">
             <h2>Income Sources</h2>
           </div>
-          <div style={{ display: "grid", gap: "0.75rem" }}>
+          <div className="grid gap-3">
             {incomeItems.map((item: ReportItem, idx: number) => {
               const percentage = totalIncome > 0 ? (item.total / totalIncome) * 100 : 0;
               return (
                 <div
                   key={idx}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "1rem",
-                    padding: "0.875rem 1rem",
-                    background: "var(--bg-input)",
-                    borderRadius: "var(--radius-md)",
-                  }}
+                  className="flex items-center gap-4 px-4 py-3.5 bg-bg-input rounded-lg"
                 >
-                  <div
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      background: "var(--accent)",
-                      flexShrink: 0,
-                    }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        fontWeight: 500,
-                        color: "var(--text-primary)",
-                        fontSize: "0.875rem",
-                      }}
-                    >
+                  <div className="w-2.5 h-2.5 rounded-full bg-accent shrink-0" />
+                  <div className="flex-1">
+                    <div className="font-medium text-text-primary text-sm">
                       {item.category_name || "Other Income"}
                     </div>
                   </div>
-                  <div
-                    style={{
-                      fontSize: "0.8125rem",
-                      color: "var(--text-muted)",
-                      width: 50,
-                      textAlign: "right",
-                    }}
-                  >
+                  <div className="text-sm text-text-muted w-[50px] text-right">
                     {percentage.toFixed(1)}%
                   </div>
                   <div
-                    className="mono"
-                    style={{
-                      fontWeight: 500,
-                      color: "var(--accent)",
-                      width: 100,
-                      textAlign: "right",
-                      fontSize: "0.875rem",
-                    }}
+                    className="mono font-medium text-accent w-[100px] text-right text-sm"
                   >
                     {formatCurrency(item.total)}
                   </div>
@@ -1247,55 +1007,31 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
 
       {/* Asset Movements */}
       {assetItems.length > 0 && (
-        <div className="card page-transition-scale" style={{ opacity: 0.85 }}>
+        <div className="card page-transition-scale opacity-85">
           <div className="card-header">
             <h2>Asset Movements</h2>
-            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            <span className="text-xs text-text-muted">
               Investments & transfers (not counted in spending)
             </span>
           </div>
-          <div style={{ display: "grid", gap: "0.75rem" }}>
+          <div className="grid gap-3">
             {assetItems.map((item: ReportItem, idx: number) => (
               <div
                 key={idx}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "1rem",
-                  padding: "0.875rem 1rem",
-                  background: "var(--bg-input)",
-                  borderRadius: "var(--radius-md)",
-                }}
+                className="flex items-center gap-4 px-4 py-3.5 bg-bg-input rounded-lg"
               >
                 <div
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    background: item.category_name === "Investments" ? "#8b5cf6" : "#64748b",
-                    flexShrink: 0,
-                  }}
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ background: item.category_name === "Investments" ? "#8b5cf6" : "#64748b" }}
                 />
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontWeight: 500,
-                      color: "var(--text-secondary)",
-                      fontSize: "0.875rem",
-                    }}
-                  >
+                <div className="flex-1">
+                  <div className="font-medium text-text-secondary text-sm">
                     {item.category_name}
                   </div>
                 </div>
                 <div
-                  className="mono"
-                  style={{
-                    fontWeight: 500,
-                    color: item.total < 0 ? "#8b5cf6" : "var(--accent)",
-                    width: 100,
-                    textAlign: "right",
-                    fontSize: "0.875rem",
-                  }}
+                  className="mono font-medium w-[100px] text-right text-sm"
+                  style={{ color: item.total < 0 ? "#8b5cf6" : "var(--accent)" }}
                 >
                   {formatCurrency(Math.abs(item.total))}
                 </div>

@@ -151,8 +151,7 @@ export function StatCard({
           )}
           {(trend || subtitle) && (
             <span
-              className={sizeStyle.subtitleSize}
-              style={{ color: "var(--text-muted)" }}
+              className={`${sizeStyle.subtitleSize} text-text-muted`}
             >
               {trend ? trend.label : subtitle}
             </span>

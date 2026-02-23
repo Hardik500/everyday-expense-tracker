@@ -162,8 +162,8 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
 
   if (loading) {
     return (
-      <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
-        <div className="loading" style={{ fontSize: "1.5rem", color: "var(--text-muted)" }}>
+      <div className="card text-center p-12">
+        <div className="loading text-2xl text-text-muted">
           Loading...
         </div>
       </div>
@@ -172,9 +172,9 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
 
   if (items.length === 0) {
     return (
-      <div style={{ display: "grid", gap: "1.5rem" }}>
+      <div className="grid gap-6">
         {/* Month Selector - Always visible */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <div className="flex items-center gap-4">
           <Select
             label="Period"
             value={selectedMonth || ""}
@@ -183,20 +183,20 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
               { value: "", label: "All Time" },
               ...getMonthOptions()
             ]}
-            style={{ minWidth: 200 }}
+            className="min-w-[200px]"
           />
         </div>
 
-        <div style={{ padding: "4rem 2rem", textAlign: "center", background: "var(--bg-card)", borderRadius: "var(--radius-lg)", border: "1px dashed var(--border-color)" }}>
-          <div style={{ width: 64, height: 64, background: "var(--accent-glow)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem", color: "var(--accent)" }}>
+        <div className="p-16 text-center bg-bg-card rounded-xl border border-dashed border-border-color">
+          <div className="w-16 h-16 bg-accent-glow rounded-full flex items-center justify-center mx-auto mb-6 text-accent">
             <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
           </div>
-          <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem", color: "var(--text-primary)" }}>
+          <h2 className="text-2xl mb-2 text-text-primary">
             {selectedMonth ? "No transactions in this period" : "Welcome to Expense Tracker!"}
           </h2>
-          <p style={{ color: "var(--text-secondary)", marginBottom: "2rem", maxWidth: 400, margin: "0 auto 2rem", lineHeight: 1.5 }}>
+          <p className="text-text-secondary mb-8 max-w-[400px] mx-auto leading-normal">
             {selectedMonth
               ? "Try selecting a different month from the dropdown above, or view All Time to see your complete transaction history."
               : "It looks like you haven't imported any transactions yet. Start by uploading a bank statement to see your financial analytics."
@@ -206,7 +206,6 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
             <button
               className="primary"
               onClick={() => navigate("/upload")}
-              style={{ padding: "0.75rem 2rem", fontSize: "1rem" }}
             >
               Import Your First Statement
             </button>
@@ -217,9 +216,9 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
   }
 
   return (
-    <div style={{ display: "grid", gap: "1.5rem" }}>
+    <div className="grid gap-6">
       {/* Month Selector */}
-      <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+      <div className="flex items-center gap-4 flex-wrap">
         <Select
           label="Period"
           value={selectedMonth || ""}
@@ -228,12 +227,12 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
             { value: "", label: "All Time" },
             ...getMonthOptions()
           ]}
-          style={{ minWidth: 200 }}
+          className="min-w-[200px]"
         />
-        
+
         {/* Feature 14: PDF Export */}
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <ReportPDFExport 
+        <div className="flex gap-2">
+          <ReportPDFExport
             month={selectedMonth || "All Time"}
             totalSpent={totalSpend}
             totalIncome={totalIncome}
@@ -244,7 +243,7 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
             }))}
             reportData={transactions}
           />
-          <CSVExportButton 
+          <CSVExportButton
             data={transactions}
             filename={`expense-report-${selectedMonth || "all-time"}`}
           />
@@ -252,19 +251,14 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
       </div>
 
       {/* Summary Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1rem" }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
         {/* Cash Flow (true account change) */}
-        <div className="card" style={{ padding: "1.25rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
+        <div className="card p-5">
+          <div className="flex items-center gap-3 mb-3">
             <div
+              className="w-10 h-10 rounded-[10px] flex items-center justify-center"
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
                 background: cashFlow >= 0 ? "var(--accent-glow)" : "rgba(239, 68, 68, 0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
                 color: cashFlow >= 0 ? "var(--accent)" : "#ef4444",
               }}
             >
@@ -272,120 +266,76 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Cash Flow</span>
+            <span className="text-sm text-text-muted">Cash Flow</span>
           </div>
-          <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: cashFlow >= 0 ? "var(--accent)" : "#ef4444" }}>
+          <div className={`mono text-3xl font-semibold ${cashFlow >= 0 ? "text-accent" : "text-danger"}`}>
             {formatFullCurrency(cashFlow)}
           </div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+          <div className="text-xs text-text-muted mt-1">
             {cashFlow < 0 ? "Used savings for investments" : "Added to savings"}
           </div>
         </div>
 
         {/* Savings Rate */}
-        <div className="card" style={{ padding: "1.25rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                background: "rgba(16, 185, 129, 0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#10b981",
-              }}
-            >
+        <div className="card p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-emerald-500/15 text-emerald-500">
               <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Savings Rate</span>
+            <span className="text-sm text-text-muted">Savings Rate</span>
           </div>
-          <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: "#10b981" }}>
+          <div className="mono text-3xl font-semibold text-emerald-500">
             {savingsRate.toFixed(0)}%
           </div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+          <div className="text-xs text-text-muted mt-1">
             Income not spent on expenses
           </div>
         </div>
 
         {/* Total Spending */}
-        <div className="card" style={{ padding: "1.25rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                background: "rgba(239, 68, 68, 0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#ef4444",
-              }}
-            >
+        <div className="card p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-red-500/15 text-red-500">
               <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Total Spent</span>
+            <span className="text-sm text-text-muted">Total Spent</span>
           </div>
-          <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: "#ef4444" }}>
+          <div className="mono text-3xl font-semibold text-red-500">
             {formatCurrency(totalSpend)}
           </div>
         </div>
 
         {/* Total Income */}
-        <div className="card" style={{ padding: "1.25rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                background: "var(--accent-glow)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--accent)",
-              }}
-            >
+        <div className="card p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-accent-glow text-accent">
               <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
             </div>
-            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Total Income</span>
+            <span className="text-sm text-text-muted">Total Income</span>
           </div>
-          <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: "var(--accent)" }}>
+          <div className="mono text-3xl font-semibold text-accent">
             {formatCurrency(totalIncome)}
           </div>
         </div>
 
         {/* Investments */}
         {totalInvested > 0 && (
-          <div className="card" style={{ padding: "1.25rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background: "rgba(139, 92, 246, 0.15)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#8b5cf6",
-                }}
-              >
+          <div className="card p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-purple-500/15 text-purple-500">
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
               </div>
-              <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Invested</span>
+              <span className="text-sm text-text-muted">Invested</span>
             </div>
-            <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: "#8b5cf6" }}>
+            <div className="mono text-3xl font-semibold text-purple-500">
               {formatCurrency(totalInvested)}
             </div>
           </div>
@@ -393,27 +343,16 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
 
         {/* Uncategorized */}
         {uncategorized && (
-          <div className="card" style={{ padding: "1.25rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background: "rgba(245, 158, 11, 0.15)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#f59e0b",
-                }}
-              >
+          <div className="card p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-amber-500/15 text-amber-500">
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Uncategorized</span>
+              <span className="text-sm text-text-muted">Uncategorized</span>
             </div>
-            <div className="mono" style={{ fontSize: "1.75rem", fontWeight: 600, color: "var(--warning)" }}>
+            <div className="mono text-3xl font-semibold text-warning">
               {formatCurrency(Math.abs(uncategorized.total))}
             </div>
           </div>
@@ -427,26 +366,18 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
         </div>
 
         {/* Visual bar chart */}
-        <div style={{ marginBottom: "1.5rem" }}>
+        <div className="mb-6">
           {spendingItems.length > 0 && (
-            <div
-              style={{
-                display: "flex",
-                height: 12,
-                borderRadius: 6,
-                overflow: "hidden",
-                background: "var(--bg-input)",
-              }}
-            >
+            <div className="flex h-3 rounded-full overflow-hidden bg-bg-input">
               {spendingItems.map((item, idx) => {
                 const percentage = totalSpend > 0 ? (Math.abs(item.total) / totalSpend) * 100 : 0;
                 return (
                   <div
                     key={idx}
+                    className="transition-all duration-500"
                     style={{
                       width: `${percentage}%`,
                       background: getColor(item.category_name),
-                      transition: "width 0.5s ease",
                     }}
                     title={`${item.category_name}: ${formatCurrency(Math.abs(item.total))}`}
                   />
@@ -457,7 +388,7 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
         </div>
 
         {/* Category list - only true spending (excludes transfers and investments) */}
-        <div style={{ display: "grid", gap: "0.75rem" }}>
+        <div className="grid gap-3">
           {spendingItems.map((item, idx) => {
             const percentage = totalSpend > 0 ? (Math.abs(item.total) / totalSpend) * 100 : 0;
             const isClickable = item.category_id && onCategorySelect;
@@ -465,53 +396,28 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
               <div
                 key={idx}
                 onClick={() => isClickable && onCategorySelect(item.category_id!)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "1rem",
-                  padding: "0.875rem 1rem",
-                  background: "var(--bg-input)",
-                  borderRadius: "var(--radius-md)",
-                  transition: "all var(--transition-fast)",
-                  cursor: isClickable ? "pointer" : "default",
-                }}
-                onMouseEnter={(e) => isClickable && (e.currentTarget.style.background = "var(--bg-hover)")}
-                onMouseLeave={(e) => isClickable && (e.currentTarget.style.background = "var(--bg-input)")}
+                className={`flex items-center gap-4 px-4 py-3.5 bg-bg-input rounded-lg transition-all ${isClickable ? "cursor-pointer hover:bg-bg-hover" : ""}`}
               >
                 {/* Color dot */}
                 <div
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    background: getColor(item.category_name),
-                    flexShrink: 0,
-                  }}
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ background: getColor(item.category_name) }}
                 />
 
                 {/* Category name */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 500, color: "var(--text-primary)", fontSize: "0.875rem" }}>
+                <div className="flex-1">
+                  <div className="font-medium text-text-primary text-sm">
                     {item.category_name || "Uncategorized"}
                   </div>
                 </div>
 
                 {/* Percentage */}
-                <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", width: 50, textAlign: "right" }}>
+                <div className="text-sm text-text-muted w-[50px] text-right">
                   {percentage.toFixed(1)}%
                 </div>
 
                 {/* Amount */}
-                <div
-                  className="mono"
-                  style={{
-                    fontWeight: 500,
-                    color: "var(--text-primary)",
-                    width: 100,
-                    textAlign: "right",
-                    fontSize: "0.875rem",
-                  }}
-                >
+                <div className="mono font-medium text-text-primary w-[100px] text-right text-sm">
                   {formatCurrency(Math.abs(item.total))}
                 </div>
 
@@ -533,48 +439,24 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
           <div className="card-header">
             <h2>Income Sources</h2>
           </div>
-          <div style={{ display: "grid", gap: "0.75rem" }}>
+          <div className="grid gap-3">
             {incomeItems.map((item, idx) => {
               const percentage = totalIncome > 0 ? (item.total / totalIncome) * 100 : 0;
               return (
                 <div
                   key={idx}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "1rem",
-                    padding: "0.875rem 1rem",
-                    background: "var(--bg-input)",
-                    borderRadius: "var(--radius-md)",
-                  }}
+                  className="flex items-center gap-4 px-4 py-3.5 bg-bg-input rounded-lg"
                 >
-                  <div
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      background: "var(--accent)",
-                      flexShrink: 0,
-                    }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 500, color: "var(--text-primary)", fontSize: "0.875rem" }}>
+                  <div className="w-2.5 h-2.5 rounded-full bg-accent shrink-0" />
+                  <div className="flex-1">
+                    <div className="font-medium text-text-primary text-sm">
                       {item.category_name || "Other Income"}
                     </div>
                   </div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", width: 50, textAlign: "right" }}>
+                  <div className="text-sm text-text-muted w-[50px] text-right">
                     {percentage.toFixed(1)}%
                   </div>
-                  <div
-                    className="mono"
-                    style={{
-                      fontWeight: 500,
-                      color: "var(--accent)",
-                      width: 100,
-                      textAlign: "right",
-                      fontSize: "0.875rem",
-                    }}
-                  >
+                  <div className="mono font-medium text-accent w-[100px] text-right text-sm">
                     {formatCurrency(item.total)}
                   </div>
                 </div>
@@ -586,49 +468,31 @@ function Reports({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) {
 
       {/* Asset Movements (Investments & Transfers - not counted as spending) */}
       {assetItems.length > 0 && (
-        <div className="card" style={{ opacity: 0.85 }}>
+        <div className="card opacity-85">
           <div className="card-header">
             <h2>Asset Movements</h2>
-            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            <span className="text-xs text-text-muted">
               Investments & transfers (not counted in spending)
             </span>
           </div>
-          <div style={{ display: "grid", gap: "0.75rem" }}>
+          <div className="grid gap-3">
             {assetItems.map((item, idx) => (
               <div
                 key={idx}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "1rem",
-                  padding: "0.875rem 1rem",
-                  background: "var(--bg-input)",
-                  borderRadius: "var(--radius-md)",
-                }}
+                className="flex items-center gap-4 px-4 py-3.5 bg-bg-input rounded-lg"
               >
                 <div
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    background: item.category_name === "Investments" ? "#8b5cf6" : "#64748b",
-                    flexShrink: 0,
-                  }}
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ background: item.category_name === "Investments" ? "#8b5cf6" : "#64748b" }}
                 />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 500, color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+                <div className="flex-1">
+                  <div className="font-medium text-text-secondary text-sm">
                     {item.category_name}
                   </div>
                 </div>
                 <div
-                  className="mono"
-                  style={{
-                    fontWeight: 500,
-                    color: item.total < 0 ? "#8b5cf6" : "var(--accent)",
-                    width: 100,
-                    textAlign: "right",
-                    fontSize: "0.875rem",
-                  }}
+                  className="mono font-medium w-[100px] text-right text-sm"
+                  style={{ color: item.total < 0 ? "#8b5cf6" : "var(--accent)" }}
                 >
                   {formatCurrency(Math.abs(item.total))}
                 </div>

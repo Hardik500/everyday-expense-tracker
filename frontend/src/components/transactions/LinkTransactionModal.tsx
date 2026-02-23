@@ -132,72 +132,41 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
 
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0, 0, 0, 0.7)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-      }}
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000]"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="card"
-        style={{
-          width: "90%",
-          maxWidth: 700,
-          maxHeight: "90vh",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
+        className="card w-[90%] max-w-[700px] max-h-[90vh] flex flex-col overflow-hidden"
       >
         {/* Header */}
-        <div className="card-header" style={{ padding: "1.25rem", borderBottom: "1px solid var(--border-color)" }}>
+        <div className="card-header px-5 py-5 border-b border-border-color">
           <div>
-            <h2 style={{ margin: 0 }}>Link Transaction</h2>
-            <p style={{ margin: "0.25rem 0 0", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+            <h2 className="m-0">Link Transaction</h2>
+            <p className="mt-1 mb-0 text-sm text-text-muted">
               Link credit card payments to bank statement debits
             </p>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "var(--text-muted)",
-              cursor: "pointer",
-              padding: "0.5rem",
-              fontSize: "1.25rem",
-            }}
+            className="bg-transparent border-none text-text-muted cursor-pointer p-2 text-xl"
           >
             ✕
           </button>
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflow: "auto", padding: "1.25rem" }}>
+        <div className="flex-1 overflow-auto p-5">
           {/* Source Transaction */}
-          <div style={{
-            padding: "1rem",
-            background: "var(--bg-input)",
-            borderRadius: "var(--radius-md)",
-            marginBottom: "1.5rem",
-          }}>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
+          <div className="p-4 bg-bg-input rounded-lg mb-6">
+            <div className="text-xs text-text-muted mb-2">
               Source Transaction
             </div>
-            <div style={{ fontSize: "0.9375rem", fontWeight: 500, color: "var(--text-primary)" }}>
+            <div className="text-[0.9375rem] font-medium text-text-primary">
               {transaction.description_raw}
             </div>
-            <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem", fontSize: "0.8125rem" }}>
-              <span style={{ color: "var(--text-muted)" }}>{formatDate(transaction.posted_at)}</span>
-              <span className="mono" style={{
-                color: transaction.amount < 0 ? "var(--danger)" : "var(--success)",
-                fontWeight: 600,
-              }}>
+            <div className="flex gap-4 mt-2 text-sm">
+              <span className="text-text-muted">{formatDate(transaction.posted_at)}</span>
+              <span className={`mono font-semibold ${transaction.amount < 0 ? "text-danger" : "text-success"}`}>
                 {transaction.amount < 0 ? "-" : "+"}{formatCurrency(transaction.amount)}
               </span>
               {transaction.account_name && (
@@ -207,48 +176,33 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
           </div>
 
           {loading ? (
-            <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
+            <div className="p-8 text-center text-text-muted">
               Loading...
             </div>
           ) : (
             <>
               {/* Existing Links */}
               {existingLinks.length > 0 && (
-                <div style={{ marginBottom: "1.5rem" }}>
-                  <h3 style={{ fontSize: "0.9375rem", fontWeight: 600, marginBottom: "0.75rem", color: "var(--text-primary)" }}>
+                <div className="mb-6">
+                  <h3 className="text-[0.9375rem] font-semibold mb-3 text-text-primary">
                     Currently Linked
                   </h3>
-                  <div style={{ display: "grid", gap: "0.5rem" }}>
+                  <div className="grid gap-2">
                     {existingLinks.map((link) => (
                       <div
                         key={link.link_id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "1rem",
-                          padding: "0.75rem 1rem",
-                          background: "var(--success)",
-                          backgroundColor: "rgba(16, 185, 129, 0.1)",
-                          borderRadius: "var(--radius-md)",
-                          border: "1px solid var(--success)",
-                        }}
+                        className="flex items-center gap-4 px-4 py-3 bg-emerald-500/10 rounded-lg border border-emerald-500"
                       >
-                        <svg width="20" height="20" fill="none" stroke="var(--success)" viewBox="0 0 24 24">
+                        <svg width="20" height="20" fill="none" stroke="#10b981" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                         </svg>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            fontSize: "0.875rem",
-                            color: "var(--text-primary)",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">
                             {link.linked_description}
                           </div>
-                          <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+                          <div className="flex gap-3 text-xs text-text-muted mt-1">
                             <span>{formatDate(link.linked_posted_at)}</span>
-                            <span className="mono" style={{ color: link.linked_amount < 0 ? "var(--danger)" : "var(--success)" }}>
+                            <span className={`mono ${link.linked_amount < 0 ? "text-danger" : "text-success"}`}>
                               {link.linked_amount < 0 ? "-" : "+"}{formatCurrency(link.linked_amount)}
                             </span>
                             <span>{link.linked_account_name}</span>
@@ -256,8 +210,7 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
                         </div>
                         <button
                           onClick={() => handleUnlink(link.link_id)}
-                          className="ghost"
-                          style={{ padding: "0.5rem", fontSize: "0.75rem" }}
+                          className="ghost p-2 text-xs"
                         >
                           Unlink
                         </button>
@@ -270,29 +223,23 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
               {/* Linkable Transactions */}
               {existingLinks.length === 0 && (
                 <div>
-                  <h3 style={{ fontSize: "0.9375rem", fontWeight: 600, marginBottom: "0.75rem", color: "var(--text-primary)" }}>
+                  <h3 className="text-[0.9375rem] font-semibold mb-3 text-text-primary">
                     Suggested Matches
-                    <span style={{ fontWeight: 400, fontSize: "0.8125rem", color: "var(--text-muted)", marginLeft: "0.5rem" }}>
+                    <span className="font-normal text-sm text-text-muted ml-2">
                       (similar amount, opposite account type, within 7 days)
                     </span>
                   </h3>
 
                   {linkableTransactions.length > 0 ? (
-                    <div style={{ display: "grid", gap: "0.5rem" }}>
+                    <div className="grid gap-2">
                       {linkableTransactions.map((tx) => (
                         <label
                           key={tx.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.75rem",
-                            padding: "0.75rem 1rem",
-                            background: selectedId === tx.id ? "var(--accent-glow)" : "var(--bg-input)",
-                            borderRadius: "var(--radius-md)",
-                            cursor: "pointer",
-                            border: selectedId === tx.id ? "1px solid var(--accent)" : "1px solid transparent",
-                            transition: "all var(--transition-fast)",
-                          }}
+                          className={`flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer border transition-all ${
+                            selectedId === tx.id
+                              ? "bg-accent-glow border-accent"
+                              : "bg-bg-input border-transparent"
+                          }`}
                         >
                           <input
                             type="radio"
@@ -300,31 +247,20 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
                             checked={selectedId === tx.id}
                             onChange={() => setSelectedId(tx.id)}
                           />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{
-                              fontSize: "0.875rem",
-                              color: "var(--text-primary)",
-                              fontWeight: 500,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-text-primary font-medium overflow-hidden text-ellipsis whitespace-nowrap">
                               {tx.description_raw}
                             </div>
-                            <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+                            <div className="flex gap-3 text-xs text-text-muted mt-1">
                               <span>{formatDate(tx.posted_at)}</span>
-                              <span className="badge" style={{ fontSize: "0.6875rem" }}>{tx.account_name}</span>
+                              <span className="badge text-[11px]">{tx.account_name}</span>
                             </div>
                           </div>
-                          <div className="mono" style={{
-                            fontSize: "0.9375rem",
-                            color: tx.amount < 0 ? "var(--danger)" : "var(--success)",
-                            fontWeight: 600,
-                          }}>
+                          <div className={`mono text-[0.9375rem] font-semibold ${tx.amount < 0 ? "text-danger" : "text-success"}`}>
                             {tx.amount < 0 ? "-" : "+"}{formatCurrency(tx.amount)}
                           </div>
                           {tx.amount_diff !== undefined && tx.amount_diff === 0 && (
-                            <span style={{ fontSize: "0.6875rem", color: "var(--success)", fontWeight: 500 }}>
+                            <span className="text-[11px] text-success font-medium">
                               Exact
                             </span>
                           )}
@@ -332,18 +268,12 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
                       ))}
                     </div>
                   ) : (
-                    <div style={{
-                      padding: "2rem",
-                      textAlign: "center",
-                      color: "var(--text-muted)",
-                      background: "var(--bg-input)",
-                      borderRadius: "var(--radius-md)",
-                    }}>
-                      <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ margin: "0 auto 1rem", opacity: 0.5 }}>
+                    <div className="p-8 text-center text-text-muted bg-bg-input rounded-lg">
+                      <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" className="mx-auto mb-4 opacity-50">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                       </svg>
                       <p>No matching transactions found</p>
-                      <p style={{ fontSize: "0.8125rem", marginTop: "0.5rem" }}>
+                      <p className="text-sm mt-2">
                         Try importing statements from both your bank and credit card accounts
                       </p>
                     </div>
@@ -353,15 +283,7 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
 
               {/* Error */}
               {error && (
-                <div style={{
-                  marginTop: "1rem",
-                  padding: "0.75rem 1rem",
-                  background: "rgba(239, 68, 68, 0.1)",
-                  border: "1px solid var(--danger)",
-                  borderRadius: "var(--radius-md)",
-                  color: "var(--danger)",
-                  fontSize: "0.875rem",
-                }}>
+                <div className="mt-4 px-4 py-3 bg-red-500/10 border border-danger rounded-lg text-danger text-sm">
                   {error}
                 </div>
               )}
@@ -370,13 +292,7 @@ function LinkTransactionModal({ apiBase, transaction, onClose, onLinked }: Props
         </div>
 
         {/* Footer */}
-        <div style={{
-          padding: "1rem 1.25rem",
-          borderTop: "1px solid var(--border-color)",
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: "0.75rem",
-        }}>
+        <div className="px-5 py-4 border-t border-border-color flex justify-end gap-3">
           <button className="secondary" onClick={onClose}>
             Cancel
           </button>

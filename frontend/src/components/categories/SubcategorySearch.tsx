@@ -177,17 +177,7 @@ function SubcategorySearch({
       <div
         ref={refs.setReference}
         {...getReferenceProps()}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          background: "var(--bg-input)",
-          border: "1px solid var(--border-color)",
-          borderRadius: "var(--radius-md)",
-          padding: "0.5rem 0.75rem",
-          cursor: "text",
-          transition: "border-color 0.15s ease",
-          borderColor: isOpen ? "var(--accent)" : "var(--border-color)",
-        }}
+        className={`flex items-center bg-bg-input border rounded-lg px-3 py-2 cursor-text transition-colors ${isOpen ? "border-accent" : "border-border-color"}`}
         onClick={() => {
           setIsOpen(true);
           inputRef.current?.focus();
@@ -203,15 +193,7 @@ function SubcategorySearch({
           }}
           onKeyDown={handleKeyDown}
           placeholder={displayValue || placeholder}
-          style={{
-            flex: 1,
-            background: "transparent",
-            border: "none",
-            outline: "none",
-            color: isOpen ? "var(--text-primary)" : displayValue ? "var(--text-primary)" : "var(--text-muted)",
-            fontSize: "0.875rem",
-            padding: 0,
-          }}
+          className={`flex-1 bg-transparent border-none outline-none text-sm p-0 ${isOpen || displayValue ? "text-text-primary" : "text-text-muted"}`}
         />
         <svg
           width="16"
@@ -220,7 +202,8 @@ function SubcategorySearch({
           fill="none"
           stroke="var(--text-muted)"
           strokeWidth={2}
-          style={{ flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }}
+          className="shrink-0 transition-transform duration-150"
+          style={{ transform: isOpen ? "rotate(180deg)" : "none" }}
         >
           <path d="M6 9l6 6 6-6" />
         </svg>
@@ -232,19 +215,12 @@ function SubcategorySearch({
           <FloatingFocusManager context={context} modal={false} initialFocus={-1}>
             <div
               ref={refs.setFloating}
-              style={{
-                ...floatingStyles,
-                background: "var(--bg-card)",
-                border: "1px solid var(--border-color)",
-                borderRadius: "var(--radius-md)",
-                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.5)",
-                overflowY: "auto",
-                zIndex: 99999,
-              }}
+              className="bg-bg-card border border-border-color rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.5)] overflow-y-auto z-[99999]"
+              style={floatingStyles}
               {...getFloatingProps()}
             >
               {sortedOptions.length === 0 ? (
-                <div style={{ padding: "0.75rem 1rem", color: "var(--text-muted)", fontSize: "0.875rem" }}>
+                <div className="px-4 py-3 text-text-muted text-sm">
                   No matching categories
                 </div>
               ) : (
@@ -257,40 +233,20 @@ function SubcategorySearch({
                     {...getItemProps({
                       onClick: () => handleSelect(opt),
                     })}
-                    style={{
-                      padding: "0.625rem 1rem",
-                      cursor: "pointer",
-                      background: activeIndex === idx ? "var(--bg-hover)" : "transparent",
-                      borderBottom: "1px solid var(--border-color)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                    }}
+                    className={`px-4 py-2.5 cursor-pointer border-b border-border-color flex items-center gap-2 ${activeIndex === idx ? "bg-bg-hover" : "bg-transparent"}`}
                   >
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "var(--text-muted)",
-                        minWidth: 100,
-                      }}
-                    >
+                    <span className="text-xs text-text-muted min-w-[100px]">
                       {opt.categoryName}
                     </span>
-                    <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>›</span>
-                    <span
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "var(--text-primary)",
-                        fontWeight: 500,
-                      }}
-                    >
+                    <span className="text-text-muted text-xs">›</span>
+                    <span className="text-sm text-text-primary font-medium">
                       {opt.subcategoryName}
                     </span>
                   </div>
                 ))
               )}
               {sortedOptions.length > 50 && (
-                <div style={{ padding: "0.5rem 1rem", color: "var(--text-muted)", fontSize: "0.75rem", textAlign: "center" }}>
+                <div className="px-4 py-2 text-text-muted text-xs text-center">
                   +{sortedOptions.length - 50} more results...
                 </div>
               )}

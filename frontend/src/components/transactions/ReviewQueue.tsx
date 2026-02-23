@@ -42,6 +42,21 @@ const formatDate = (dateStr: string) => {
   });
 };
 
+// Toggle component
+const Toggle = ({ checked, onChange }: { checked: boolean, onChange: (val: boolean) => void }) => (
+  <button
+    type="button"
+    onClick={() => onChange(!checked)}
+    className="relative w-11 h-6 rounded-full border-none cursor-pointer transition-colors shrink-0"
+    style={{ background: checked ? "var(--accent)" : "var(--bg-secondary)" }}
+  >
+    <span
+      className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all"
+      style={{ left: checked ? "22px" : "2px" }}
+    />
+  </button>
+);
+
 function ReviewQueue({
   apiBase,
   categories,
@@ -369,60 +384,43 @@ function ReviewQueue({
           <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p style={{ marginTop: "1rem", fontWeight: 500, color: "var(--success)" }}>All caught up!</p>
-          <p style={{ marginTop: "0.5rem" }}>No transactions need review right now</p>
+          <p className="mt-4 font-medium text-success">All caught up!</p>
+          <p className="mt-2">No transactions need review right now</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ display: "grid", gap: "1rem" }}>
+    <div className="grid gap-4">
       {/* AI Category Suggestions */}
       <AISuggestions apiBase={apiBase} refreshKey={refreshKey} onUpdated={onUpdated} />
 
       {/* Progress indicator */}
-      <div className="card" style={{ padding: "1rem 1.25rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 8,
-                background: "rgba(245, 158, 11, 0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--warning)",
-              }}
-            >
+      <div className="card px-5 py-4">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-500">
               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <div style={{ fontWeight: 500, color: "var(--text-primary)", fontSize: "0.9375rem" }}>
+              <div className="font-medium text-text-primary text-[0.9375rem]">
                 {transactions.length} transactions need review
               </div>
-              <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+              <div className="text-sm text-text-muted">
                 Assign categories to help track your spending
               </div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <div className="flex items-center gap-4">
             {/* AI Categorize Button */}
             {aiStatus?.configured && (
               <button
                 onClick={aiCategorizeAll}
                 disabled={aiLoading}
-                className="primary"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  background: "linear-gradient(135deg, #8b5cf6, #6366f1)",
-                }}
+                className="primary flex items-center gap-2 bg-gradient-to-br from-purple-500 to-indigo-500"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
@@ -435,11 +433,11 @@ function ReviewQueue({
               </button>
             )}
             {!aiStatus?.configured && aiStatus !== null && (
-              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", padding: "0.5rem 0.75rem", background: "var(--bg-input)", borderRadius: "var(--radius-md)" }}>
+              <div className="text-xs text-text-muted px-3 py-2 bg-bg-input rounded-lg">
                 💡 Set GEMINI_API_KEY to enable AI
               </div>
             )}
-            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+            <div className="text-sm text-text-muted">
               Page {page + 1} of {totalPages}
             </div>
           </div>
@@ -447,19 +445,15 @@ function ReviewQueue({
 
         {/* AI Progress Bar */}
         {aiProgress && (
-          <div style={{ marginTop: "1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.375rem" }}>
+          <div className="mt-4">
+            <div className="flex justify-between text-xs text-text-muted mb-1.5">
               <span>AI categorizing transactions...</span>
               <span>{aiProgress.processed} of {aiProgress.total} categorized</span>
             </div>
-            <div style={{ height: 4, background: "var(--bg-input)", borderRadius: 2, overflow: "hidden" }}>
+            <div className="h-1 bg-bg-input rounded overflow-hidden">
               <div
-                style={{
-                  height: "100%",
-                  width: `${(aiProgress.processed / Math.max(aiProgress.total, 1)) * 100}%`,
-                  background: "linear-gradient(90deg, #8b5cf6, #6366f1)",
-                  transition: "width 0.3s ease",
-                }}
+                className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all"
+                style={{ width: `${(aiProgress.processed / Math.max(aiProgress.total, 1)) * 100}%` }}
               />
             </div>
           </div>
@@ -476,50 +470,25 @@ function ReviewQueue({
         return (
           <div
             key={tx.id}
-            className="card card-stable"
-            style={{
-              opacity: 1,
-              transition: 'opacity 150ms ease, transform 150ms ease',
-              willChange: 'transform',
-              padding: "1.25rem",
-            }}
+            className="card card-stable p-5"
           >
-            <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
+            <div className="flex gap-6 flex-wrap">
               {/* Transaction info */}
-              <div style={{ flex: "1 1 300px", minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", marginBottom: "0.75rem" }}>
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 10,
-                      background: "var(--bg-input)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                      color: "var(--text-muted)",
-                    }}
-                  >
+              <div className="flex-[1_1_300px] min-w-0">
+                <div className="flex items-start gap-4 mb-3">
+                  <div className="w-10 h-10 rounded-[10px] bg-bg-input flex items-center justify-center shrink-0 text-text-muted">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="flex-1 min-w-0">
                     <div
-                      style={{
-                        fontWeight: 500,
-                        color: "var(--text-primary)",
-                        fontSize: "0.9375rem",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
+                      className="font-medium text-text-primary text-[0.9375rem] whitespace-nowrap overflow-hidden text-ellipsis"
                       title={tx.description_raw}
                     >
                       {tx.description_raw}
                     </div>
-                    <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+                    <div className="text-sm text-text-muted mt-1">
                       {formatDate(tx.posted_at)}
                     </div>
                   </div>
@@ -527,148 +496,51 @@ function ReviewQueue({
 
                 {/* Amount */}
                 <div
-                  className="mono"
-                  style={{
-                    fontSize: "1.5rem",
-                    fontWeight: 600,
-                    color: tx.amount < 0 ? "var(--danger)" : "var(--success)",
-                  }}
+                  className={`mono text-2xl font-semibold ${tx.amount < 0 ? "text-danger" : "text-success"}`}
                 >
                   {tx.amount < 0 ? "-" : "+"}{formatCurrency(Math.abs(tx.amount))}
                 </div>
 
                 {/* Similar transactions info */}
                 {isLoadingSimilar ? (
-                  <div
-                    className="similar-skeleton"
-                    style={{
-                      marginTop: "1rem",
-                      height: 80,
-                      borderRadius: "var(--radius-md)",
-                    }}
-                  />
+                  <div className="mt-4 h-20 rounded-lg bg-bg-input animate-pulse" />
                 ) : hasSimilar ? (
-                  <div
-                    className="similar-content"
-                    style={{
-                      marginTop: "1rem",
-                      padding: "1rem",
-                      background: "var(--bg-input)",
-                      borderRadius: "var(--radius-md)",
-                      fontSize: "0.8125rem",
-                    }}
-                  >
+                  <div className="mt-4 p-4 bg-bg-input rounded-lg text-sm">
                     {/* Apply to similar toggle */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "1rem",
-                      }}
-                    >
-                      <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-text-primary font-medium">
                         Apply to {similar.count} similar transactions
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setApplyToSimilar((prev) => ({ ...prev, [tx.id]: !prev[tx.id] }))}
-                        style={{
-                          position: "relative",
-                          width: 44,
-                          height: 24,
-                          borderRadius: 12,
-                          border: "none",
-                          background: applyToSimilar[tx.id] ? "var(--accent)" : "var(--bg-secondary)",
-                          cursor: "pointer",
-                          transition: "background 0.2s ease",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: 2,
-                            left: applyToSimilar[tx.id] ? 22 : 2,
-                            width: 20,
-                            height: 20,
-                            borderRadius: "50%",
-                            background: "white",
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                            transition: "left 0.2s ease",
-                          }}
-                        />
-                      </button>
+                      <Toggle
+                        checked={applyToSimilar[tx.id]}
+                        onChange={(val) => setApplyToSimilar((prev) => ({ ...prev, [tx.id]: val }))}
+                      />
                     </div>
 
                     {/* Pattern - editable */}
-                    <div style={{ marginTop: "0.75rem" }}>
-                      <label style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block", marginBottom: "0.25rem" }}>
+                    <div className="mt-3">
+                      <label className="text-xs text-text-muted block mb-1">
                         Pattern (editable)
                       </label>
                       <input
                         type="text"
                         value={editedPattern[tx.id] ?? similar.pattern}
                         onChange={(e) => setEditedPattern((prev) => ({ ...prev, [tx.id]: e.target.value }))}
-                        style={{
-                          width: "100%",
-                          padding: "0.5rem 0.75rem",
-                          borderRadius: "var(--radius-md)",
-                          border: "1px solid var(--border-color)",
-                          background: "var(--bg-secondary)",
-                          color: "var(--text-primary)",
-                          fontSize: "0.8125rem",
-                          fontFamily: "monospace",
-                        }}
+                        className="w-full px-3 py-2 rounded-lg border border-border-color bg-bg-secondary text-text-primary text-sm font-mono"
                         placeholder="Enter pattern..."
                       />
                     </div>
 
                     {/* Create rule toggle */}
                     {willApplyToSimilar && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: "1rem",
-                          marginTop: "0.75rem",
-                          paddingTop: "0.75rem",
-                          borderTop: "1px solid var(--border-color)",
-                        }}
-                      >
-                        <span style={{ color: "var(--text-muted)" }}>
+                      <div className="flex items-center justify-between gap-4 mt-3 pt-3 border-t border-border-color">
+                        <span className="text-text-muted">
                           Create rule for future transactions
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setCreateRule((prev) => ({ ...prev, [tx.id]: !prev[tx.id] }))}
-                          style={{
-                            position: "relative",
-                            width: 44,
-                            height: 24,
-                            borderRadius: 12,
-                            border: "none",
-                            background: createRule[tx.id] ? "var(--accent)" : "var(--bg-secondary)",
-                            cursor: "pointer",
-                            transition: "background 0.2s ease",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <span
-                            style={{
-                              position: "absolute",
-                              top: 2,
-                              left: createRule[tx.id] ? 22 : 2,
-                              width: 20,
-                              height: 20,
-                              borderRadius: "50%",
-                              background: "white",
-                              boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                              transition: "left 0.2s ease",
-                            }}
-                          />
-                        </button>
+                        <Toggle
+                          checked={createRule[tx.id]}
+                          onChange={(val) => setCreateRule((prev) => ({ ...prev, [tx.id]: val }))}
+                        />
                       </div>
                     )}
                   </div>
@@ -676,9 +548,9 @@ function ReviewQueue({
               </div>
 
               {/* Category selector - single searchable dropdown */}
-              <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: "0.75rem", minWidth: 240 }}>
+              <div className="flex-[0_0_auto] flex flex-col gap-3 min-w-[240px]">
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.375rem" }}>
+                  <label className="block text-xs text-text-muted mb-1.5">
                     Category
                   </label>
                   <SubcategorySearch
@@ -694,12 +566,11 @@ function ReviewQueue({
                 </div>
 
                 {/* Actions */}
-                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
+                <div className="flex gap-2 mt-1">
                   <button
-                    className="ghost"
+                    className="ghost flex-1"
                     onClick={() => skipTransaction(tx.id)}
                     disabled={saving[tx.id]}
-                    style={{ flex: 1 }}
                   >
                     Skip
                   </button>
@@ -708,21 +579,10 @@ function ReviewQueue({
                       onClick={() => aiCategorizeSingle(tx.id)}
                       disabled={aiProcessingTx[tx.id]}
                       title="Categorize with AI"
-                      style={{
-                        flex: 0,
-                        padding: "0.5rem 0.75rem",
-                        background: "linear-gradient(135deg, #8b5cf6, #6366f1)",
-                        border: "none",
-                        borderRadius: "var(--radius-md)",
-                        color: "white",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
+                      className="px-3 py-2 bg-gradient-to-br from-purple-500 to-indigo-500 border-none rounded-lg text-white cursor-pointer flex items-center justify-center"
                     >
                       {aiProcessingTx[tx.id] ? (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ animation: "spin 1s linear infinite" }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="animate-spin">
                           <circle cx="12" cy="12" r="10" strokeWidth={2} strokeDasharray="31.4" strokeDashoffset="10" />
                         </svg>
                       ) : (
@@ -733,10 +593,9 @@ function ReviewQueue({
                     </button>
                   )}
                   <button
-                    className="primary"
+                    className="primary flex-1"
                     onClick={() => submit(tx.id)}
                     disabled={!category[tx.id] || saving[tx.id]}
-                    style={{ flex: 1 }}
                   >
                     {saving[tx.id]
                       ? "Saving..."
@@ -754,7 +613,7 @@ function ReviewQueue({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem", marginTop: "0.5rem" }}>
+        <div className="flex justify-center gap-2 mt-2">
           <button
             className="secondary"
             onClick={() => setPage((p) => Math.max(0, p - 1))}

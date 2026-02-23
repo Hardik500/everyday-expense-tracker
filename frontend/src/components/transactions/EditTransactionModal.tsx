@@ -35,30 +35,12 @@ const Toggle = ({ checked, onChange }: { checked: boolean, onChange: (val: boole
     <button
         type="button"
         onClick={() => onChange(!checked)}
-        style={{
-            position: "relative",
-            width: 44,
-            height: 24,
-            borderRadius: 12,
-            border: "none",
-            background: checked ? "var(--accent)" : "var(--bg-secondary)",
-            cursor: "pointer",
-            transition: "background 0.2s ease",
-            flexShrink: 0,
-        }}
+        className="relative w-11 h-6 rounded-full border-none cursor-pointer transition-colors shrink-0"
+        style={{ background: checked ? "var(--accent)" : "var(--bg-secondary)" }}
     >
         <span
-            style={{
-                position: "absolute",
-                top: 2,
-                left: checked ? 22 : 2,
-                width: 20,
-                height: 20,
-                borderRadius: "50%",
-                background: "white",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                transition: "left 0.2s ease",
-            }}
+            className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all"
+            style={{ left: checked ? "22px" : "2px" }}
         />
     </button>
 );
@@ -121,13 +103,13 @@ const EditTransactionModal = ({
                     setSimilarPattern(data.pattern || "");
                 }
 
-                // Auto-select all similar transactions initially? 
+                // Auto-select all similar transactions initially?
                 // Or just the current one?
-                // Transactions.tsx behavior seems to be: 
+                // Transactions.tsx behavior seems to be:
                 // When opening, it sets selectedSimilarIds to new Set([editingTx.id]).
                 // Then user can Select All.
                 // Wait, logic in Transactions.tsx line 844 (on Refresh) auto-selects ALL.
-                // But initial open logic? I should check. 
+                // But initial open logic? I should check.
                 // I'll default to just the current one for safety, user can click "Select All".
                 // But if I refresh, I probably want to select them.
 
@@ -219,64 +201,40 @@ const EditTransactionModal = ({
 
     return ReactDOM.createPortal(
         <div
-            style={{
-                position: "fixed",
-                inset: 0,
-                background: "rgba(0,0,0,0.7)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                zIndex: 9999, // High z-index for portal
-                padding: "1rem",
-            }}
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-4"
             onClick={(e) => {
                 if (e.target === e.currentTarget) onClose();
             }}
         >
             <div
-                className="card"
-                style={{
-                    width: "100%",
-                    maxWidth: 700,
-                    maxHeight: "90vh",
-                    overflow: "auto",
-                    animation: "slideUp 0.2s ease",
-                    display: "flex",
-                    flexDirection: "column",
-                }}
+                className="card w-full max-w-[700px] max-h-[90vh] overflow-auto animate-[slideUp_0.2s_ease] flex flex-col"
             >
-                <div className="card-header" style={{ marginBottom: "1rem" }}>
+                <div className="card-header mb-4">
                     <h2>Edit Transaction</h2>
                     <button
                         onClick={onClose}
-                        style={{
-                            background: "transparent",
-                            border: "none",
-                            color: "var(--text-muted)",
-                            cursor: "pointer",
-                            padding: "0.5rem",
-                        }}
+                        className="bg-transparent border-none text-text-muted cursor-pointer p-2"
                     >
                         ✕
                     </button>
                 </div>
 
                 {/* Transaction Details */}
-                <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "var(--bg-input)", borderRadius: "var(--radius-md)" }}>
-                    <div style={{ fontSize: "0.875rem", color: "var(--text-primary)", fontWeight: 500 }}>
+                <div className="mb-6 p-4 bg-bg-input rounded-lg">
+                    <div className="text-sm text-text-primary font-medium">
                         {transaction.description_raw}
                     </div>
-                    <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                    <div className="flex gap-4 mt-2 text-sm text-text-muted">
                         <span>{new Date(transaction.posted_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</span>
-                        <span className="mono" style={{ color: transaction.amount < 0 ? "var(--danger)" : "var(--success)" }}>
+                        <span className={`mono ${transaction.amount < 0 ? "text-danger" : "text-success"}`}>
                             {transaction.amount < 0 ? "-" : "+"}{formatCurrency(transaction.amount)}
                         </span>
                     </div>
                 </div>
 
                 {/* Category Selection */}
-                <div style={{ marginBottom: "1.5rem" }}>
-                    <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                <div className="mb-6">
+                    <label className="block mb-2 text-sm text-text-muted">
                         Category
                     </label>
                     <SubcategorySearch
@@ -292,47 +250,34 @@ const EditTransactionModal = ({
                 </div>
 
                 {/* Notes Field */}
-                <div style={{ marginBottom: "1.5rem" }}>
-                    <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                <div className="mb-6">
+                    <label className="block mb-2 text-sm text-text-muted">
                         Notes
                     </label>
                     <textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         placeholder="Add notes about this transaction..."
-                        style={{
-                            width: "100%",
-                            minHeight: "80px",
-                            fontSize: "0.875rem",
-                            padding: "0.75rem",
-                            background: "var(--bg-input)",
-                            border: "1px solid var(--border-color)",
-                            borderRadius: "var(--radius-md)",
-                            color: "var(--text-primary)",
-                            resize: "vertical",
-                            fontFamily: "inherit",
-                        }}
+                        className="w-full min-h-[80px] text-sm p-3 bg-bg-input border border-border-color rounded-lg text-text-primary resize-y font-inherit"
                     />
                 </div>
 
                 {/* Similar Transactions */}
-                <div style={{ marginBottom: "1.5rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                        <label style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                <div className="mb-6">
+                    <div className="flex justify-between items-center mb-3">
+                        <label className="text-sm text-text-muted">
                             Similar Transactions ({similarTxs.length} found)
                         </label>
                         {similarTxs.length > 1 && (
-                            <div style={{ display: "flex", gap: "0.5rem" }}>
+                            <div className="flex gap-2">
                                 <button
-                                    className="secondary"
-                                    style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
+                                    className="secondary px-3 py-1 text-xs"
                                     onClick={() => setSelectedSimilarIds(new Set<number>(similarTxs.map((t) => t.id)))}
                                 >
                                     Select All
                                 </button>
                                 <button
-                                    className="secondary"
-                                    style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
+                                    className="secondary px-3 py-1 text-xs"
                                     onClick={() => {
                                         // SQL LIKE to Regex conversion
                                         const escaped = similarPattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
@@ -347,8 +292,7 @@ const EditTransactionModal = ({
                                     Select Matching
                                 </button>
                                 <button
-                                    className="secondary"
-                                    style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
+                                    className="secondary px-3 py-1 text-xs"
                                     onClick={() => setSelectedSimilarIds(new Set([transaction.id]))}
                                 >
                                     Select None
@@ -358,24 +302,15 @@ const EditTransactionModal = ({
                     </div>
 
                     {loadingSimilar ? (
-                        <div style={{ padding: "1rem", textAlign: "center", color: "var(--text-muted)" }}>
+                        <div className="p-4 text-center text-text-muted">
                             Finding similar transactions...
                         </div>
                     ) : similarTxs.length > 0 ? (
-                        <div style={{ maxHeight: 250, overflow: "auto", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)" }}>
+                        <div className="max-h-[250px] overflow-auto border border-border-color rounded-lg">
                             {similarTxs.map((tx) => (
                                 <label
                                     key={tx.id}
-                                    style={{
-                                        display: "grid",
-                                        gridTemplateColumns: "auto 1fr auto auto",
-                                        alignItems: "center",
-                                        gap: "0.75rem",
-                                        padding: "0.75rem 1rem",
-                                        cursor: "pointer",
-                                        borderBottom: "1px solid var(--border-color)",
-                                        background: selectedSimilarIds.has(tx.id) ? "var(--accent-glow)" : "transparent",
-                                    }}
+                                    className={`grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 px-4 py-3 cursor-pointer border-b border-border-color ${selectedSimilarIds.has(tx.id) ? "bg-accent-glow" : "bg-transparent"}`}
                                 >
                                     <input
                                         type="checkbox"
@@ -390,70 +325,52 @@ const EditTransactionModal = ({
                                             setSelectedSimilarIds(newSet);
                                         }}
                                         disabled={tx.id === transaction.id}
-                                        style={{ flexShrink: 0 }}
+                                        className="shrink-0"
                                     />
-                                    <div style={{ minWidth: 0, overflow: "hidden" }}>
-                                        <div style={{
-                                            fontSize: "0.8125rem",
-                                            color: "var(--text-primary)",
-                                            overflow: "hidden",
-                                            textOverflow: "ellipsis",
-                                            whiteSpace: "nowrap",
-                                            fontWeight: 500,
-                                        }}>
+                                    <div className="min-w-0 overflow-hidden">
+                                        <div className="text-sm text-text-primary overflow-hidden text-ellipsis whitespace-nowrap font-medium">
                                             {tx.description_norm}
                                         </div>
-                                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                                        <div className="text-xs text-text-muted mt-0.5">
                                             {new Date(tx.posted_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                                         </div>
                                     </div>
                                     <div
-                                        className="mono"
-                                        style={{
-                                            fontSize: "0.8125rem",
-                                            color: tx.amount < 0 ? "var(--danger)" : "var(--success)",
-                                            textAlign: "right",
-                                            whiteSpace: "nowrap",
-                                        }}
+                                        className={`mono text-sm text-right whitespace-nowrap ${tx.amount < 0 ? "text-danger" : "text-success"}`}
                                     >
                                         {tx.amount < 0 ? "-" : "+"}{formatCurrency(tx.amount)}
                                     </div>
                                     {tx.category_id ? (
-                                        <span className="badge" style={{
-                                            fontSize: "0.6875rem",
-                                            whiteSpace: "nowrap",
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '4px',
-                                            background: categories.find(c => c.id === tx.category_id)?.color ? `${categories.find(c => c.id === tx.category_id)?.color}20` : undefined,
-                                            color: categories.find(c => c.id === tx.category_id)?.color || 'var(--accent)'
-                                        }}>
+                                        <span
+                                            className="badge text-[11px] whitespace-nowrap flex items-center gap-1"
+                                            style={{
+                                                background: categories.find(c => c.id === tx.category_id)?.color ? `${categories.find(c => c.id === tx.category_id)?.color}20` : undefined,
+                                                color: categories.find(c => c.id === tx.category_id)?.color || 'var(--accent)'
+                                            }}
+                                        >
                                             {categories.find(c => c.id === tx.category_id)?.color && (
-                                                <span style={{
-                                                    width: 6,
-                                                    height: 6,
-                                                    borderRadius: '50%',
-                                                    background: categories.find(c => c.id === tx.category_id)?.color,
-                                                    display: 'inline-block'
-                                                }} />
+                                                <span
+                                                    className="w-1.5 h-1.5 rounded-full inline-block"
+                                                    style={{ background: categories.find(c => c.id === tx.category_id)?.color }}
+                                                />
                                             )}
                                             {categories.find((c) => c.id === tx.category_id)?.name}
                                         </span>
                                     ) : (
-                                        <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>—</span>
+                                        <span className="text-[11px] text-text-muted">—</span>
                                     )}
                                 </label>
                             ))}
                         </div>
                     ) : (
-                        <div style={{ padding: "1rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.875rem" }}>
+                        <div className="p-4 text-center text-text-muted text-sm">
                             No similar transactions found
                         </div>
                     )}
 
-                    <div style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                    <div className="mt-2 text-xs text-text-muted">
                         {updateAllSimilar ? (
-                            <span style={{ color: "var(--accent)", fontWeight: 500 }}>
+                            <span className="text-accent font-medium">
                                 All {totalSimilarCount} matching transactions will be updated
                             </span>
                         ) : (
@@ -462,21 +379,12 @@ const EditTransactionModal = ({
                     </div>
 
                     {totalSimilarCount > 1 && (
-                        <div style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            marginTop: "1rem",
-                            padding: "0.75rem",
-                            background: "rgba(var(--accent-rgb), 0.05)",
-                            borderRadius: "var(--radius-md)",
-                            border: "1px dashed var(--accent)"
-                        }}>
+                        <div className="flex items-center justify-between mt-4 p-3 bg-accent/5 rounded-lg border border-dashed border-accent">
                             <div>
-                                <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--accent)" }}>
+                                <div className="text-sm font-semibold text-accent">
                                     Global Update
                                 </div>
-                                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                                <div className="text-xs text-text-muted mt-0.5">
                                     Apply this category to all {totalSimilarCount} matches
                                 </div>
                             </div>
@@ -486,14 +394,14 @@ const EditTransactionModal = ({
                 </div>
 
                 {/* Create Rule Option */}
-                <div style={{ marginBottom: "1.5rem", padding: "1rem", background: "var(--bg-input)", borderRadius: "var(--radius-md)" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+                <div className="mb-6 p-4 bg-bg-input rounded-lg">
+                    <div className="flex items-center justify-between gap-4">
                         <div>
-                            <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>
+                            <div className="text-sm font-medium">
                                 {matchingRule ? "Update existing matching rule" : "Create rule for future transactions"}
                             </div>
                             {matchingRule && (
-                                <div style={{ fontSize: "0.75rem", color: "var(--accent)", marginTop: "2px" }}>
+                                <div className="text-xs text-accent mt-0.5">
                                     Matching: {matchingRule.name}
                                 </div>
                             )}
@@ -501,24 +409,16 @@ const EditTransactionModal = ({
                         <Toggle checked={createRule} onChange={setCreateRule} />
                     </div>
 
-                    <div style={{ marginTop: "0.75rem" }}>
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
+                    <div className="mt-3">
+                        <div className="text-xs text-text-muted mb-1">
                             Pattern (use % for wildcard)
                         </div>
-                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <div className="flex gap-2">
                             <input
                                 type="text"
                                 value={similarPattern}
                                 onChange={(e) => setSimilarPattern(e.target.value)}
-                                style={{
-                                    width: "100%",
-                                    fontSize: "0.875rem",
-                                    padding: "0.375rem 0.625rem",
-                                    fontFamily: "monospace",
-                                    background: "var(--bg-secondary)",
-                                    border: "1px solid var(--border-color)",
-                                    borderRadius: "var(--radius-sm)",
-                                }}
+                                className="w-full text-sm px-2.5 py-1.5 font-mono bg-bg-secondary border border-border-color rounded"
                                 onClick={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter") {
@@ -533,17 +433,7 @@ const EditTransactionModal = ({
                                     fetchSimilar();
                                 }}
                                 title="Refresh similar transactions based on this pattern"
-                                style={{
-                                    background: "var(--bg-secondary)",
-                                    border: "1px solid var(--border-color)",
-                                    borderRadius: "var(--radius-sm)",
-                                    cursor: "pointer",
-                                    padding: "0 0.5rem",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    color: "var(--text-muted)",
-                                }}
+                                className="bg-bg-secondary border border-border-color rounded cursor-pointer px-2 flex items-center justify-center text-text-muted"
                             >
                                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -553,21 +443,13 @@ const EditTransactionModal = ({
                     </div>
 
                     {createRule && (
-                        <div style={{ marginTop: "0.75rem" }}>
+                        <div className="mt-3">
                             <input
                                 type="text"
                                 value={ruleName}
                                 onChange={(e) => setRuleName(e.target.value)}
                                 placeholder="Rule name (optional)"
-                                style={{
-                                    width: "100%",
-                                    fontSize: "0.875rem",
-                                    padding: "0.5rem 0.75rem",
-                                    background: "var(--bg-secondary)",
-                                    border: "1px solid var(--border-color)",
-                                    borderRadius: "var(--radius-sm)",
-                                    color: "var(--text-primary)",
-                                }}
+                                className="w-full text-sm p-3 bg-bg-secondary border border-border-color rounded text-text-primary"
                                 onClick={(e) => e.stopPropagation()}
                             />
                         </div>
@@ -575,7 +457,7 @@ const EditTransactionModal = ({
                 </div>
 
                 {/* Actions */}
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "auto" }}>
+                <div className="flex justify-end gap-3 mt-auto">
                     <button className="secondary" onClick={onClose} disabled={saving}>
                         Cancel
                     </button>

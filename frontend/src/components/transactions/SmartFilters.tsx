@@ -1,6 +1,6 @@
 /**
  * Feature 7: Smart Search with Enhanced Filters
- * 
+ *
  * This component provides advanced filtering capabilities for transactions including:
  * - Quick filter buttons for common filters
  * - Amount range filtering (min/max)
@@ -213,25 +213,19 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
   }, [filters.searchQuery, searchSuggestions]);
 
   return (
-    <div style={{ display: "grid", gap: "1rem" }}>
+    <div className="grid gap-4">
       {/* Main Search Bar */}
-      <div className="card" style={{ padding: "1rem 1.25rem" }}>
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+      <div className="card px-5 py-4">
+        <div className="flex gap-4 flex-wrap items-center">
           {/* Search Input */}
-          <div style={{ flex: "1 1 300px", position: "relative" }}>
+          <div className="flex-[1_1_300px] relative">
             <svg
               width="18"
               height="18"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
-              style={{
-                position: "absolute",
-                left: 12,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--text-muted)",
-              }}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
             >
               <path
                 strokeLinecap="round"
@@ -253,28 +247,15 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
                   onAISearch();
                 }
               }}
-              style={{ paddingLeft: 40, paddingRight: filters.searchQuery ? 64 : 40, width: "100%" }}
+              className="pl-10 pr-10 w-full"
             />
 
             {/* AI Sparkle Button */}
             {!isAIMode && onAISearch && filters.searchQuery && (
               <button
                 onClick={onAISearch}
-                style={{
-                  position: "absolute",
-                  right: 30,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  padding: "4px",
-                  opacity: 0.8,
-                }}
+                className="absolute right-8 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-base p-1 opacity-80 hover:opacity-100"
                 title="AI Smart Search - Press Enter"
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.8")}
               >
                 ✨
               </button>
@@ -282,21 +263,7 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
 
             {/* Search Suggestions */}
             {showSuggestions && filteredSuggestions.length > 0 && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  left: 0,
-                  right: 0,
-                  marginTop: 8,
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border-color)",
-                  borderRadius: "var(--radius-md)",
-                  boxShadow: "var(--shadow-lg)",
-                  zIndex: 100,
-                  overflow: "hidden",
-                }}
-              >
+              <div className="absolute top-full left-0 right-0 mt-2 bg-bg-card border border-border-color rounded-lg shadow-lg z-[100] overflow-hidden">
                 {filteredSuggestions.map((suggestion, idx) => (
                   <button
                     key={idx}
@@ -304,26 +271,9 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
                       onChange({ searchQuery: suggestion });
                       setShowSuggestions(false);
                     }}
-                    style={{
-                      width: "100%",
-                      padding: "0.75rem 1rem",
-                      textAlign: "left",
-                      background: "transparent",
-                      border: "none",
-                      borderBottom: idx < filteredSuggestions.length - 1 ? "1px solid var(--border-color)" : "none",
-                      cursor: "pointer",
-                      color: "var(--text-primary)",
-                      fontSize: "0.875rem",
-                      transition: "all var(--transition-fast)",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "var(--bg-hover)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "transparent";
-                    }}
+                    className="w-full px-4 py-3 text-left bg-transparent border-none border-b border-border-color last:border-b-0 cursor-pointer text-text-primary text-sm hover:bg-bg-hover transition-colors"
                   >
-                    <span style={{ color: "var(--text-muted)", marginRight: 8 }}>🔍</span>
+                    <span className="text-text-muted mr-2">🔍</span>
                     {suggestion}
                   </button>
                 ))}
@@ -334,23 +284,7 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
             {filters.searchQuery && (
               <button
                 onClick={() => onChange({ searchQuery: "" })}
-                style={{
-                  position: "absolute",
-                  right: 12,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "var(--bg-input)",
-                  border: "none",
-                  borderRadius: "50%",
-                  width: 24,
-                  height: 24,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "var(--text-muted)",
-                  cursor: "pointer",
-                  fontSize: "0.75rem",
-                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 bg-bg-input border-none rounded-full w-6 h-6 flex items-center justify-center text-text-muted cursor-pointer text-xs"
               >
                 ✕
               </button>
@@ -358,19 +292,11 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
           </div>
 
           {/* Category Filter */}
-          <div style={{ flex: "0 0 180px" }}>
+          <div className="flex-[0_0_180px]">
             <select
               value={filters.categoryId}
               onChange={(e) => onChange({ categoryId: e.target.value, subcategoryId: "" })}
-              style={{
-                width: "100%",
-                padding: "0.625rem 0.75rem",
-                fontSize: "0.875rem",
-                background: "var(--bg-input)",
-                border: "1px solid var(--border-subtle)",
-                borderRadius: "var(--radius-md)",
-                color: "var(--text-primary)",
-              }}
+              className="w-full px-3 py-2.5 text-sm bg-bg-input border border-border-subtle rounded-lg text-text-primary"
             >
               <option value="">All Categories</option>
               {categories.map((cat) => (
@@ -382,22 +308,12 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
           </div>
 
           {/* Subcategory Filter */}
-          <div style={{ flex: "0 0 180px" }}>
+          <div className="flex-[0_0_180px]">
             <select
               value={filters.subcategoryId}
               onChange={(e) => onChange({ subcategoryId: e.target.value })}
               disabled={!filters.categoryId}
-              style={{
-                width: "100%",
-                padding: "0.625rem 0.75rem",
-                fontSize: "0.875rem",
-                background: "var(--bg-input)",
-                border: "1px solid var(--border-subtle)",
-                borderRadius: "var(--radius-md)",
-                color: "var(--text-primary)",
-                opacity: filters.categoryId ? 1 : 0.5,
-                cursor: filters.categoryId ? "pointer" : "not-allowed",
-              }}
+              className="w-full px-3 py-2.5 text-sm bg-bg-input border border-border-subtle rounded-lg text-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <option value="">All Subcategories</option>
               {availableSubcategories.map((sub) => (
@@ -411,19 +327,11 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
           {/* Advanced Toggle */}
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            style={{
-              padding: "0.625rem 1rem",
-              background: showAdvanced ? "var(--accent)" : "var(--bg-input)",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: "var(--radius-md)",
-              color: showAdvanced ? "#fff" : "var(--text-secondary)",
-              cursor: "pointer",
-              fontSize: "0.875rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              whiteSpace: "nowrap",
-            }}
+            className={`px-4 py-2.5 rounded-lg border cursor-pointer text-sm flex items-center gap-2 whitespace-nowrap transition-colors ${
+              showAdvanced
+                ? "bg-accent text-white border-accent"
+                : "bg-bg-input text-text-secondary border-border-subtle"
+            }`}
           >
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -435,16 +343,7 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
             </svg>
             Filters
             {hasActiveFilters && (
-              <span
-                style={{
-                  background: showAdvanced ? "rgba(255,255,255,0.2)" : "var(--accent)",
-                  color: "#fff",
-                  fontSize: "0.75rem",
-                  padding: "2px 6px",
-                  borderRadius: "10px",
-                  marginLeft: "4px",
-                }}
-              >
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ml-1 ${showAdvanced ? "bg-white/20" : "bg-accent"} text-white`}>
                 {activeFilters.length + (filters.searchQuery ? 1 : 0)}
               </span>
             )}
@@ -452,33 +351,15 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
         </div>
 
         {/* Result Stats */}
-        <div
-          style={{
-            marginTop: "1rem",
-            paddingTop: "1rem",
-            borderTop: "1px solid var(--border-color)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+        <div className="mt-4 pt-4 border-t border-border-color flex justify-between items-center">
+          <div className="text-sm text-text-muted">
             Showing <strong>{resultCount}</strong> of <strong>{totalCount}</strong> transactions
           </div>
 
           {hasActiveFilters && (
             <button
               onClick={onClear}
-              style={{
-                fontSize: "0.8125rem",
-                color: "var(--accent)",
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.25rem",
-              }}
+              className="text-sm text-accent bg-transparent border-none cursor-pointer flex items-center gap-1"
             >
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -495,40 +376,12 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
       </div>
 
       {/* Quick Filters */}
-      <div
-        style={{
-          display: "flex",
-          gap: "0.5rem",
-          flexWrap: "wrap",
-          padding: "0 0.5rem",
-        }}
-      >
+      <div className="flex gap-2 flex-wrap px-2">
         {quickFilters.map((qf) => (
           <button
             key={qf.id}
             onClick={() => handleQuickFilter(qf)}
-            style={{
-              padding: "0.5rem 1rem",
-              background: "var(--bg-input)",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--text-secondary)",
-              cursor: "pointer",
-              fontSize: "0.8125rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              transition: "all var(--transition-fast)",
-              whiteSpace: "nowrap",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "var(--accent)";
-              e.currentTarget.style.color = "var(--accent)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--border-subtle)";
-              e.currentTarget.style.color = "var(--text-secondary)";
-            }}
+            className="px-4 py-2 bg-bg-input border border-border-subtle rounded-lg text-text-secondary cursor-pointer text-sm flex items-center gap-2 transition-colors hover:border-accent hover:text-accent whitespace-nowrap"
           >
             <span>{qf.icon}</span>
             {qf.label}
@@ -538,50 +391,19 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
 
       {/* Active Filter Chips */}
       {activeFilters.length > 0 && (
-        <div
-          style={{
-            display: "flex",
-            gap: "0.5rem",
-            flexWrap: "wrap",
-            alignItems: "center",
-            padding: "0 0.5rem",
-            marginTop: "-0.5rem",
-          }}
-        >
-          <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginRight: "0.25rem" }}>
+        <div className="flex gap-2 flex-wrap items-center px-2 -mt-2">
+          <span className="text-xs text-text-muted mr-1">
             Active:
           </span>
           {activeFilters.map((filter) => (
             <span
               key={filter.key}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.375rem 0.75rem",
-                background: "var(--accent-glow)",
-                border: "1px solid var(--accent)",
-                borderRadius: "var(--radius-md)",
-                fontSize: "0.8125rem",
-                color: "var(--accent)",
-              }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 bg-accent-glow border border-accent rounded-lg text-sm text-accent"
             >
               {filter.label}
               <button
                 onClick={filter.onRemove}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--accent)",
-                  cursor: "pointer",
-                  padding: 0,
-                  fontSize: "0.75rem",
-                  display: "flex",
-                  alignItems: "center",
-                  opacity: 0.7,
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+                className="bg-transparent border-none text-accent cursor-pointer p-0 text-xs flex items-center opacity-70 hover:opacity-100"
               >
                 ✕
               </button>
@@ -592,47 +414,23 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
 
       {/* Advanced Filters Panel */}
       {showAdvanced && (
-        <div
-          className="card"
-          style={{
-            padding: "1.25rem",
-            animation: "slideDown 0.2s ease-out",
-          }}
-        >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "1.25rem",
-            }}
-          >
+        <div className="card p-5 animate-[slideDown_0.2s_ease-out]">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5">
             {/* Date Range */}
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.8125rem",
-                  fontWeight: 500,
-                  color: "var(--text-secondary)",
-                  marginBottom: "0.5rem",
-                }}
-              >
+              <label className="block text-sm font-medium text-text-secondary mb-2">
                 Date Range
               </label>
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <div className="flex gap-2 flex-wrap">
                 {(["7d", "30d", "90d", "year", "all"] as const).map((range) => (
                   <button
                     key={range}
                     onClick={() => onChange({ dateRange: range })}
-                    style={{
-                      padding: "0.375rem 0.75rem",
-                      background: filters.dateRange === range ? "var(--accent)" : "var(--bg-input)",
-                      border: "1px solid var(--border-subtle)",
-                      borderRadius: "var(--radius-sm)",
-                      color: filters.dateRange === range ? "#fff" : "var(--text-secondary)",
-                      cursor: "pointer",
-                      fontSize: "0.75rem",
-                    }}
+                    className={`px-3 py-1.5 rounded border cursor-pointer text-xs ${
+                      filters.dateRange === range
+                        ? "bg-accent text-white border-accent"
+                        : "bg-bg-input text-text-secondary border-border-subtle"
+                    }`}
                   >
                     {range === "7d" && "7 Days"}
                     {range === "30d" && "30 Days"}
@@ -645,35 +443,19 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
 
               {/* Custom Date Inputs */}
               {filters.dateRange === "custom" && (
-                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem", alignItems: "center" }}>
+                <div className="flex gap-2 mt-3 items-center">
                   <input
                     type="date"
                     value={filters.customStartDate}
                     onChange={(e) => onChange({ customStartDate: e.target.value })}
-                    style={{
-                      flex: 1,
-                      padding: "0.5rem",
-                      fontSize: "0.8125rem",
-                      background: "var(--bg-input)",
-                      border: "1px solid var(--border-subtle)",
-                      borderRadius: "var(--radius-sm)",
-                      color: "var(--text-primary)",
-                    }}
+                    className="flex-1 px-2 py-2 text-sm bg-bg-input border border-border-subtle rounded text-text-primary"
                   />
-                  <span style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>to</span>
+                  <span className="text-text-muted text-sm">to</span>
                   <input
                     type="date"
                     value={filters.customEndDate}
                     onChange={(e) => onChange({ customEndDate: e.target.value })}
-                    style={{
-                      flex: 1,
-                      padding: "0.5rem",
-                      fontSize: "0.8125rem",
-                      background: "var(--bg-input)",
-                      border: "1px solid var(--border-subtle)",
-                      borderRadius: "var(--radius-sm)",
-                      color: "var(--text-primary)",
-                    }}
+                    className="flex-1 px-2 py-2 text-sm bg-bg-input border border-border-subtle rounded text-text-primary"
                   />
                 </div>
               )}
@@ -681,53 +463,29 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
 
             {/* Amount Range */}
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.8125rem",
-                  fontWeight: 500,
-                  color: "var(--text-secondary)",
-                  marginBottom: "0.5rem",
-                }}
-              >
+              <label className="block text-sm font-medium text-text-secondary mb-2">
                 Amount Range (₹)
               </label>
-              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <div className="flex gap-2 items-center">
                 <input
                   type="number"
                   placeholder="Min"
                   value={filters.minAmount}
                   onChange={(e) => onChange({ minAmount: e.target.value })}
-                  style={{
-                    flex: 1,
-                    padding: "0.5rem 0.75rem",
-                    fontSize: "0.8125rem",
-                    background: "var(--bg-input)",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: "var(--radius-sm)",
-                    color: "var(--text-primary)",
-                  }}
+                  className="flex-1 px-3 py-2 text-sm bg-bg-input border border-border-subtle rounded text-text-primary"
                 />
-                <span style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>-</span>
+                <span className="text-text-muted text-sm">-</span>
                 <input
                   type="number"
                   placeholder="Max"
                   value={filters.maxAmount}
                   onChange={(e) => onChange({ maxAmount: e.target.value })}
-                  style={{
-                    flex: 1,
-                    padding: "0.5rem 0.75rem",
-                    fontSize: "0.8125rem",
-                    background: "var(--bg-input)",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: "var(--radius-sm)",
-                    color: "var(--text-primary)",
-                  }}
+                  className="flex-1 px-3 py-2 text-sm bg-bg-input border border-border-subtle rounded text-text-primary"
                 />
               </div>
 
               {/* Quick Amount Presets */}
-              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
+              <div className="flex gap-2 mt-2 flex-wrap">
                 {[
                   { min: "", max: "1000", label: "Under ₹1K" },
                   { min: "1000", max: "5000", label: "₹1K - ₹5K" },
@@ -739,21 +497,11 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
                     onClick={() =>
                       onChange({ minAmount: preset.min, maxAmount: preset.max })
                     }
-                    style={{
-                      padding: "0.25rem 0.5rem",
-                      background:
-                        filters.minAmount === preset.min && filters.maxAmount === preset.max
-                          ? "var(--accent)"
-                          : "var(--bg-input)",
-                      border: "1px solid var(--border-subtle)",
-                      borderRadius: "var(--radius-sm)",
-                      color:
-                        filters.minAmount === preset.min && filters.maxAmount === preset.max
-                          ? "#fff"
-                          : "var(--text-muted)",
-                      cursor: "pointer",
-                      fontSize: "0.6875rem",
-                    }}
+                    className={`px-2 py-1 rounded border cursor-pointer text-[11px] ${
+                      filters.minAmount === preset.min && filters.maxAmount === preset.max
+                        ? "bg-accent text-white border-accent"
+                        : "bg-bg-input text-text-muted border-border-subtle"
+                    }`}
                   >
                     {preset.label}
                   </button>
@@ -763,18 +511,10 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
 
             {/* Transaction Type */}
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.8125rem",
-                  fontWeight: 500,
-                  color: "var(--text-secondary)",
-                  marginBottom: "0.5rem",
-                }}
-              >
+              <label className="block text-sm font-medium text-text-secondary mb-2">
                 Transaction Type
               </label>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
+              <div className="flex gap-2">
                 {([
                   { value: "all", label: "All" },
                   { value: "expense", label: "Expenses" },
@@ -783,16 +523,11 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
                   <button
                     key={type.value}
                     onClick={() => onChange({ transactionType: type.value })}
-                    style={{
-                      flex: 1,
-                      padding: "0.5rem",
-                      background: filters.transactionType === type.value ? "var(--accent)" : "var(--bg-input)",
-                      border: "1px solid var(--border-subtle)",
-                      borderRadius: "var(--radius-sm)",
-                      color: filters.transactionType === type.value ? "#fff" : "var(--text-secondary)",
-                      cursor: "pointer",
-                      fontSize: "0.8125rem",
-                    }}
+                    className={`flex-1 py-2 rounded border cursor-pointer text-sm ${
+                      filters.transactionType === type.value
+                        ? "bg-accent text-white border-accent"
+                        : "bg-bg-input text-text-secondary border-border-subtle"
+                    }`}
                   >
                     {type.label}
                   </button>
@@ -802,30 +537,14 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
 
             {/* Sort Options */}
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.8125rem",
-                  fontWeight: 500,
-                  color: "var(--text-secondary)",
-                  marginBottom: "0.5rem",
-                }}
-              >
+              <label className="block text-sm font-medium text-text-secondary mb-2">
                 Sort By
               </label>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
+              <div className="flex gap-2">
                 <select
                   value={filters.sortBy}
                   onChange={(e) => onChange({ sortBy: e.target.value as FilterState["sortBy"] })}
-                  style={{
-                    flex: 1,
-                    padding: "0.5rem",
-                    fontSize: "0.8125rem",
-                    background: "var(--bg-input)",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: "var(--radius-sm)",
-                    color: "var(--text-primary)",
-                  }}
+                  className="flex-1 px-2 py-2 text-sm bg-bg-input border border-border-subtle rounded text-text-primary"
                 >
                   <option value="date">Date</option>
                   <option value="amount">Amount</option>
@@ -833,16 +552,7 @@ const SmartFilters: React.FC<SmartFiltersProps> = ({
                 </select>
                 <button
                   onClick={() => onChange({ sortOrder: filters.sortOrder === "asc" ? "desc" : "asc" })}
-                  style={{
-                    padding: "0.5rem",
-                    background: "var(--bg-input)",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: "var(--radius-sm)",
-                    color: "var(--text-secondary)",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
+                  className="px-2 py-2 bg-bg-input border border-border-subtle rounded text-text-secondary cursor-pointer flex items-center"
                   title={filters.sortOrder === "asc" ? "Ascending" : "Descending"}
                 >
                   <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">

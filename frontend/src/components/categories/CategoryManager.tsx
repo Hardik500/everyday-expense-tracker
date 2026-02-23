@@ -37,62 +37,26 @@ const DeleteConfirmationModal = ({
 
   return createPortal(
     <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        backdropFilter: "blur(4px)",
-      }}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="card"
-        style={{
-          width: "100%",
-          maxWidth: "400px",
-          padding: "1.5rem",
-          animation: "slideIn 0.2s ease-out",
-        }}
+        className="card w-full max-w-md p-6 animate-[slideIn_0.2s_ease-out]"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 style={{ marginTop: 0, marginBottom: "1rem", color: "var(--text-primary)" }}>{title}</h3>
-        <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem", whiteSpace: "pre-wrap" }}>
+        <h3 className="mt-0 mb-4 text-text-primary">{title}</h3>
+        <p className="text-text-secondary mb-6 whitespace-pre-wrap">
           {message}
         </p>
 
         {error && (
-          <div
-            style={{
-              padding: "0.75rem",
-              background: "rgba(239, 68, 68, 0.1)",
-              border: "1px solid var(--danger)",
-              borderRadius: "0.5rem",
-              marginBottom: "1.5rem",
-              fontSize: "0.875rem",
-              color: "var(--danger)",
-            }}
-          >
+          <div className="p-3 bg-red-500/10 border border-danger rounded-lg mb-6 text-sm text-danger">
             {error}
             {linkedTransactionAction && (error.includes("transaction") || error.includes("linked")) && (
-              <div style={{ marginTop: "0.5rem" }}>
+              <div className="mt-2">
                 <button
                   onClick={linkedTransactionAction}
-                  style={{
-                    background: "var(--danger)",
-                    color: "white",
-                    border: "none",
-                    padding: "0.25rem 0.75rem",
-                    borderRadius: "0.25rem",
-                    fontSize: "0.75rem",
-                    cursor: "pointer",
-                  }}
+                  className="bg-danger text-white border-none px-3 py-1 rounded text-xs cursor-pointer"
                 >
                   View Transactions
                 </button>
@@ -101,15 +65,14 @@ const DeleteConfirmationModal = ({
           </div>
         )}
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+        <div className="flex justify-end gap-3">
           <button className="secondary" onClick={onClose} disabled={isDeleting}>
             Cancel
           </button>
           <button
-            className="danger"
+            className="danger flex items-center gap-2"
             onClick={onConfirm}
             disabled={isDeleting}
-            style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
           >
             {isDeleting ? "Deleting..." : "Delete"}
           </button>
@@ -449,39 +412,30 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
   const totalSubcategories = categories.reduce((sum, c) => sum + c.subcategories.length, 0);
 
   return (
-    <div style={{ display: "grid", gap: "1.5rem" }}>
+    <div className="grid gap-6">
       {/* Header with stats */}
-      <div className="card" style={{ padding: "1rem 1.25rem" }}>
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+      <div className="card px-5 py-4">
+        <div className="flex gap-4 flex-wrap items-center">
           {/* Search */}
-          <div style={{ flex: "1 1 300px" }}>
+          <div className="flex-[1_1_300px]">
             <input
               type="text"
               placeholder="Search categories..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "0.625rem 1rem",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--border-subtle)",
-                background: "var(--bg-input)",
-                color: "var(--text-primary)",
-                fontSize: "0.875rem",
-              }}
+              className="w-full px-4 py-2.5 rounded-lg border border-border-subtle bg-bg-input text-text-primary text-sm"
             />
           </div>
 
           {/* Stats */}
-          <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+          <div className="text-sm text-text-muted">
             {categories.length} categories • {totalSubcategories} subcategories
           </div>
 
           {/* Add button */}
           <button
             onClick={() => setShowAddCategory(true)}
-            className="primary"
-            style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+            className="primary flex items-center gap-2"
           >
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -492,29 +446,22 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       </div>
 
       {/* Categories list */}
-      <div style={{ display: "grid", gap: "0.75rem" }}>
+      <div className="grid gap-3">
         {filteredCategories.length === 0 ? (
           <div className="card">
             <div className="empty-state">
-              <p style={{ fontWeight: 500, marginBottom: "0.5rem" }}>No categories found</p>
-              <p style={{ color: "var(--text-muted)" }}>
+              <p className="font-medium mb-2">No categories found</p>
+              <p className="text-text-muted">
                 {searchQuery ? "Try a different search" : "Add your first category"}
               </p>
             </div>
           </div>
         ) : (
           filteredCategories.map((cat) => (
-            <div key={cat.id} className="card" style={{ padding: 0, overflow: "hidden" }}>
+            <div key={cat.id} className="card p-0 overflow-hidden">
               {/* Category header */}
               <div
-                style={{
-                  padding: "1rem 1.25rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "1rem",
-                  cursor: "pointer",
-                  background: cat.expanded ? "var(--bg-secondary)" : "transparent",
-                }}
+                className={`px-5 py-4 flex items-center gap-4 cursor-pointer ${cat.expanded ? "bg-bg-secondary" : ""}`}
                 onClick={() => toggleExpand(cat.id)}
               >
                 {/* Expand icon */}
@@ -524,17 +471,13 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
-                  style={{
-                    transform: cat.expanded ? "rotate(90deg)" : "rotate(0deg)",
-                    transition: "transform 0.15s ease",
-                    color: "var(--text-muted)",
-                  }}
+                  className={`transition-transform duration-150 text-text-muted ${cat.expanded ? "rotate-90" : ""}`}
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
 
                 {/* Category name with color dot and icon */}
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="flex-1 flex items-center gap-3">
                   {/* Feature 9: Category Icon */}
                   {cat.icon && getIconPath(cat.icon) ? (
                     <svg
@@ -546,27 +489,22 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       viewBox="0 0 24 24"
-                      style={{ flexShrink: 0 }}
+                      className="shrink-0"
                     >
                       <path d={getIconPath(cat.icon)} />
                     </svg>
                   ) : cat.color ? (
                     <div
-                      style={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: '50%',
-                        background: cat.color,
-                        flexShrink: 0,
-                      }}
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ background: cat.color }}
                       title={cat.color}
                     />
                   ) : null}
                   <div>
-                    <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                    <div className="font-semibold text-text-primary">
                       {cat.name}
                     </div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                    <div className="text-xs text-text-muted">
                       {cat.subcategories.length} subcategories
                     </div>
                   </div>
@@ -574,7 +512,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
 
                 {/* Actions */}
                 <div
-                  style={{ display: "flex", gap: "0.5rem" }}
+                  className="flex gap-2"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
@@ -583,18 +521,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                       setNewSubcategoryName("");
                       setError("");
                     }}
-                    style={{
-                      background: "var(--bg-input)",
-                      border: "1px solid var(--border-subtle)",
-                      borderRadius: "var(--radius-sm)",
-                      padding: "0.375rem 0.75rem",
-                      fontSize: "0.75rem",
-                      color: "var(--text-secondary)",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.25rem",
-                    }}
+                    className="px-3 py-1.5 text-xs bg-bg-input border border-border-subtle rounded text-text-secondary cursor-pointer flex items-center gap-1"
                   >
                     <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -607,13 +534,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                       setEditName(cat.name);
                       setError("");
                     }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      padding: "0.375rem",
-                      color: "var(--text-muted)",
-                      cursor: "pointer",
-                    }}
+                    className="bg-none border-none p-1.5 text-text-muted cursor-pointer"
                     title="Edit"
                   >
                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -622,13 +543,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                   </button>
                   <button
                     onClick={() => confirmDeleteCategory(cat)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      padding: "0.375rem",
-                      color: "var(--text-muted)",
-                      cursor: "pointer",
-                    }}
+                    className="bg-none border-none p-1.5 text-text-muted cursor-pointer"
                     title="Delete"
                   >
                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -640,44 +555,24 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
 
               {/* Subcategories */}
               {cat.expanded && cat.subcategories.length > 0 && (
-                <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
+                <div className="border-t border-border-subtle">
                   {cat.subcategories.map((sub) => (
                     <div
                       key={sub.id}
-                      style={{
-                        padding: "0.75rem 1.25rem 0.75rem 3rem",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "1rem",
-                        borderBottom: "1px solid var(--border-subtle)",
-                      }}
+                      className="px-5 py-3 pl-12 flex items-center gap-4 border-b border-border-subtle"
                     >
-                      <div
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: "50%",
-                          background: "var(--accent)",
-                          opacity: 0.5,
-                        }}
-                      />
-                      <div style={{ flex: 1, fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                      <div className="w-2 h-2 rounded-full bg-accent opacity-50" />
+                      <div className="flex-1 text-sm text-text-secondary">
                         {sub.name}
                       </div>
-                      <div style={{ display: "flex", gap: "0.25rem" }}>
+                      <div className="flex gap-1">
                         <button
                           onClick={() => {
                             setEditingSubcategory(sub);
                             setEditName(sub.name);
                             setError("");
                           }}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            padding: "0.25rem",
-                            color: "var(--text-muted)",
-                            cursor: "pointer",
-                          }}
+                          className="bg-none border-none p-1 text-text-muted cursor-pointer"
                           title="Edit"
                         >
                           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -686,13 +581,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                         </button>
                         <button
                           onClick={() => confirmDeleteSubcategory(sub)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            padding: "0.25rem",
-                            color: "var(--text-muted)",
-                            cursor: "pointer",
-                          }}
+                          className="bg-none border-none p-1 text-text-muted cursor-pointer"
                           title="Delete"
                         >
                           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -706,15 +595,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
               )}
 
               {cat.expanded && cat.subcategories.length === 0 && (
-                <div
-                  style={{
-                    padding: "1rem 1.25rem 1rem 3rem",
-                    borderTop: "1px solid var(--border-subtle)",
-                    color: "var(--text-muted)",
-                    fontSize: "0.875rem",
-                    fontStyle: "italic",
-                  }}
-                >
+                <div className="px-5 py-4 pl-12 border-t border-border-subtle text-text-muted text-sm italic">
                   No subcategories yet
                 </div>
               )}
@@ -726,31 +607,23 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       {/* Add Category Modal */}
       {showAddCategory && createPortal(
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000]"
           onClick={(e) => e.target === e.currentTarget && setShowAddCategory(false)}
         >
-          <div className="card" style={{ width: "100%", maxWidth: "400px" }}>
+          <div className="card w-full max-w-md">
             <div className="card-header">
-              <h3 style={{ margin: 0 }}>New Category</h3>
+              <h3 className="m-0">New Category</h3>
               <button
                 onClick={() => setShowAddCategory(false)}
-                style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}
+                className="bg-none border-none text-text-muted cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div style={{ display: "grid", gap: "1rem" }}>
+            <div className="grid gap-4">
               <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                <label className="block mb-2 text-sm text-text-secondary">
                   Category Name
                 </label>
                 <input
@@ -758,37 +631,23 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
                   placeholder="e.g., Subscriptions, Gifts"
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem 1rem",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--border-subtle)",
-                    background: "var(--bg-input)",
-                    color: "var(--text-primary)",
-                  }}
+                  className="w-full px-4 py-3 rounded-lg border border-border-subtle bg-bg-input text-text-primary"
                   autoFocus
                   onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
                 />
               </div>
 
               <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                <label className="block mb-2 text-sm text-text-secondary">
                   Category Color
                 </label>
-                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <div className="flex gap-2 flex-wrap">
                   {colorPalette.map((color) => (
                     <button
                       key={color}
                       onClick={() => setNewCategoryColor(color)}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: "50%",
-                        background: color,
-                        border: newCategoryColor === color ? "3px solid var(--text-primary)" : "2px solid transparent",
-                        cursor: "pointer",
-                        boxShadow: newCategoryColor === color ? "0 0 0 2px var(--accent)" : "none",
-                      }}
+                      className={`w-8 h-8 rounded-full cursor-pointer ${newCategoryColor === color ? 'ring-2 ring-accent border-[3px] border-text-primary' : 'border-2 border-transparent'}`}
+                      style={{ background: color }}
                       title={color}
                     />
                   ))}
@@ -797,26 +656,13 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
 
               {/* Feature 9: Icon Picker */}
               <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                <label className="block mb-2 text-sm text-text-secondary">
                   Category Icon (optional)
                 </label>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem", maxHeight: "150px", overflowY: "auto", padding: "0.5rem", background: "var(--bg-input)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+                <div className="grid grid-cols-7 gap-2 max-h-[150px] overflow-y-auto p-2 bg-bg-input rounded-lg border border-border-subtle">
                   <button
                     onClick={() => setNewCategoryIcon("")}
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: "var(--radius-md)",
-                      background: newCategoryIcon === "" ? "var(--accent)" : "transparent",
-                      border: newCategoryIcon === "" ? "2px solid var(--accent)" : "1px solid var(--border-subtle)",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "6px",
-                      fontSize: "0.75rem",
-                      color: newCategoryIcon === "" ? "#fff" : "var(--text-muted)",
-                    }}
+                    className={`w-9 h-9 rounded-lg flex items-center justify-center cursor-pointer ${newCategoryIcon === "" ? "bg-accent border-2 border-accent text-white" : "bg-transparent border border-border-subtle text-text-muted"}`}
                     title="No icon"
                   >
                     ∅
@@ -825,18 +671,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                     <button
                       key={icon.name}
                       onClick={() => setNewCategoryIcon(icon.name)}
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: "var(--radius-md)",
-                        background: newCategoryIcon === icon.name ? "var(--accent)" : "transparent",
-                        border: newCategoryIcon === icon.name ? "2px solid var(--accent)" : "1px solid transparent",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: "6px",
-                      }}
+                      className={`w-9 h-9 rounded-lg flex items-center justify-center p-1.5 cursor-pointer ${newCategoryIcon === icon.name ? "bg-accent border-2 border-accent" : "bg-transparent border border-transparent"}`}
                       title={icon.name}
                     >
                       <svg width="18" height="18" fill="none" stroke={newCategoryIcon === icon.name ? "#fff" : "var(--text-secondary)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
@@ -848,15 +683,15 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
               </div>
 
               {error && (
-                <div style={{ padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "var(--radius-md)", color: "#ef4444", fontSize: "0.875rem" }}>
+                <div className="p-3 bg-red-500/10 rounded-lg text-red-500 text-sm">
                   {error}
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+              <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => setShowAddCategory(false)}
-                  style={{ padding: "0.5rem 1rem", background: "var(--bg-input)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", color: "var(--text-secondary)", cursor: "pointer" }}
+                  className="px-4 py-2 bg-bg-input border border-border-subtle rounded-lg text-text-secondary cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -877,37 +712,29 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       {/* Add Subcategory Modal */}
       {addingSubcategoryTo && createPortal(
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000]"
           onClick={(e) => e.target === e.currentTarget && setAddingSubcategoryTo(null)}
         >
-          <div className="card" style={{ width: "100%", maxWidth: "400px" }}>
+          <div className="card w-full max-w-md">
             <div className="card-header">
-              <h3 style={{ margin: 0 }}>New Subcategory</h3>
+              <h3 className="m-0">New Subcategory</h3>
               <button
                 onClick={() => setAddingSubcategoryTo(null)}
-                style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}
+                className="bg-none border-none text-text-muted cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div style={{ display: "grid", gap: "1rem" }}>
-              <div style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
-                Adding to: <strong style={{ color: "var(--text-primary)" }}>
+            <div className="grid gap-4">
+              <div className="text-sm text-text-muted">
+                Adding to: <strong className="text-text-primary">
                   {categories.find((c) => c.id === addingSubcategoryTo)?.name}
                 </strong>
               </div>
 
               <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                <label className="block mb-2 text-sm text-text-secondary">
                   Subcategory Name
                 </label>
                 <input
@@ -915,29 +742,22 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                   value={newSubcategoryName}
                   onChange={(e) => setNewSubcategoryName(e.target.value)}
                   placeholder="e.g., Netflix, Prime Video"
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem 1rem",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--border-subtle)",
-                    background: "var(--bg-input)",
-                    color: "var(--text-primary)",
-                  }}
+                  className="w-full px-4 py-3 rounded-lg border border-border-subtle bg-bg-input text-text-primary"
                   autoFocus
                   onKeyDown={(e) => e.key === "Enter" && handleAddSubcategory()}
                 />
               </div>
 
               {error && (
-                <div style={{ padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "var(--radius-md)", color: "#ef4444", fontSize: "0.875rem" }}>
+                <div className="p-3 bg-red-500/10 rounded-lg text-red-500 text-sm">
                   {error}
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+              <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => setAddingSubcategoryTo(null)}
-                  style={{ padding: "0.5rem 1rem", background: "var(--bg-input)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", color: "var(--text-secondary)", cursor: "pointer" }}
+                  className="px-4 py-2 bg-bg-input border border-border-subtle rounded-lg text-text-secondary cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -958,68 +778,46 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       {/* Edit Category Modal */}
       {editingCategory && createPortal(
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000]"
           onClick={(e) => e.target === e.currentTarget && setEditingCategory(null)}
         >
-          <div className="card" style={{ width: "100%", maxWidth: "400px" }}>
+          <div className="card w-full max-w-md">
             <div className="card-header">
-              <h3 style={{ margin: 0 }}>Edit Category</h3>
+              <h3 className="m-0">Edit Category</h3>
               <button
                 onClick={() => setEditingCategory(null)}
-                style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}
+                className="bg-none border-none text-text-muted cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div style={{ display: "grid", gap: "1rem" }}>
+            <div className="grid gap-4">
               <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                <label className="block mb-2 text-sm text-text-secondary">
                   Category Name
                 </label>
                 <input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem 1rem",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--border-subtle)",
-                    background: "var(--bg-input)",
-                    color: "var(--text-primary)",
-                  }}
+                  className="w-full px-4 py-3 rounded-lg border border-border-subtle bg-bg-input text-text-primary"
                   autoFocus
                   onKeyDown={(e) => e.key === "Enter" && handleEditCategory()}
                 />
               </div>
 
               <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                <label className="block mb-2 text-sm text-text-secondary">
                   Category Color
                 </label>
-                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <div className="flex gap-2 flex-wrap">
                   {colorPalette.map((color) => (
                     <button
                       key={color}
                       onClick={() => handleCategoryColorChange(editingCategory.id, color)}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: "50%",
-                        background: color,
-                        border: editingCategory?.color === color ? "3px solid var(--text-primary)" : "2px solid transparent",
-                        cursor: "pointer",
-                        boxShadow: editingCategory?.color === color ? "0 0 0 2px var(--accent)" : "none",
-                      }}
+                      className={`w-8 h-8 rounded-full cursor-pointer ${editingCategory?.color === color ? 'ring-2 ring-accent border-[3px] border-text-primary' : 'border-2 border-transparent'}`}
+                      style={{ background: color }}
                       title={color}
                     />
                   ))}
@@ -1028,26 +826,13 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
 
               {/* Feature 9: Icon Picker in Edit Modal */}
               <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                <label className="block mb-2 text-sm text-text-secondary">
                   Category Icon
                 </label>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem", maxHeight: "120px", overflowY: "auto", padding: "0.5rem", background: "var(--bg-input)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+                <div className="grid grid-cols-7 gap-2 max-h-[120px] overflow-y-auto p-2 bg-bg-input rounded-lg border border-border-subtle">
                   <button
                     onClick={() => setEditingCategory({ ...editingCategory, icon: "" })}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: "var(--radius-md)",
-                      background: editingCategory?.icon === "" || !editingCategory?.icon ? "var(--accent)" : "transparent",
-                      border: editingCategory?.icon === "" || !editingCategory?.icon ? "2px solid var(--accent)" : "1px solid var(--border-subtle)",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "4px",
-                      fontSize: "0.625rem",
-                      color: editingCategory?.icon === "" || !editingCategory?.icon ? "#fff" : "var(--text-muted)",
-                    }}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center p-1 cursor-pointer ${editingCategory?.icon === "" || !editingCategory?.icon ? "bg-accent border-2 border-accent text-white" : "bg-transparent border border-border-subtle text-text-muted"}`}
                     title="No icon"
                   >
                     ∅
@@ -1056,18 +841,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                     <button
                       key={icon.name}
                       onClick={() => setEditingCategory({ ...editingCategory, icon: icon.name })}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: "var(--radius-md)",
-                        background: editingCategory?.icon === icon.name ? "var(--accent)" : "transparent",
-                        border: editingCategory?.icon === icon.name ? "2px solid var(--accent)" : "1px solid transparent",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: "4px",
-                      }}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center p-1 cursor-pointer ${editingCategory?.icon === icon.name ? "bg-accent border-2 border-accent" : "bg-transparent border border-transparent"}`}
                       title={icon.name}
                     >
                       <svg width="16" height="16" fill="none" stroke={editingCategory?.icon === icon.name ? "#fff" : "var(--text-secondary)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
@@ -1079,7 +853,7 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
               </div>
 
               <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                <label className="block mb-2 text-sm text-text-secondary">
                   Monthly Budget (₹)
                 </label>
                 <input
@@ -1087,30 +861,23 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
                   value={editingCategory?.monthly_budget || ''}
                   onChange={(e) => setEditingCategory({ ...editingCategory, monthly_budget: e.target.value ? parseFloat(e.target.value) : null })}
                   placeholder="e.g., 5000"
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem 1rem",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--border-subtle)",
-                    background: "var(--bg-input)",
-                    color: "var(--text-primary)",
-                  }}
+                  className="w-full px-4 py-3 rounded-lg border border-border-subtle bg-bg-input text-text-primary"
                 />
-                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+                <div className="text-xs text-text-muted mt-1">
                   Set a monthly spending limit for this category
                 </div>
               </div>
 
               {error && (
-                <div style={{ padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "var(--radius-md)", color: "#ef4444", fontSize: "0.875rem" }}>
+                <div className="p-3 bg-red-500/10 rounded-lg text-red-500 text-sm">
                   {error}
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+              <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => setEditingCategory(null)}
-                  style={{ padding: "0.5rem 1rem", background: "var(--bg-input)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", color: "var(--text-secondary)", cursor: "pointer" }}
+                  className="px-4 py-2 bg-bg-input border border-border-subtle rounded-lg text-text-secondary cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1131,60 +898,45 @@ function CategoryManager({ apiBase, refreshKey, onRefresh, onViewTransactions }:
       {/* Edit Subcategory Modal */}
       {editingSubcategory && createPortal(
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000]"
           onClick={(e) => e.target === e.currentTarget && setEditingSubcategory(null)}
         >
-          <div className="card" style={{ width: "100%", maxWidth: "400px" }}>
+          <div className="card w-full max-w-md">
             <div className="card-header">
-              <h3 style={{ margin: 0 }}>Edit Subcategory</h3>
+              <h3 className="m-0">Edit Subcategory</h3>
               <button
                 onClick={() => setEditingSubcategory(null)}
-                style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}
+                className="bg-none border-none text-text-muted cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div style={{ display: "grid", gap: "1rem" }}>
+            <div className="grid gap-4">
               <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                <label className="block mb-2 text-sm text-text-secondary">
                   Subcategory Name
                 </label>
                 <input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem 1rem",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid var(--border-subtle)",
-                    background: "var(--bg-input)",
-                    color: "var(--text-primary)",
-                  }}
+                  className="w-full px-4 py-3 rounded-lg border border-border-subtle bg-bg-input text-text-primary"
                   autoFocus
                   onKeyDown={(e) => e.key === "Enter" && handleEditSubcategory()}
                 />
               </div>
 
               {error && (
-                <div style={{ padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "var(--radius-md)", color: "#ef4444", fontSize: "0.875rem" }}>
+                <div className="p-3 bg-red-500/10 rounded-lg text-red-500 text-sm">
                   {error}
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+              <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => setEditingSubcategory(null)}
-                  style={{ padding: "0.5rem 1rem", background: "var(--bg-input)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", color: "var(--text-secondary)", cursor: "pointer" }}
+                  className="px-4 py-2 bg-bg-input border border-border-subtle rounded-lg text-text-secondary cursor-pointer"
                 >
                   Cancel
                 </button>
