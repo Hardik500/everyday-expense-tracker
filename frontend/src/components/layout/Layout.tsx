@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-type Tab = "dashboard" | "analytics" | "cards" | "accounts" | "categories" | "rules" | "recurring" | "upload" | "review" | "transactions" | "profile" | "goals" | "duplicates" | "calendar";
+type Tab = "dashboard" | "analytics" | "accounts" | "categories" | "rules" | "recurring" | "upload" | "review" | "transactions" | "profile" | "goals" | "calendar";
 
 type NavItem = {
   id: Tab;
@@ -54,20 +54,11 @@ const navItems: NavItem[] = [
     ),
   },
   {
-    id: "cards",
-    label: "Cards",
-    icon: (
-      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-      </svg>
-    ),
-  },
-  {
     id: "accounts",
     label: "Accounts",
     icon: (
       <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
       </svg>
     ),
   },
@@ -135,15 +126,6 @@ const navItems: NavItem[] = [
     ),
   },
   {
-    id: "duplicates",
-    label: "Duplicates",
-    icon: (
-      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-      </svg>
-    ),
-  },
-  {
     id: "calendar",
     label: "Calendar",
     icon: (
@@ -161,7 +143,7 @@ export default function Layout({ reviewCount = 0, user, onLogout, children }: La
   // Get current tab from pathname
   const getCurrentTab = (): Tab => {
     const path = location.pathname.slice(1); // Remove leading /
-    const validTabs: Tab[] = ["dashboard", "analytics", "cards", "accounts", "categories", "rules", "recurring", "upload", "review", "transactions", "profile", "goals", "duplicates", "calendar"];
+    const validTabs: Tab[] = ["dashboard", "analytics", "accounts", "categories", "rules", "recurring", "upload", "review", "transactions", "profile", "goals", "calendar"];
     return validTabs.includes(path as Tab) ? (path as Tab) : "dashboard";
   };
 
