@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CategoriesProvider, useCategories } from "./contexts/CategoriesContext";
 import { PageLoading } from "./components/ui/Loading";
 import { ApiErrorToast } from "./components/common/ApiErrorToast";
+import { useToast } from "./components/common/Toast";
 import { useReviewCount } from "./hooks/useApiData";
 import Layout from "./components/layout/Layout";
 import PullToRefreshIndicator from "./components/common/PullToRefreshIndicator";
@@ -50,6 +51,7 @@ function PageLoader() {
 function AppContent() {
   const { user, token, isLoading, logout } = useAuth();
   const { categories, subcategories, refreshCategories } = useCategories();
+  const { ToastContainer } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -319,10 +321,12 @@ function App() {
   return (
     <AuthProvider>
       <CategoriesProvider>
-        <Router>
-          <AppContent />
-          <FloatingActionButton />
-        </Router>
+        <ToastProvider>
+          <Router>
+            <AppContent />
+            <FloatingActionButton />
+          </Router>
+        </ToastProvider>
       </CategoriesProvider>
     </AuthProvider>
   );

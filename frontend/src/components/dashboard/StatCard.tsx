@@ -1,223 +1,84 @@
-import { ReactNode } from "react";
-
-type TrendType = "up" | "down" | "neutral";
+import React from "react";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface StatCardProps {
   title: string;
   value: string | number;
   subtitle?: string;
-  icon: ReactNode;
   trend?: {
     value: number;
-    label: string;
-    type: TrendType;
+    isPositive: boolean;
   };
-  variant?: "default" | "success" | "danger" | "warning" | "purple";
-  size?: "small" | "medium" | "large";
-  className?: string;
+  icon?: React.ReactNode;
+  color?: string;
+  onClick?: () => void;
 }
-
-const variantStyles = {
-  default: {
-    bg: "bg-bg-card",
-    iconBg: "bg-accent-glow",
-    iconColor: "text-accent",
-    valueColor: "text-text-primary",
-  },
-  success: {
-    bg: "bg-bg-card",
-    iconBg: "bg-emerald-500/15",
-    iconColor: "text-emerald-500",
-    valueColor: "text-emerald-500",
-  },
-  danger: {
-    bg: "bg-bg-card",
-    iconBg: "bg-red-500/15",
-    iconColor: "text-red-500",
-    valueColor: "text-red-500",
-  },
-  warning: {
-    bg: "bg-bg-card",
-    iconBg: "bg-amber-500/15",
-    iconColor: "text-amber-500",
-    valueColor: "text-amber-500",
-  },
-  purple: {
-    bg: "bg-bg-card",
-    iconBg: "bg-purple-500/15",
-    iconColor: "text-purple-500",
-    valueColor: "text-purple-500",
-  },
-};
-
-const sizeStyles = {
-  small: {
-    padding: "p-4",
-    iconSize: 32,
-    titleSize: "text-xs",
-    valueSize: "text-xl",
-    subtitleSize: "text-[11px]",
-    minH: "h-auto",
-  },
-  medium: {
-    padding: "p-5",
-    iconSize: 40,
-    titleSize: "text-sm",
-    valueSize: "text-2xl",
-    subtitleSize: "text-xs",
-    minH: "h-auto",
-  },
-  large: {
-    padding: "p-6",
-    iconSize: 48,
-    titleSize: "text-base",
-    valueSize: "text-3xl",
-    subtitleSize: "text-xs",
-    minH: "min-h-[140px]",
-  },
-};
 
 export function StatCard({
   title,
   value,
   subtitle,
-  icon,
   trend,
-  variant = "default",
-  size = "medium",
-  className = "",
+  icon,
+  color = "var(--accent)",
+  onClick,
 }: StatCardProps) {
-  const styles = variantStyles[variant];
-  const sizeStyle = sizeStyles[size];
-
-  const TrendIcon = trend?.type === "up" ? (
-    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-    </svg>
-  ) : trend?.type === "down" ? (
-    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-    </svg>
-  ) : null;
-
-  const trendColor = trend?.type === "up" ? "text-emerald-500" : trend?.type === "down" ? "text-red-500" : "text-text-muted";
+  const TrendIcon =
+    trend?.value === 0
+      ? Minus
+      : trend?.isPositive
+      ? TrendingUp
+      : TrendingDown;
 
   return (
     <div
-      className={`card stat-card ${styles.bg} ${sizeStyle.padding} flex flex-col gap-3 ${sizeStyle.minH} justify-between ${className}`}
+      onClick={onClick}
+      className={`bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl p-4 hover:border-[var(--border-hover)] transition-all duration-200 ${
+        onClick ? "cursor-pointer" : ""
+      }`}
     >
-      {/* Header with icon and title */}
-      <div className="flex items-center gap-3">
-        <div
-          className="flex-shrink-0 flex items-center justify-center rounded-[10px]"
-          style={{
-            width: `${sizeStyle.iconSize}px`,
-            height: `${sizeStyle.iconSize}px`,
-          }}
-        >
-          <div className={`w-full h-full rounded-[10px] ${styles.iconBg} ${styles.iconColor} flex items-center justify-center`}>
-            <span className={`${variant === 'default' ? 'text-accent' : styles.iconColor}`}>
-              {icon}
-            </span>
-          </div>
-        </div>
-        <span
-          className={`${sizeStyle.titleSize} text-text-muted font-medium`}
-        >
+      <div className="flex items-start justify-between mb-3">
+        <span className="text-[var(--text-muted)] text-sm font-medium">
           {title}
         </span>
+        {icon && (
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ backgroundColor: `${color}20`, color: color }}
+          >
+            {icon}
+          </div>
+        )}
       </div>
 
-      {/* Value section */}
-      <div>
-        <div
-          className={`mono font-semibold leading-tight ${variant === 'default' ? styles.valueColor : ''} ${variant === 'success' ? styles.valueColor : ''} ${variant === 'danger' ? styles.valueColor : ''} ${variant === 'warning' ? styles.valueColor : ''} ${variant === 'purple' ? styles.valueColor : ''}`}
-          style={{
-            fontSize: typeof sizeStyle.valueSize === 'number' ? `${sizeStyle.valueSize}px` : undefined,
-          }}
-        >
-          {value}
+      <div className="flex items-end justify-between">
+        <div>
+          <p className="text-2xl font-semibold text-[var(--text-primary)]">
+            {value}
+          </p>
+          {subtitle && (
+            <p className="text-xs text-[var(--text-muted)] mt-1">
+              {subtitle}
+            </p>
+          )}
         </div>
 
-        {/* Subtitle and/or trend */}
-        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-          {trend && (
-            <div
-              className={`flex items-center gap-1 text-xs font-medium ${trendColor}`}
-            >
-              {TrendIcon}
-              <span>{trend.value}%</span>
-            </div>
-          )}
-          {(trend || subtitle) && (
-            <span
-              className={`${sizeStyle.subtitleSize} text-text-muted`}
-            >
-              {trend ? trend.label : subtitle}
+        {trend && trend.value !== 0 && (
+          <div
+            className={`flex items-center gap-1 text-xs font-medium ${
+              trend.isPositive
+                ? "text-emerald-500"
+                : "text-rose-500"
+            }`}
+          >
+            <TrendIcon size={14} />
+            <span>
+              {trend.isPositive ? "+" : "-"}
+              {Math.abs(trend.value).toFixed(1)}%
             </span>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-// Mini chart component for sparklines
-interface SparklineProps {
-  data: number[];
-  width?: number;
-  height?: number;
-  color?: string;
-  variant?: "line" | "area";
-}
-
-export function Sparkline({
-  data,
-  width = 120,
-  height = 40,
-  color = "var(--accent)",
-  variant = "area",
-}: SparklineProps) {
-  if (!data || data.length === 0) return null;
-
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-
-  const points = data.map((val, i) => {
-    const x = (i / (data.length - 1)) * width;
-    const y = height - ((val - min) / range) * height;
-    return `${x},${y}`;
-  });
-
-  const areaPath = `
-    ${points.map((p, i) => `${i === 0 ? "M" : "L"} ${p}`).join(" ")}
-    L ${width},${height}
-    L 0,${height}
-    Z
-  `;
-
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
-      <defs>
-        <linearGradient id="sparklineGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-          <stop offset="100%" stopColor={color} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      {variant === "area" && (
-        <path d={areaPath} fill="url(#sparklineGradient)" />
-      )}
-      <polyline
-        points={points.join(" ")}
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-export default StatCard;

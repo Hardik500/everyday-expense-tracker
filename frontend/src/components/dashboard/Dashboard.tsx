@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import TransferDetector from "../transactions/TransferDetector";
 import Select from "../ui/Select";
-import StatCard from "./StatCard";
+import { StatCard } from "./StatCard";
 import SpendingInsights from "./SpendingInsights";
 import TrendChart from "./TrendChart";
 import { useCategories } from "../../contexts/CategoriesContext";
@@ -637,28 +637,24 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
               </span>
               <div className="w-[100px] h-1.5 rounded-full bg-bg-input overflow-hidden">
                 <div
-                  className="h-full transition-all duration-500"
-                  style={{
-                    width: `${Math.min(100, budgetState.overallPercentage)}%`,
-                    background:
-                      budgetState.overallPercentage > 100
-                        ? "#ef4444"
-                        : budgetState.overallPercentage > 80
-                          ? "#f59e0b"
-                          : "#10b981",
-                  }}
+                  className={`h-full transition-all duration-500 rounded ${
+                    budgetState.overallPercentage > 100
+                      ? "bg-red-500"
+                      : budgetState.overallPercentage > 80
+                        ? "bg-amber-500"
+                        : "bg-emerald-500"
+                  }`}
+                  style={{ width: `${Math.min(100, budgetState.overallPercentage)}%` }}
                 />
               </div>
               <span
-                className="text-xs font-semibold"
-                style={{
-                  color:
-                    budgetState.overallPercentage > 100
-                      ? "#ef4444"
-                      : budgetState.overallPercentage > 80
-                        ? "#f59e0b"
-                        : "#10b981",
-                }}
+                className={`text-xs font-semibold ${
+                  budgetState.overallPercentage > 100
+                    ? "text-red-500"
+                    : budgetState.overallPercentage > 80
+                      ? "text-amber-500"
+                      : "text-emerald-500"
+                }`}
               >
                 {budgetState.overallPercentage.toFixed(0)}%
               </span>
@@ -685,19 +681,15 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
             </div>
             <div className="w-full h-2 rounded bg-black/10 overflow-hidden">
               <div
-                className="h-full rounded transition-all duration-500"
+                className={`h-full rounded transition-all duration-500 ${
+                  budgetState.overallPercentage > 100
+                    ? "bg-gradient-to-r from-red-500 to-red-600 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
+                    : budgetState.overallPercentage > 80
+                      ? "bg-gradient-to-r from-amber-500 to-amber-600"
+                      : "bg-gradient-to-r from-emerald-500 to-emerald-600"
+                }`}
                 style={{
                   width: `${Math.min(100, budgetState.overallPercentage)}%`,
-                  background:
-                    budgetState.overallPercentage > 100
-                      ? "linear-gradient(90deg, #ef4444, #dc2626)"
-                      : budgetState.overallPercentage > 80
-                        ? "linear-gradient(90deg, #f59e0b, #d97706)"
-                        : "linear-gradient(90deg, #10b981, #059669)",
-                  boxShadow:
-                    budgetState.overallPercentage > 90
-                      ? "0 0 10px rgba(239, 68, 68, 0.5)"
-                      : "none",
                 }}
               />
             </div>
@@ -736,15 +728,13 @@ function Dashboard({ apiBase, refreshKey, onRefresh, onCategorySelect }: Props) 
                           {formatCurrency(cat.spent)} / {formatCurrency(cat.monthly_budget)}
                         </span>
                         <span
-                          className="text-xs font-semibold px-2 py-1 rounded"
-                          style={{
-                            background: isOverBudget
-                              ? "rgba(239, 68, 68, 0.15)"
+                          className={`text-xs font-semibold px-2 py-1 rounded ${
+                            isOverBudget
+                              ? "bg-red-500/15 text-red-500"
                               : isNearLimit
-                                ? "rgba(245, 158, 11, 0.15)"
-                                : "rgba(16, 185, 129, 0.15)",
-                            color: isOverBudget ? "#ef4444" : isNearLimit ? "#f59e0b" : "#10b981",
-                          }}
+                                ? "bg-amber-500/15 text-amber-500"
+                                : "bg-emerald-500/15 text-emerald-500"
+                          }`}
                         >
                           {cat.percentage.toFixed(0)}%
                         </span>
