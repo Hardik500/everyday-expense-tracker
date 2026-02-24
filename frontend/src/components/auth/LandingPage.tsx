@@ -322,7 +322,7 @@ const CTASection = () => {
         }}
       >
         <h2 className={styles.sectionTitle}>Ready to Start?</h2>
-        <p className={styles.sectionDesc} style={{ marginBottom: "2rem" }}>
+        <p className={`${styles.sectionDesc} mb-8`}>
           Join thousands of users who are already tracking their expenses with ease.
         </p>
         <button
