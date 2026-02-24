@@ -16,9 +16,9 @@ type Account = {
 };
 
 const ACCOUNT_TYPES = [
-  { value: "bank", label: "Bank Account", icon: "🏦", color: "#3b82f6" },
-  { value: "card", label: "Credit Card", icon: "💳", color: "#ec4899" },
-  { value: "cash", label: "Cash", icon: "💵", color: "#22c55e" },
+  { value: "bank", label: "Bank Account", icon: "🏦", color: "#3b82f6", borderClass: "border-blue-500", bgClass: "bg-blue-500/15", textClass: "text-blue-500" },
+  { value: "card", label: "Credit Card", icon: "💳", color: "#ec4899", borderClass: "border-pink-500", bgClass: "bg-pink-500/15", textClass: "text-pink-500" },
+  { value: "cash", label: "Cash", icon: "💵", color: "#22c55e", borderClass: "border-green-500", bgClass: "bg-green-500/15", textClass: "text-green-500" },
 ];
 
 function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
