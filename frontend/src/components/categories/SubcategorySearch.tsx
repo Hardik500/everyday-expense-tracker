@@ -202,8 +202,7 @@ function SubcategorySearch({
           fill="none"
           stroke="var(--text-muted)"
           strokeWidth={2}
-          className="shrink-0 transition-transform duration-150"
-          style={{ transform: isOpen ? "rotate(180deg)" : "none" }}
+          className={`shrink-0 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
         >
           <path d="M6 9l6 6 6-6" />
         </svg>

@@ -205,12 +205,11 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
                       key={type.value}
                       type="button"
                       onClick={() => setFormData({ ...formData, type: type.value as "bank" | "card" | "cash" })}
-                      className="p-4 rounded-lg border-2 cursor-pointer flex flex-col items-center gap-2 transition-all"
-                      style={{
-                        borderColor: formData.type === type.value ? type.color : undefined,
-                        background: formData.type === type.value ? `${type.color}15` : undefined,
-                        color: formData.type === type.value ? type.color : undefined,
-                      }}
+                      className={`p-4 rounded-lg border-2 cursor-pointer flex flex-col items-center gap-2 transition-all ${
+                        formData.type === type.value
+                          ? `${type.borderClass} ${type.bgClass} ${type.textClass}`
+                          : "border-border-subtle bg-bg-card text-text-secondary"
+                      }`}
                     >
                       <span className="text-2xl">{type.icon}</span>
                       <span className="text-xs font-medium">{type.label}</span>
@@ -284,14 +283,11 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
             return (
               <div
                 key={account.id}
-                className="card p-5"
-                style={{ borderLeft: `4px solid ${typeInfo.color}` }}
+                className={`card p-5 border-l-4 ${typeInfo.borderClass}`}
               >
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
-                    <div
-                      className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
-                      style={{ background: `${typeInfo.color}20` }}
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl ${typeInfo.bgClass.replace('/15', '/20')}`}
                     >
                       {typeInfo.icon}
                     </div>

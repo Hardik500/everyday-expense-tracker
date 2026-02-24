@@ -178,8 +178,9 @@ function Cards({ apiBase, refreshKey }: Props) {
                             {/* Card Header Row */}
                             <div
                                 onClick={() => setExpandedCard(expandedCard === account.account_id ? null : account.account_id)}
-                                className="flex items-center gap-4 p-4 bg-bg-input cursor-pointer transition-all hover:bg-bg-hover"
-                                style={{ borderRadius: expandedCard === account.account_id ? "var(--radius-md) var(--radius-md) 0 0" : "var(--radius-md)" }}
+                                className={`flex items-center gap-4 p-4 bg-bg-input cursor-pointer transition-all hover:bg-bg-hover ${
+                                    expandedCard === account.account_id ? "rounded-t-lg" : "rounded-lg"
+                                }`}
                             >
                                 {/* Card Icon */}
                                 <div
@@ -218,8 +219,7 @@ function Cards({ apiBase, refreshKey }: Props) {
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
-                                    className="text-text-muted transition-transform"
-                                    style={{ transform: expandedCard === account.account_id ? "rotate(180deg)" : "rotate(0)" }}
+                                    className={`text-text-muted transition-transform ${expandedCard === account.account_id ? "rotate-180" : ""}`}
                                 >
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                 </svg>
@@ -349,8 +349,7 @@ function Cards({ apiBase, refreshKey }: Props) {
                                             return (
                                                 <div
                                                     key={idx}
-                                                    className={`flex items-center gap-4 px-3 py-2 rounded ${t.has_gap ? "bg-red-500/5" : ""}`}
-                                                    style={{ borderLeft: t.has_gap ? "3px solid #ef4444" : "3px solid #10b981" }}
+                                                    className={`flex items-center gap-4 px-3 py-2 rounded ${t.has_gap ? "bg-red-500/5 border-l-[3px] border-l-red-500" : "border-l-[3px] border-l-emerald-500"}`}
                                                 >
                                                     <div className="w-20 font-medium">{monthLabel}</div>
                                                     <div className="flex-1">

@@ -723,11 +723,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       {isAIMode && (
         <div className="flex gap-2 flex-wrap items-center pl-2 -mt-2">
           <span
-            className="badge text-xs flex items-center gap-2 px-3 py-1.5"
-            style={{
-              background: "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)",
-              color: "#fff",
-            }}
+            className="badge text-xs flex items-center gap-2 px-3 py-1.5 bg-gradient-to-br from-violet-500 to-indigo-500 text-white"
           >
             <span>✨</span>
             AI Search Active
