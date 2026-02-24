@@ -35,6 +35,7 @@
   - Cross-browser testing
   - ⚠️ Test files exist (`tests/e2e/*.spec.ts`) but not yet executed
   - Note: No npm test script available - requires manual execution
+  - ⚠️ Tests require full backend + more comprehensive mocking - currently failing due to test setup issues
   
 - [ ] **Load Testing**
   - Performance with 10k+ transactions
