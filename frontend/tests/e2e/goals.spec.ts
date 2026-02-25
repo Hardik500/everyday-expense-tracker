@@ -2,25 +2,51 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Goals Dashboard', () => {
   test.beforeEach(async ({ page }) => {
+    // Mock supabase auth completely BEFORE any page load
     await page.addInitScript(() => {
+      // Mock supabase client
       (window as any).supabase = {
         auth: {
           getSession: async () => ({ 
             data: { session: { user: { id: 'test-user' }, access_token: 'mock-token' } }, 
             error: null 
           }),
-          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } }, error: null }),
+          onAuthStateChange: () => ({ 
+            data: { subscription: { unsubscribe: () => {} } }, 
+            error: null 
+          }),
         },
       };
+      
+      // Also set localStorage for app state
       localStorage.setItem('auth_token', 'mock-token');
       localStorage.setItem('auth_user', JSON.stringify({ id: 1, username: 'testuser' }));
     });
 
+    // Mock auth/me endpoint 
     await page.route('**/auth/me', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ id: 1, username: 'testuser' }),
+      });
+    });
+
+    // Mock categories API (needed by app context)
+    await page.route('**/api/v1/categories', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
+    // Mock review count API (needed by app context - /transactions?uncertain=true)
+    await page.route('**/transactions?uncertain=true', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
       });
     });
 
