@@ -178,7 +178,6 @@ export function TrendChart({
   return (
     <div
       className="trend-chart-container relative select-none"
-      style={{ WebkitUserSelect: 'none' }}
       {...(isMobile ? swipeHandlers : {})}
     >
       {/* Range Selector */}
@@ -189,13 +188,6 @@ export function TrendChart({
               key={btn.value}
               onClick={() => onRangeChange(btn.value)}
               className={`${range === btn.value ? 'primary' : 'secondary'} rounded`}
-              style={{
-                padding: isMobile ? '0.375rem 0.625rem' : '0.375rem 0.75rem',
-                fontSize: isMobile ? '0.75rem' : '0.8125rem',
-                minWidth: isMobile ? 44 : 60,
-                touchAction: 'manipulation',
-                WebkitTapHighlightColor: 'transparent',
-              }}
             >
               {isMobile ? btn.shortLabel : btn.label}
             </button>

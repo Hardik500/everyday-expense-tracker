@@ -151,12 +151,7 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
       {/* Month Comparison Cards */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
         {/* Current Month Card */}
-        <div
-          className="card p-5 relative overflow-hidden text-white"
-          style={{
-            background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-light, var(--accent)) 100%)",
-          }}
-        >
+        <div className="card p-5 relative overflow-hidden text-white bg-gradient-to-br from-accent to-accent/80">
           <div className="absolute -top-[20%] -right-[10%] w-[150px] h-[150px] bg-white/10 rounded-full" />
           <h3 className="m-0 mb-2 text-sm opacity-90">
             {current_month.month_name}
@@ -171,15 +166,13 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
 
         {/* Comparison Card */}
         <div
-          className="card p-5"
-          style={{
-            border:
-              comparison.trend === "up"
-                ? "2px solid var(--danger)"
-                : comparison.trend === "down"
-                  ? "2px solid var(--success)"
-                  : "2px solid var(--border-color)",
-          }}
+          className={`card p-5 ${
+            comparison.trend === "up"
+              ? "border-2 border-danger"
+              : comparison.trend === "down"
+                ? "border-2 border-success"
+                : "border border-border-color"
+          }`}
         >
           <h3 className="m-0 mb-2 text-sm text-text-muted">
             Since {previous_month.month_name}
@@ -195,23 +188,19 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 viewBox="0 0 24 24"
-                style={{
-                  transform: comparison.trend === "down" ? "rotate(180deg)" : "none",
-                }}
+                className={comparison.trend === "down" ? "rotate-180" : ""}
               >
                 <path d="M7 17L17 7M17 7H7M17 7V17" />
               </svg>
             )}
             <div
-              className="text-3xl font-bold"
-              style={{
-                color:
-                  comparison.trend === "up"
-                    ? "var(--danger)"
-                    : comparison.trend === "down"
-                      ? "var(--success)"
-                      : "var(--text-primary)",
-              }}
+              className={`text-3xl font-bold ${
+                comparison.trend === "up"
+                  ? "text-danger"
+                  : comparison.trend === "down"
+                    ? "text-success"
+                    : "text-text-primary"
+              }`}
             >
               {comparison.percent_change > 0 ? "+" : ""}
               {comparison.percent_change.toFixed(1)}%
@@ -277,23 +266,23 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-border-subtle rounded overflow-hidden">
                           <div
-                            className="h-full rounded transition-all duration-300"
+                            className={`h-full rounded transition-all duration-300 ${
+                              (cat.percentUsed || 0) > 100
+                                ? "bg-danger"
+                                : (cat.percentUsed || 0) > 80
+                                  ? "bg-warning"
+                                  : ""
+                            }`}
                             style={{
                               width: `${Math.min(cat.percentUsed || 0, 100)}%`,
-                              background:
-                                (cat.percentUsed || 0) > 100
-                                  ? "var(--danger)"
-                                  : (cat.percentUsed || 0) > 80
-                                    ? "var(--warning)"
-                                    : cat.color || "var(--accent)",
+                              background: (cat.percentUsed || 0) <= 80 ? cat.color || "var(--accent)" : undefined,
                             }}
                           />
                         </div>
                         <span
-                          className="text-xs"
-                          style={{
-                            color: (cat.percentUsed || 0) > 100 ? "var(--danger)" : "var(--text-muted)",
-                          }}
+                          className={`text-xs ${
+                            (cat.percentUsed || 0) > 100 ? "text-danger" : "text-text-muted"
+                          }`}
                         >
                           {cat.percentUsed?.toFixed(0)}%
                         </span>
@@ -311,16 +300,12 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
                             stroke={cat.percent_change > 0 ? "var(--danger)" : "var(--success)"}
                             strokeWidth="2"
                             viewBox="0 0 24 24"
-                            style={{
-                              transform: cat.percent_change < 0 ? "rotate(180deg)" : "none",
-                            }}
+                            className={cat.percent_change < 0 ? "rotate-180" : ""}
                           >
                             <path d="M7 17L17 7M17 7H7M17 7V17" />
                           </svg>
                           <span
-                            style={{
-                              color: cat.percent_change > 0 ? "var(--danger)" : "var(--success)",
-                            }}
+                            className={cat.percent_change > 0 ? "text-danger" : "text-success"}
                           >
                             {cat.percent_change > 0 ? "+" : ""}
                             {cat.percent_change}%
@@ -350,8 +335,7 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
           </div>
           {comparison.daily_avg_change !== 0 && (
             <div
-              className="text-[11px] mt-1"
-              style={{ color: comparison.daily_avg_change > 0 ? "var(--danger)" : "var(--success)" }}
+              className={`text-[11px] mt-1 ${comparison.daily_avg_change > 0 ? "text-danger" : "text-success"}`}
             >
               {comparison.daily_avg_change > 0 ? "↑" : "↓"} ₹
               {Math.abs(comparison.daily_avg_change).toFixed(0)}
