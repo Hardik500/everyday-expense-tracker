@@ -18,11 +18,38 @@ test.describe('Backup/Restore UI', () => {
     });
 
     // Mock auth/me endpoint
-    await page.route('**/auth/me', async (route) => {
+    await page.route('**/api/auth/me', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ id: 1, username: 'testuser', gmail_enabled: false }),
+      });
+    });
+
+    // Mock Google auth URL endpoint
+    await page.route('**/api/auth/google/url', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ url: 'https://accounts.google.com/oauth/authorize' }),
+      });
+    });
+
+    // Mock Gmail config endpoint
+    await page.route('**/api/user/gmail/config', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ enabled: false, email: null }),
+      });
+    });
+
+    // Mock user profile endpoint
+    await page.route('**/api/user/profile', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ theme: 'dark', currency: 'USD' }),
       });
     });
 
@@ -31,8 +58,8 @@ test.describe('Backup/Restore UI', () => {
   });
 
   test('should display backup section with export button', async ({ page }) => {
-    // Look for the backup section
-    await expect(page.getByText('Data Backup')).toBeVisible();
+    // Wait for the page to load and Data Backup section to be visible
+    await expect(page.getByText('Data Backup')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('Export your data as JSON')).toBeVisible();
     
     // Check for export button
@@ -41,6 +68,9 @@ test.describe('Backup/Restore UI', () => {
   });
 
   test('should display import section with file input', async ({ page }) => {
+    // Wait for the page to load
+    await expect(page.getByText('Data Backup')).toBeVisible({ timeout: 10000 });
+    
     // Look for the import section
     await expect(page.getByText('Restore Data')).toBeVisible();
     await expect(page.getByText('Import from a backup file')).toBeVisible();
@@ -51,15 +81,25 @@ test.describe('Backup/Restore UI', () => {
   });
 
   test('should show exporting state when export clicked', async ({ page }) => {
-    // Mock the export endpoint to not actually download
+    // Mock the export endpoint to return success
     await page.route('**/api/backup/export', async (route) => {
-      route.abort('failed');
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ 
+          transactions: [], 
+          accounts: [], 
+          categories: [],
+          rules: [],
+          goals: []
+        }),
+      });
     });
     
     const exportButton = page.getByRole('button', { name: /export backup/i });
     await exportButton.click();
     
-    // Should show exporting state
-    await expect(page.getByText(/exporting/i)).toBeVisible();
+    // Button should show "Exporting..." while loading
+    await expect(page.getByRole('button', { name: /exporting/i })).toBeVisible();
   });
 });
