@@ -29,4 +29,5 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },
+  setupFiles: ['./tests/mocks/playwright-setup.ts'],
 });
