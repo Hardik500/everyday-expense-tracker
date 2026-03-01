@@ -54,11 +54,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    // Send Google provider tokens to backend for Gmail access
+    const storeGmailTokens = async (providerRefreshToken: string, accessToken: string) => {
+        try {
+            await fetch(`${API_BASE}/auth/google/store-tokens`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ refresh_token: providerRefreshToken }),
+            });
+        } catch (err) {
+            console.error('Failed to store Gmail tokens:', err);
+        }
+    };
+
     useEffect(() => {
         // 1. Check for initial session
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (session) {
                 syncWithBackend(session.access_token);
+                // Capture provider tokens from initial session (e.g. after OAuth redirect)
+                if (session.provider_refresh_token) {
+                    storeGmailTokens(session.provider_refresh_token, session.access_token);
+                }
             }
             setIsLoading(false);
         });
@@ -66,13 +86,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 2. Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (event === 'PASSWORD_RECOVERY') {
-                // If we detect a recovery event, force user to reset password page
                 window.location.href = '/reset-password';
                 return;
             }
 
             if (session) {
                 syncWithBackend(session.access_token);
+                // Capture provider tokens on sign-in (Google OAuth flow)
+                if (event === 'SIGNED_IN' && session.provider_refresh_token) {
+                    storeGmailTokens(session.provider_refresh_token, session.access_token);
+                }
             } else {
                 setUser(null);
                 setToken(null);

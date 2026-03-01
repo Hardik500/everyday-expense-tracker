@@ -336,6 +336,37 @@ def google_auth_callback(code: str, current_user: schemas.User = Depends(get_cur
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/auth/google/store-tokens")
+def store_google_tokens(
+    payload: dict,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """
+    Store Google OAuth provider tokens from Supabase sign-in.
+    Called automatically by the frontend when a user signs in with Google
+    and grants gmail.readonly scope.
+    """
+    refresh_token = payload.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(status_code=400, detail="No refresh token provided")
+
+    with get_conn() as conn:
+        # Check if user already has a gmail_refresh_token
+        existing = conn.execute(
+            "SELECT gmail_refresh_token FROM users WHERE id = ?",
+            (current_user.id,)
+        ).fetchone()
+
+        # Only update if they don't already have one, or if this is a fresh token
+        conn.execute(
+            "UPDATE users SET gmail_refresh_token = ?, gmail_enabled = TRUE WHERE id = ?",
+            (refresh_token, current_user.id)
+        )
+        conn.commit()
+
+    return {"status": "success", "message": "Gmail tokens stored. Sync enabled."}
+
+
 @app.post("/user/gmail/config", response_model=schemas.User)
 def update_gmail_config(
     payload: schemas.GmailConfigUpdate,

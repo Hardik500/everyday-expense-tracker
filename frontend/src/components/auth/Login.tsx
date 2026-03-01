@@ -26,7 +26,11 @@ const Login: React.FC<LoginProps> = ({ apiBase }) => {
                 provider: 'google',
                 options: {
                     redirectTo: `${window.location.origin}/dashboard`,
-                    scopes: 'openid email profile',
+                    scopes: 'openid email profile https://www.googleapis.com/auth/gmail.readonly',
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent',
+                    },
                 },
             });
             if (oauthError) throw oauthError;

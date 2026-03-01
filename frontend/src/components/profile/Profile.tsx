@@ -294,18 +294,20 @@ function Profile({ apiBase }: Props) {
                 <div className="flex justify-between items-start">
                     <div>
                         <h2 className="flex items-center gap-2.5 text-xl font-semibold">
-                            <span className="text-2xl">📧</span> Gmail Sync (Beta)
+                            <span className="text-2xl">📧</span> Gmail Auto-Import
                         </h2>
                         <p className="text-text-muted mt-1">
-                            Automatically fetch and process bank statements from your Gmail inbox.
+                            {user?.gmail_enabled
+                                ? "Your Gmail is connected. Bank statement emails are automatically imported."
+                                : "Connect your Gmail to automatically detect and import bank statements from email."}
                         </p>
                     </div>
                     {!user?.gmail_enabled && (
                         <button
-                            className="px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600"
+                            className="px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 whitespace-nowrap"
                             onClick={handleConnectGmail}
                         >
-                            Connect Google Account
+                            Connect Gmail
                         </button>
                     )}
                 </div>
@@ -314,10 +316,10 @@ function Profile({ apiBase }: Props) {
                     <div className="mt-8 pt-8 border-t border-border">
                         <div className="flex items-center justify-between mb-5">
                             <div>
-                                <label className="block font-bold mb-1.5">Status</label>
+                                <label className="block font-bold mb-1.5">Connection Status</label>
                                 <div className="flex items-center gap-2.5">
                                     <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-                                    <span>Sync Active</span>
+                                    <span>Connected &amp; Syncing</span>
                                 </div>
                             </div>
                             <button
@@ -325,38 +327,38 @@ function Profile({ apiBase }: Props) {
                                 onClick={() => handleUpdateConfig(false)}
                                 disabled={saving}
                             >
-                                Disconnect
+                                Disable Sync
                             </button>
                         </div>
 
                         <div className="mb-5">
-                            <label className="block font-bold mb-2.5">Search Filter</label>
+                            <label className="block font-bold mb-2.5">Email Filter</label>
                             <input
                                 type="text"
                                 className="w-full px-3 py-2 bg-bg-input border border-border rounded-lg text-text focus:outline-none focus:border-accent"
                                 value={filterQuery}
                                 onChange={(e) => setFilterQuery(e.target.value)}
-                                placeholder="e.g. from:examplebank.com has:attachment filename:pdf"
+                                placeholder="e.g. from:alerts@hdfcbank.net has:attachment filename:pdf"
                             />
                             <p className="text-sm text-text-muted mt-2.5">
-                                Only emails matching this Gmail search query will be processed.
-                                Use common Gmail search operators.
+                                Customize which emails are scanned for statements using Gmail search syntax.
+                                Leave blank to scan all emails with PDF attachments.
                             </p>
                         </div>
 
                         <div className="flex justify-end gap-2.5">
                             <button
-                                className="px-4 py-2 bg-bg-input text-text-secondary border border-border rounded-lg font-medium hover:bg-bg-hover"
+                                className="px-4 py-2 bg-accent text-white rounded-lg font-medium hover:opacity-90 disabled:opacity-50"
                                 onClick={() => handleUpdateConfig(true)}
                                 disabled={saving}
                             >
-                                {saving ? "Saving..." : "Save Config"}
+                                {saving ? "Saving..." : "Save Settings"}
                             </button>
                         </div>
 
                         {user.gmail_last_sync && (
                             <div className="mt-5 text-sm text-text-muted">
-                                Last Sync: {new Date(user.gmail_last_sync).toLocaleString()}
+                                Last synced: {new Date(user.gmail_last_sync).toLocaleString()}
                             </div>
                         )}
                     </div>
