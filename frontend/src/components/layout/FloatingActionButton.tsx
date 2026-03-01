@@ -244,29 +244,90 @@ export function FloatingActionButton() {
   return (
     <>
       {/* Main FAB */}
-      <div className="fixed bottom-8 right-8 z-[1000] flex flex-col items-end gap-3">
+      <div
+        style={{
+          position: "fixed",
+          bottom: "2rem",
+          right: "2rem",
+          zIndex: 1000,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+          gap: "0.75rem",
+        }}
+      >
         {/* Action buttons that appear when FAB is clicked */}
         <div
-          className={`flex flex-col items-end gap-3 transition-all duration-300 ${isOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5 pointer-events-none"}`}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: "0.75rem",
+            opacity: isOpen ? 1 : 0,
+            transform: isOpen ? "translateY(0)" : "translateY(20px)",
+            pointerEvents: isOpen ? "auto" : "none",
+            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
         >
           {mainActions.map((action, index) => (
             <div
               key={action.id}
-              className={`flex items-center gap-3 transition-all ${isOpen ? "translate-x-0 opacity-100" : "translate-x-5 opacity-0"}`}
-              style={{ transitionDelay: `${index * 50}ms` }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+                transform: isOpen ? "translateX(0)" : "translateX(20px)",
+                opacity: isOpen ? 1 : 0,
+                transition: `all 0.2s ease ${index * 0.05}s`,
+              }}
             >
-              <span className="bg-bg-card text-text-primary px-3 py-2 rounded-lg text-sm font-medium border border-border-color shadow-md">
+              <span
+                style={{
+                  background: "var(--bg-card)",
+                  color: "var(--text-primary)",
+                  padding: "0.5rem 0.75rem",
+                  borderRadius: "var(--radius-md)",
+                  fontSize: "0.8125rem",
+                  fontWeight: 500,
+                  border: "1px solid var(--border-color)",
+                  boxShadow: "var(--shadow-md)",
+                }}
+              >
                 {action.label}
                 {action.shortcut && (
-                  <span className="ml-2 text-text-muted text-xs">
+                  <span
+                    style={{
+                      marginLeft: "0.5rem",
+                      color: "var(--text-muted)",
+                      fontSize: "0.75rem",
+                    }}
+                  >
                     {action.shortcut}
                   </span>
                 )}
               </span>
               <button
                 onClick={action.action}
-                className="w-12 h-12 rounded-full text-white border-none cursor-pointer flex items-center justify-center transition-all hover:scale-110"
-                style={{ background: action.color, boxShadow: `0 4px 14px ${action.color}40` }}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "50%",
+                  background: action.color,
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: `0 4px 14px ${action.color}40`,
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
                 title={action.label}
               >
                 {action.icon}
@@ -278,8 +339,33 @@ export function FloatingActionButton() {
         {/* Main FAB Button */}
         <button
           onClick={toggleMenu}
-          className="w-14 h-14 rounded-full bg-accent text-white border-none cursor-pointer flex items-center justify-center shadow-[var(--shadow-glow)] transition-all duration-300 hover:scale-110"
-          style={{ transform: isOpen ? "rotate(45deg)" : "rotate(0deg)" }}
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            background: "var(--accent)",
+            color: "#fff",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "var(--shadow-glow)",
+            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            transform: isOpen ? "rotate(45deg)" : "rotate(0deg)",
+          }}
+          onMouseEnter={(e) => {
+            if (!isOpen) {
+              e.currentTarget.style.transform = "scale(1.1)";
+              e.currentTarget.style.boxShadow = "0 0 30px var(--accent-glow)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isOpen) {
+              e.currentTarget.style.transform = "scale(1)";
+              e.currentTarget.style.boxShadow = "var(--shadow-glow)";
+            }
+          }}
           title="Quick add transaction (press 'n')"
         >
           <svg
@@ -288,7 +374,9 @@ export function FloatingActionButton() {
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
-            className="transition-transform duration-300"
+            style={{
+              transition: "transform 0.3s ease",
+            }}
           >
             <path
               strokeLinecap="round"
@@ -305,22 +393,61 @@ export function FloatingActionButton() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1001] animate-fade-in"
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.6)",
+              backdropFilter: "blur(4px)",
+              zIndex: 1001,
+              animation: "fadeIn 0.2s ease",
+            }}
             onClick={handleCloseModal}
           />
 
           {/* Modal */}
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md z-[1002] animate-scale-in">
+          <div
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "100%",
+              maxWidth: 480,
+              zIndex: 1002,
+              animation: "scaleIn 0.2s ease",
+            }}
+          >
             <div
-              className="card p-6 rounded-xl"
+              className="card"
+              style={{
+                padding: "1.5rem",
+                borderRadius: "var(--radius-lg)",
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between mb-5 pb-4 border-b border-border-color">
-                <div className="flex items-center gap-3">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: "1.25rem",
+                  paddingBottom: "1rem",
+                  borderBottom: "1px solid var(--border-color)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                   <div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center"
-                    style={{ background: `${getModalAccentColor()}20`, color: getModalAccentColor() }}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      background: `${getModalAccentColor()}20`,
+                      color: getModalAccentColor(),
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
                     {modalMode === "expense" && (
                       <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -338,11 +465,21 @@ export function FloatingActionButton() {
                       </svg>
                     )}
                   </div>
-                  <h3 className="m-0 text-lg font-semibold">{getModalTitle()}</h3>
+                  <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 600 }}>{getModalTitle()}</h3>
                 </div>
                 <button
                   onClick={handleCloseModal}
-                  className="bg-transparent border-none text-text-muted cursor-pointer p-2 rounded flex items-center justify-center hover:text-text-primary"
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text-muted)",
+                    cursor: "pointer",
+                    padding: "0.5rem",
+                    borderRadius: "var(--radius-sm)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
                   <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -351,7 +488,13 @@ export function FloatingActionButton() {
               </div>
 
               {/* Transaction Type Tabs */}
-              <div className="flex gap-2 mb-5">
+              <div
+                style={{
+                  display: "flex",
+                  gap: "0.5rem",
+                  marginBottom: "1.25rem",
+                }}
+              >
                 {(
                   [
                     { id: "expense", label: "Expense", color: "#ef4444" },
@@ -361,10 +504,17 @@ export function FloatingActionButton() {
                   <button
                     key={type.id}
                     onClick={() => setModalMode(type.id)}
-                    className={`flex-1 py-2.5 px-4 rounded border-none text-sm font-medium cursor-pointer transition-all ${modalMode === type.id ? "" : "bg-bg-input text-text-secondary"}`}
                     style={{
-                      background: modalMode === type.id ? `${type.color}20` : undefined,
-                      color: modalMode === type.id ? type.color : undefined,
+                      flex: 1,
+                      padding: "0.625rem 1rem",
+                      borderRadius: "var(--radius-sm)",
+                      border: "none",
+                      background: modalMode === type.id ? `${type.color}20` : "var(--bg-input)",
+                      color: modalMode === type.id ? type.color : "var(--text-secondary)",
+                      fontSize: "0.875rem",
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
                     }}
                   >
                     {type.label}
@@ -374,14 +524,31 @@ export function FloatingActionButton() {
 
               {/* Form */}
               <form onSubmit={handleSubmit}>
-                <div className="flex flex-col gap-4">
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                   {/* Amount */}
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.8125rem",
+                        fontWeight: 500,
+                        color: "var(--text-secondary)",
+                        marginBottom: "0.375rem",
+                      }}
+                    >
                       Amount
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted font-medium">
+                    <div style={{ position: "relative" }}>
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: "1rem",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: "var(--text-muted)",
+                          fontWeight: 500,
+                        }}
+                      >
                         ₹
                       </span>
                       <input
@@ -391,7 +558,11 @@ export function FloatingActionButton() {
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         autoFocus
-                        className="w-full px-4 py-2.5 pl-8 bg-bg-input border border-border-color rounded-lg text-text-primary text-lg font-semibold outline-none focus:border-accent"
+                        style={{
+                          paddingLeft: "2rem",
+                          fontSize: "1.125rem",
+                          fontWeight: 600,
+                        }}
                         required
                       />
                     </div>
@@ -399,7 +570,15 @@ export function FloatingActionButton() {
 
                   {/* Description */}
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.8125rem",
+                        fontWeight: 500,
+                        color: "var(--text-secondary)",
+                        marginBottom: "0.375rem",
+                      }}
+                    >
                       Description
                     </label>
                     <input
@@ -407,34 +586,50 @@ export function FloatingActionButton() {
                       placeholder="What was this for?"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-bg-input border border-border-color rounded-lg text-text-primary outline-none focus:border-accent"
                       required
                     />
                   </div>
 
                   {/* Date */}
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.8125rem",
+                        fontWeight: 500,
+                        color: "var(--text-secondary)",
+                        marginBottom: "0.375rem",
+                      }}
+                    >
                       Date
                     </label>
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-bg-input border border-border-color rounded-lg text-text-primary outline-none focus:border-accent"
-                      required
-                    />
+                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
                   </div>
 
                   {/* Category */}
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.8125rem",
+                        fontWeight: 500,
+                        color: "var(--text-secondary)",
+                        marginBottom: "0.375rem",
+                      }}
+                    >
                       Category
                     </label>
                     <select
                       value={categoryId}
                       onChange={(e) => setCategoryId(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-bg-input border border-border-color rounded-lg text-text-primary outline-none focus:border-accent"
+                      style={{
+                        backgroundColor: "var(--bg-input)",
+                        border: "1px solid var(--border-color)",
+                        borderRadius: "var(--radius-sm)",
+                        padding: "0.625rem 0.875rem",
+                        color: "var(--text-primary)",
+                        width: "100%",
+                      }}
                     >
                       <option value="">Select category...</option>
                       {categories.map((cat) => (
@@ -447,13 +642,28 @@ export function FloatingActionButton() {
 
                   {/* Account */}
                   <div>
-                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.8125rem",
+                        fontWeight: 500,
+                        color: "var(--text-secondary)",
+                        marginBottom: "0.375rem",
+                      }}
+                    >
                       Account
                     </label>
                     <select
                       value={accountId}
                       onChange={(e) => setAccountId(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-bg-input border border-border-color rounded-lg text-text-primary outline-none focus:border-accent"
+                      style={{
+                        backgroundColor: "var(--bg-input)",
+                        border: "1px solid var(--border-color)",
+                        borderRadius: "var(--radius-sm)",
+                        padding: "0.625rem 0.875rem",
+                        color: "var(--text-primary)",
+                        width: "100%",
+                      }}
                       required
                     >
                       <option value="">Select account...</option>
@@ -470,8 +680,23 @@ export function FloatingActionButton() {
                 <button
                   type="submit"
                   disabled={isSubmitting || !amount || !description || !date || !accountId}
-                  className="w-full mt-6 py-3.5 text-white border-none rounded-lg text-base font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all disabled:cursor-not-allowed disabled:opacity-70"
-                  style={{ background: getModalAccentColor() }}
+                  style={{
+                    width: "100%",
+                    marginTop: "1.5rem",
+                    padding: "0.875rem",
+                    background: getModalAccentColor(),
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "var(--radius-sm)",
+                    fontSize: "0.9375rem",
+                    fontWeight: 600,
+                    cursor: isSubmitting ? "not-allowed" : "pointer",
+                    opacity: isSubmitting ? 0.7 : 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.5rem",
+                  }}
                 >
                   {isSubmitting ? (
                     <>
@@ -489,8 +714,15 @@ export function FloatingActionButton() {
                 </button>
 
                 {/* Keyboard hint */}
-                <p className="text-center text-xs text-text-muted mt-3">
-                  Press <kbd className="font-semibold">Esc</kbd> to close
+                <p
+                  style={{
+                    textAlign: "center",
+                    fontSize: "0.75rem",
+                    color: "var(--text-muted)",
+                    marginTop: "0.75rem",
+                  }}
+                >
+                  Press <kbd>Esc</kbd> to close
                 </p>
               </form>
             </div>
@@ -501,7 +733,7 @@ export function FloatingActionButton() {
               from { opacity: 0; }
               to { opacity: 1; }
             }
-            @keyframes scale-in {
+            @keyframes scaleIn {
               from {
                 opacity: 0;
                 transform: translate(-50%, -50%) scale(0.95);
@@ -518,9 +750,25 @@ export function FloatingActionButton() {
       {/* Keyboard hint (visible when mouse is over FAB area) */}
       {!isOpen && !showModal && (
         <div
-          className="fixed bottom-20 right-8 z-[999] bg-bg-card text-text-muted px-3 py-1.5 rounded-lg text-xs border border-border-color opacity-0 translate-y-2.5 transition-all pointer-events-none fab-hint"
+          style={{
+            position: "fixed",
+            bottom: "5rem",
+            right: "2rem",
+            zIndex: 999,
+            background: "var(--bg-card)",
+            color: "var(--text-muted)",
+            padding: "0.375rem 0.75rem",
+            borderRadius: "var(--radius-sm)",
+            fontSize: "0.75rem",
+            border: "1px solid var(--border-color)",
+            opacity: 0,
+            transform: "translateY(10px)",
+            transition: "all 0.2s ease",
+            pointerEvents: "none",
+          }}
+          className="fab-hint"
         >
-          Press <kbd className="font-semibold">n</kbd> to add
+          Press <kbd style={{ fontWeight: 600 }}>n</kbd> to add
         </div>
       )}
 

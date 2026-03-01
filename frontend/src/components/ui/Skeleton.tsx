@@ -21,8 +21,11 @@ export const Skeleton: React.FC<SkeletonProps> = ({
             {Array.from({ length: lines }).map((_, i) => (
               <div
                 key={i}
-                className={`h-4 rounded animate-pulse ${i === 0 ? 'w-4/5' : i === lines - 1 ? 'w-3/5' : 'w-full'}`}
-                style={{ animationDelay: `${i * 0.1}s` }}
+                className="h-4 rounded animate-pulse"
+                style={{
+                  width: i === 0 ? '80%' : i === lines - 1 ? '60%' : '100%',
+                  animationDelay: `${i * 0.1}s`,
+                }}
               />
             ))}
           </div>
@@ -70,7 +73,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
               {Array.from({ length: 7 }).map((_, i) => (
                 <div
                   key={i}
-                  className="flex-1 rounded animate-pulse"
+                  className="flex-1 rounded"
                   style={{
                     height: `${20 + Math.random() * 60}%`,
                     animationDelay: `${i * 0.1}s`,

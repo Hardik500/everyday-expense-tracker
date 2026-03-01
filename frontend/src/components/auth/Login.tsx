@@ -89,39 +89,55 @@ const Login: React.FC<LoginProps> = ({ apiBase }) => {
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     {mode === 'signup' && (
                         <div className="input-group">
-                            <label className="text-xs font-semibold text-text-secondary mb-1 block">FULL NAME</label>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>FULL NAME</label>
                             <input
                                 type="text"
                                 value={fullName}
                                 onChange={(e) => setFullName(e.target.value)}
                                 placeholder="John Doe"
                                 required
-                                className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-border-color text-text-primary outline-none"
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: 12,
+                                    background: 'var(--bg-primary)',
+                                    border: '1px solid var(--border-color)',
+                                    color: 'var(--text-primary)',
+                                    outline: 'none'
+                                }}
                             />
                         </div>
                     )}
 
                     <div className="input-group">
-                        <label className="text-xs font-semibold text-text-secondary mb-1 block">EMAIL</label>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>EMAIL</label>
                         <input
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="john@example.com"
                             required
-                            className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-border-color text-text-primary outline-none"
+                            style={{
+                                width: '100%',
+                                padding: '0.75rem 1rem',
+                                borderRadius: 12,
+                                background: 'var(--bg-primary)',
+                                border: '1px solid var(--border-color)',
+                                color: 'var(--text-primary)',
+                                outline: 'none'
+                            }}
                         />
                     </div>
 
                     {mode !== 'forgot' && (
                         <div className="input-group">
-                            <div className="flex justify-between items-center mb-1">
-                                <label className="text-xs font-semibold text-text-secondary">PASSWORD</label>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>PASSWORD</label>
                                 {mode === 'signin' && (
                                     <button
                                         type="button"
                                         onClick={() => setMode('forgot')}
-                                        className="bg-none border-none text-accent text-xs cursor-pointer"
+                                        style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '0.75rem', cursor: 'pointer' }}
                                     >
                                         Forgot?
                                     </button>
@@ -133,19 +149,41 @@ const Login: React.FC<LoginProps> = ({ apiBase }) => {
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="••••••••"
                                 required
-                                className="w-full px-4 py-3 rounded-xl bg-bg-primary border border-border-color text-text-primary outline-none"
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: 12,
+                                    background: 'var(--bg-primary)',
+                                    border: '1px solid var(--border-color)',
+                                    color: 'var(--text-primary)',
+                                    outline: 'none'
+                                }}
                             />
                         </div>
                     )}
 
                     {error && (
-                        <div className="p-3 rounded-xl bg-red-500/10 text-danger text-sm border border-red-500/20">
+                        <div style={{
+                            padding: '0.75rem',
+                            borderRadius: 12,
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            color: 'var(--danger)',
+                            fontSize: '0.875rem',
+                            border: '1px solid rgba(239, 68, 68, 0.2)'
+                        }}>
                             {error}
                         </div>
                     )}
 
                     {message && (
-                        <div className="p-3 rounded-xl bg-emerald-500/10 text-accent text-sm border border-emerald-500/20">
+                        <div style={{
+                            padding: '0.75rem',
+                            borderRadius: 12,
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            color: 'var(--accent)',
+                            fontSize: '0.875rem',
+                            border: '1px solid rgba(16, 185, 129, 0.2)'
+                        }}>
                             {message}
                         </div>
                     )}
@@ -153,7 +191,21 @@ const Login: React.FC<LoginProps> = ({ apiBase }) => {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full py-4 rounded-xl bg-accent text-white border-none font-semibold cursor-pointer mt-4 transition-all shadow-[0_4px_12px_rgba(16,185,129,0.2)] hover:-translate-y-0.5"
+                        style={{
+                            width: '100%',
+                            padding: '1rem',
+                            borderRadius: 12,
+                            background: 'var(--accent)',
+                            color: '#fff',
+                            border: 'none',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            marginTop: '1rem',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                     >
                         {isLoading
                             ? 'Processing...'
@@ -164,17 +216,34 @@ const Login: React.FC<LoginProps> = ({ apiBase }) => {
                         <button
                             type="button"
                             onClick={() => setMode('signin')}
-                            className="w-full py-3 rounded-xl bg-transparent text-text-secondary border border-border-color font-medium cursor-pointer transition-all"
+                            style={{
+                                width: '100%',
+                                padding: '0.75rem',
+                                borderRadius: 12,
+                                background: 'transparent',
+                                color: 'var(--text-secondary)',
+                                border: '1px solid var(--border-color)',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                            }}
                         >
                             Back to Sign In
                         </button>
                     )}
                 </form>
 
-                <div className="text-center mt-8">
+                <div style={{ textAlign: 'center', marginTop: '2rem' }}>
                     <button
                         onClick={() => setMode(mode === 'signup' ? 'signin' : 'signup')}
-                        className="bg-none border-none text-accent cursor-pointer text-sm font-medium"
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--accent)',
+                            cursor: 'pointer',
+                            fontSize: '0.875rem',
+                            fontWeight: 500
+                        }}
                     >
                         {mode === 'signup' ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
                     </button>

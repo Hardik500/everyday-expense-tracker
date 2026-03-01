@@ -114,7 +114,7 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
 
   if (loading) {
     return (
-      <div className="card p-8 flex justify-center">
+      <div className="card" style={{ padding: "2rem", display: "flex", justifyContent: "center" }}>
         <PageLoading text="Loading insights..." />
       </div>
     );
@@ -122,8 +122,8 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
 
   if (error || !insights) {
     return (
-      <div className="card p-6">
-        <div className="text-danger text-center">
+      <div className="card" style={{ padding: "1.5rem" }}>
+        <div style={{ color: "var(--danger)", textAlign: "center" }}>
           {error || "Unable to load insights"}
         </div>
       </div>
@@ -147,37 +147,73 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
   };
 
   return (
-    <div className="grid gap-4">
+    <div style={{ display: "grid", gap: "1rem" }}>
       {/* Month Comparison Cards */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: "1rem",
+        }}
+      >
         {/* Current Month Card */}
-        <div className="card p-5 relative overflow-hidden text-white bg-gradient-to-br from-accent to-accent/80">
-          <div className="absolute -top-[20%] -right-[10%] w-[150px] h-[150px] bg-white/10 rounded-full" />
-          <h3 className="m-0 mb-2 text-sm opacity-90">
+        <div
+          className="card"
+          style={{
+            padding: "1.25rem",
+            background:
+              "linear-gradient(135deg, var(--accent) 0%, var(--accent-light, var(--accent)) 100%)",
+            color: "#fff",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: "-20%",
+              right: "-10%",
+              width: "150px",
+              height: "150px",
+              background: "rgba(255,255,255,0.1)",
+              borderRadius: "50%",
+            }}
+          />
+          <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", opacity: 0.9 }}>
             {current_month.month_name}
           </h3>
-          <div className="text-3xl font-bold mb-2">
+          <div style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.5rem" }}>
             {formatCurrency(currentTotal)}
           </div>
-          <div className="text-sm opacity-80">
+          <div style={{ fontSize: "0.8125rem", opacity: 0.8 }}>
             {current_month.transaction_count} transactions • ₹{current_month.daily_average.toFixed(0)} avg/day
           </div>
         </div>
 
         {/* Comparison Card */}
         <div
-          className={`card p-5 ${
-            comparison.trend === "up"
-              ? "border-2 border-danger"
-              : comparison.trend === "down"
-                ? "border-2 border-success"
-                : "border border-border-color"
-          }`}
+          className="card"
+          style={{
+            padding: "1.25rem",
+            border:
+              comparison.trend === "up"
+                ? "2px solid var(--danger)"
+                : comparison.trend === "down"
+                  ? "2px solid var(--success)"
+                  : "2px solid var(--border-color)",
+          }}
         >
-          <h3 className="m-0 mb-2 text-sm text-text-muted">
+          <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "0.875rem", color: "var(--text-muted)" }}>
             Since {previous_month.month_name}
           </h3>
-          <div className="flex items-center gap-3 mb-2">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+              marginBottom: "0.5rem",
+            }}
+          >
             {comparison.trend !== "same" && (
               <svg
                 width="24"
@@ -188,25 +224,31 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 viewBox="0 0 24 24"
-                className={comparison.trend === "down" ? "rotate-180" : ""}
+                style={{
+                  transform:
+                    comparison.trend === "down" ? "rotate(180deg)" : "none",
+                }}
               >
                 <path d="M7 17L17 7M17 7H7M17 7V17" />
               </svg>
             )}
             <div
-              className={`text-3xl font-bold ${
-                comparison.trend === "up"
-                  ? "text-danger"
-                  : comparison.trend === "down"
-                    ? "text-success"
-                    : "text-text-primary"
-              }`}
+              style={{
+                fontSize: "1.75rem",
+                fontWeight: 700,
+                color:
+                  comparison.trend === "up"
+                    ? "var(--danger)"
+                    : comparison.trend === "down"
+                      ? "var(--success)"
+                      : "var(--text-primary)",
+              }}
             >
               {comparison.percent_change > 0 ? "+" : ""}
               {comparison.percent_change.toFixed(1)}%
             </div>
           </div>
-          <div className="text-sm text-text-muted">
+          <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             {comparison.percent_change > 0 ? "📈" : comparison.percent_change < 0 ? "📉" : "➡️"} {" "}
             {formatCurrency(Math.abs(comparison.amount_change))}{" "}
             {comparison.percent_change > 0 ? "more" : comparison.percent_change < 0 ? "less" : "same as"} last month
@@ -216,18 +258,33 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
 
       {/* Top Categories */}
       {topCatsWithBudget.length > 0 && (
-        <div className="card p-5 overflow-hidden">
-          <h3 className="m-0 mb-4 text-sm text-text-muted uppercase tracking-wide">
+        <div className="card" style={{ padding: "1.25rem", overflow: "hidden" }}>
+          <h3
+            style={{
+              margin: "0 0 1rem 0",
+              fontSize: "0.875rem",
+              color: "var(--text-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
             Top Spending Categories
           </h3>
 
-          <div className="grid gap-3">
+          <div style={{ display: "grid", gap: "0.75rem" }}>
             {topCatsWithBudget.map((cat) => {
               const iconPath = getIconPath(cat.icon);
               return (
                 <div
                   key={cat.id}
-                  className="flex items-center gap-4 p-3 bg-bg-secondary rounded-lg"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                    padding: "0.75rem",
+                    background: "var(--bg-secondary)",
+                    borderRadius: "var(--radius-md)",
+                  }}
                 >
                   {/* Icon or Color Dot */}
                   {iconPath ? (
@@ -245,44 +302,68 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
                     </svg>
                   ) : (
                     <div
-                      className="w-6 h-6 rounded-full"
-                      style={{ background: cat.color || "var(--accent)" }}
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: "50%",
+                        background: cat.color || "var(--accent)",
+                      }}
                     />
                   )}
 
                   {/* Category Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-semibold text-text-primary">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "0.25rem",
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
                         {cat.name}
                       </span>
-                      <span className="font-semibold text-text-primary">
+                      <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
                         {formatCurrency(cat.total)}
                       </span>
                     </div>
 
                     {/* Progress bar with budget */}
                     {cat.budget && cat.budget > 0 && (
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-border-subtle rounded overflow-hidden">
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <div
+                          style={{
+                            flex: 1,
+                            height: 6,
+                            background: "var(--border-subtle)",
+                            borderRadius: 3,
+                            overflow: "hidden",
+                          }}
+                        >
                           <div
-                            className={`h-full rounded transition-all duration-300 ${
-                              (cat.percentUsed || 0) > 100
-                                ? "bg-danger"
-                                : (cat.percentUsed || 0) > 80
-                                  ? "bg-warning"
-                                  : ""
-                            }`}
                             style={{
                               width: `${Math.min(cat.percentUsed || 0, 100)}%`,
-                              background: (cat.percentUsed || 0) <= 80 ? cat.color || "var(--accent)" : undefined,
+                              height: "100%",
+                              background:
+                                (cat.percentUsed || 0) > 100
+                                  ? "var(--danger)"
+                                  : (cat.percentUsed || 0) > 80
+                                    ? "var(--warning)"
+                                    : cat.color || "var(--accent)",
+                              borderRadius: 3,
+                              transition: "width 0.3s ease",
                             }}
                           />
                         </div>
                         <span
-                          className={`text-xs ${
-                            (cat.percentUsed || 0) > 100 ? "text-danger" : "text-text-muted"
-                          }`}
+                          style={{
+                            fontSize: "0.75rem",
+                            color:
+                              (cat.percentUsed || 0) > 100
+                                ? "var(--danger)"
+                                : "var(--text-muted)",
+                          }}
                         >
                           {cat.percentUsed?.toFixed(0)}%
                         </span>
@@ -290,29 +371,47 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
                     )}
 
                     {/* Trend indicator */}
-                    <div className="flex items-center gap-1 text-xs mt-1">
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.25rem",
+                        fontSize: "0.75rem",
+                        marginTop: "0.25rem",
+                      }}
+                    >
                       {cat.percent_change !== 0 && (
                         <>
                           <svg
                             width="12"
                             height="12"
                             fill="none"
-                            stroke={cat.percent_change > 0 ? "var(--danger)" : "var(--success)"}
+                            stroke={
+                              cat.percent_change > 0 ? "var(--danger)" : "var(--success)"
+                            }
                             strokeWidth="2"
                             viewBox="0 0 24 24"
-                            className={cat.percent_change < 0 ? "rotate-180" : ""}
+                            style={{
+                              transform:
+                                cat.percent_change < 0 ? "rotate(180deg)" : "none",
+                            }}
                           >
                             <path d="M7 17L17 7M17 7H7M17 7V17" />
                           </svg>
                           <span
-                            className={cat.percent_change > 0 ? "text-danger" : "text-success"}
+                            style={{
+                              color:
+                                cat.percent_change > 0
+                                  ? "var(--danger)"
+                                  : "var(--success)",
+                            }}
                           >
                             {cat.percent_change > 0 ? "+" : ""}
                             {cat.percent_change}%
                           </span>
                         </>
                       )}
-                      <span className="text-text-muted">
+                      <span style={{ color: "var(--text-muted)" }}>
                         {cat.transaction_count} transactions
                       </span>
                     </div>
@@ -325,17 +424,30 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
       )}
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-4">
-        <div className="card p-4 text-center bg-bg-secondary">
-          <div className="text-xs text-text-muted mb-1">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+          gap: "1rem",
+        }}
+      >
+        <div
+          className="card"
+          style={{ padding: "1rem", textAlign: "center", background: "var(--bg-secondary)" }}
+        >
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
             Daily Average
           </div>
-          <div className="text-lg font-semibold text-text-primary">
+          <div style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--text-primary)" }}>
             ₹{current_month.daily_average.toFixed(0)}
           </div>
           {comparison.daily_avg_change !== 0 && (
             <div
-              className={`text-[11px] mt-1 ${comparison.daily_avg_change > 0 ? "text-danger" : "text-success"}`}
+              style={{
+                fontSize: "0.6875rem",
+                color: comparison.daily_avg_change > 0 ? "var(--danger)" : "var(--success)",
+                marginTop: "0.25rem",
+              }}
             >
               {comparison.daily_avg_change > 0 ? "↑" : "↓"} ₹
               {Math.abs(comparison.daily_avg_change).toFixed(0)}
@@ -343,28 +455,40 @@ function SpendingInsights({ apiBase, categories, refreshKey }: Props) {
           )}
         </div>
 
-        <div className="card p-4 text-center bg-bg-secondary">
-          <div className="text-xs text-text-muted mb-1">
+        <div
+          className="card"
+          style={{ padding: "1rem", textAlign: "center", background: "var(--bg-secondary)" }}
+        >
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
             Transactions
           </div>
-          <div className="text-lg font-semibold text-text-primary">
+          <div style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--text-primary)" }}>
             {current_month.transaction_count}
           </div>
           {previous_month.transaction_count > 0 && (
-            <div className="text-[11px] text-text-muted mt-1">
+            <div
+              style={{
+                fontSize: "0.6875rem",
+                color: "var(--text-muted)",
+                marginTop: "0.25rem",
+              }}
+            >
               vs {previous_month.transaction_count} last month
             </div>
           )}
         </div>
 
-        <div className="card p-4 text-center bg-bg-secondary">
-          <div className="text-xs text-text-muted mb-1">
+        <div
+          className="card"
+          style={{ padding: "1rem", textAlign: "center", background: "var(--bg-secondary)" }}
+        >
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
             Active Categories
           </div>
-          <div className="text-lg font-semibold text-text-primary">
+          <div style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--text-primary)" }}>
             {top_categories.length}
           </div>
-          <div className="text-[11px] text-text-muted mt-1">
+          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
             with spending
           </div>
         </div>

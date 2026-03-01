@@ -14,7 +14,7 @@ type Props = {
 };
 
 const FileIcon = () => (
-  <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" className="opacity-50">
+  <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ opacity: 0.5 }}>
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
   </svg>
 );
@@ -185,26 +185,37 @@ function Upload({ apiBase, onDone }: Props) {
   };
 
   return (
-    <div className="grid gap-6">
+    <div style={{ display: "grid", gap: "1.5rem" }}>
       {/* Account Selection Card */}
       <div className="card">
         <div className="card-header">
           <h2>Select Account</h2>
           <button
-            className="ghost text-xs"
+            className="ghost"
             onClick={() => setShowNewAccount(!showNewAccount)}
+            style={{ fontSize: "0.8125rem" }}
           >
             {showNewAccount ? "Cancel" : "+ New Account"}
           </button>
         </div>
 
         {showNewAccount && (
-          <div className="grid grid-cols-[1fr_auto_auto] gap-3 mb-5 p-4 bg-bg-input rounded-lg">
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr auto auto",
+              gap: "0.75rem",
+              marginBottom: "1.25rem",
+              padding: "1rem",
+              background: "var(--bg-input)",
+              borderRadius: "var(--radius-md)",
+            }}
+          >
             <input
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
               placeholder="Account name (e.g., HDFC Savings)"
-              className="bg-bg-card"
+              style={{ background: "var(--bg-card)" }}
             />
             <Select
               value={accountType}
@@ -214,7 +225,7 @@ function Upload({ apiBase, onDone }: Props) {
                 { value: "card", label: "Card" },
                 { value: "cash", label: "Cash" },
               ]}
-              className="w-[140px]"
+              style={{ width: 140 }}
             />
             <button className="primary" onClick={createAccount}>
               Add
@@ -222,30 +233,50 @@ function Upload({ apiBase, onDone }: Props) {
           </div>
         )}
 
-        <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "0.75rem" }}>
           {accounts.map((account) => (
             <button
               key={account.id}
               onClick={() => setAccountId(String(account.id))}
-              className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer text-left transition-all ${accountId === String(account.id) ? "bg-accent-glow border-accent" : "bg-bg-input border-border-color"}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+                padding: "1rem",
+                background: accountId === String(account.id) ? "var(--accent-glow)" : "var(--bg-input)",
+                border: `1px solid ${accountId === String(account.id) ? "var(--accent)" : "var(--border-color)"}`,
+                borderRadius: "var(--radius-md)",
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "all var(--transition-fast)",
+              }}
             >
               <div
-                className={`w-9 h-9 rounded-lg flex items-center justify-center ${accountId === String(account.id) ? "bg-accent text-white" : "bg-bg-card text-text-muted"}`}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 8,
+                  background: accountId === String(account.id) ? "var(--accent)" : "var(--bg-card)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: accountId === String(account.id) ? "#fff" : "var(--text-muted)",
+                }}
               >
                 <AccountTypeIcon type={account.type} />
               </div>
               <div>
-                <div className="font-medium text-text-primary text-sm">
+                <div style={{ fontWeight: 500, color: "var(--text-primary)", fontSize: "0.875rem" }}>
                   {account.name}
                 </div>
-                <div className="text-xs text-text-muted capitalize">
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "capitalize" }}>
                   {account.type}
                 </div>
               </div>
             </button>
           ))}
           {accounts.length === 0 && (
-            <p className="text-text-muted text-sm">
+            <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
               No accounts yet. Create one above to get started.
             </p>
           )}
@@ -256,12 +287,13 @@ function Upload({ apiBase, onDone }: Props) {
       <div className="card">
         <div className="card-header">
           <h2>Upload Statement</h2>
-          <div className="flex gap-2">
+          <div style={{ display: "flex", gap: "0.5rem" }}>
             {Object.entries(formatMap).map(([key, label]) => (
               <button
                 key={key}
-                className={`${source === key ? "primary" : "secondary"} px-3 py-1.5 text-xs`}
+                className={source === key ? "primary" : "secondary"}
                 onClick={() => setSource(key)}
+                style={{ padding: "0.375rem 0.75rem", fontSize: "0.75rem" }}
               >
                 {label}
               </button>
@@ -276,13 +308,21 @@ function Upload({ apiBase, onDone }: Props) {
           onDragOver={handleDrag}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all ${dragActive ? "border-accent bg-accent-glow" : "border-border-color bg-bg-input"}`}
+          style={{
+            border: `2px dashed ${dragActive ? "var(--accent)" : "var(--border-color)"}`,
+            borderRadius: "var(--radius-lg)",
+            padding: "3rem 2rem",
+            textAlign: "center",
+            cursor: "pointer",
+            background: dragActive ? "var(--accent-glow)" : "var(--bg-input)",
+            transition: "all var(--transition-fast)",
+          }}
         >
           <FileIcon />
-          <p className="mt-4 text-text-primary font-medium">
+          <p style={{ marginTop: "1rem", color: "var(--text-primary)", fontWeight: 500 }}>
             {file ? file.name : "Drop your file here or click to browse"}
           </p>
-          <p className="mt-2 text-xs text-text-muted">
+          <p style={{ marginTop: "0.5rem", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             {file
               ? `${(file.size / 1024).toFixed(1)} KB`
               : `Supports ${formatMap[source]} files`}
@@ -291,25 +331,25 @@ function Upload({ apiBase, onDone }: Props) {
             ref={fileInputRef}
             type="file"
             onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-            className="hidden"
+            style={{ display: "none" }}
             accept=".csv,.txt,.pdf,.xls,.xlsx,.ofx,.qfx"
           />
         </div>
 
         {/* Profile selector (advanced) */}
-        <details className="mt-4">
-          <summary className="cursor-pointer text-text-muted text-xs">
+        <details style={{ marginTop: "1rem" }}>
+          <summary style={{ cursor: "pointer", color: "var(--text-muted)", fontSize: "0.8125rem" }}>
             Advanced options
           </summary>
-          <div className="mt-3">
-            <label className="block mb-1.5 text-xs text-text-secondary">
+          <div style={{ marginTop: "0.75rem" }}>
+            <label style={{ display: "block", marginBottom: "0.375rem", fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
               Bank Profile
             </label>
             <input
               value={profile}
               onChange={(e) => setProfile(e.target.value)}
               placeholder="generic"
-              className="max-w-[200px]"
+              style={{ maxWidth: 200 }}
             />
           </div>
         </details>
@@ -317,16 +357,33 @@ function Upload({ apiBase, onDone }: Props) {
         {/* Status message */}
         {status.message && (
           <div
-            className={`mt-4 p-3.5 rounded-lg text-sm border ${
-              status.type === "success"
-                ? "bg-green-500/10 text-success border-green-500/30"
+            style={{
+              marginTop: "1rem",
+              padding: "0.875rem 1rem",
+              borderRadius: "var(--radius-md)",
+              fontSize: "0.875rem",
+              background:
+                status.type === "success"
+                  ? "rgba(34, 197, 94, 0.1)"
+                  : status.type === "error"
+                    ? "rgba(239, 68, 68, 0.1)"
+                    : "var(--bg-input)",
+              color:
+                status.type === "success"
+                  ? "var(--success)"
+                  : status.type === "error"
+                    ? "var(--danger)"
+                    : "var(--text-secondary)",
+              border: `1px solid ${status.type === "success"
+                ? "rgba(34, 197, 94, 0.3)"
                 : status.type === "error"
-                  ? "bg-red-500/10 text-danger border-red-500/30"
-                  : "bg-bg-input text-text-secondary border-border-color"
-            }`}
+                  ? "rgba(239, 68, 68, 0.3)"
+                  : "var(--border-color)"
+                }`,
+            }}
           >
             {status.type === "loading" && (
-              <span className="loading mr-2">
+              <span className="loading" style={{ marginRight: 8 }}>
                 ◌
               </span>
             )}
@@ -335,11 +392,12 @@ function Upload({ apiBase, onDone }: Props) {
         )}
 
         {/* Submit button */}
-        <div className="mt-5 flex justify-end">
+        <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end" }}>
           <button
-            className="primary min-w-[140px]"
+            className="primary"
             onClick={submit}
             disabled={!file || !accountId || status.type === "loading"}
+            style={{ minWidth: 140 }}
           >
             {status.type === "loading" ? "Processing..." : "Import Statement"}
           </button>

@@ -678,13 +678,28 @@ export function RecurringExpenses({
             <>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="px-3 py-2.5 rounded-md border border-border-color bg-transparent text-text-primary cursor-pointer"
+                style={{
+                  padding: "0.625rem 1rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid var(--border-color)",
+                  background: "transparent",
+                  color: "var(--text-primary)",
+                  cursor: "pointer",
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={() => createRecurring()}
-                className="px-3 py-2.5 rounded-md border-none bg-accent text-white cursor-pointer font-medium"
+                style={{
+                  padding: "0.625rem 1rem",
+                  borderRadius: "0.375rem",
+                  border: "none",
+                  background: "var(--accent)",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontWeight: 500,
+                }}
               >
                 Add Recurring Expense
               </button>
@@ -717,13 +732,28 @@ export function RecurringExpenses({
                   setShowEditModal(false);
                   setEditingExpense(null);
                 }}
-                className="px-3 py-2.5 rounded-md border border-border-color bg-transparent text-text-primary cursor-pointer"
+                style={{
+                  padding: "0.625rem 1rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid var(--border-color)",
+                  background: "transparent",
+                  color: "var(--text-primary)",
+                  cursor: "pointer",
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={updateRecurring}
-                className="px-3 py-2.5 rounded-md border-none bg-accent text-white cursor-pointer font-medium"
+                style={{
+                  padding: "0.625rem 1rem",
+                  borderRadius: "0.375rem",
+                  border: "none",
+                  background: "var(--accent)",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontWeight: 500,
+                }}
               >
                 Save Changes
               </button>
@@ -749,7 +779,11 @@ export function RecurringExpenses({
         >
           {candidates.length === 0 ? (
             <div
-              className="p-12 text-center text-text-muted"
+              style={{
+                padding: "3rem",
+                textAlign: "center",
+                color: "var(--text-muted)",
+              }}
             >
               <svg
                 width="48"

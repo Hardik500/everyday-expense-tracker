@@ -134,27 +134,41 @@ function Cards({ apiBase, refreshKey }: Props) {
     }
 
     return (
-        <div className="grid gap-6">
+        <div style={{ display: "grid", gap: "1.5rem" }}>
             {/* Untracked Cards Warning */}
             {untrackedCards.length > 0 && (
-                <div className="card border-amber-500 bg-amber-500/5">
+                <div className="card" style={{ borderColor: "#f59e0b", background: "#f59e0b0a" }}>
                     <div className="card-header">
                         <h2>⚠️ Untracked Card Payments Detected</h2>
                     </div>
-                    <div className="p-4">
-                        <p className="text-text-secondary mb-4 text-sm">
+                    <div style={{ padding: "1rem" }}>
+                        <p style={{ color: "var(--text-secondary)", marginBottom: "1rem", fontSize: "0.875rem" }}>
                             We found payments to cards that aren't added to your account yet. Add them to track expenses.
                         </p>
-                        <div className="grid gap-3">
+                        <div style={{ display: "grid", gap: "0.75rem" }}>
                             {untrackedCards.map((uc, idx) => (
-                                <div key={idx} className="flex justify-between items-center px-4 py-3 bg-bg-secondary rounded-lg">
+                                <div key={idx} style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    padding: "0.75rem 1rem",
+                                    background: "var(--bg-secondary)",
+                                    borderRadius: "var(--radius-md)"
+                                }}>
                                     <div>
-                                        <div className="font-semibold">{uc.card_name}</div>
-                                        <div className="text-xs text-text-muted">
+                                        <div style={{ fontWeight: 600 }}>{uc.card_name}</div>
+                                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                                             {uc.payment_months} months of payments • {formatCurrency(uc.total_amount)} total
                                         </div>
                                     </div>
-                                    <span className="px-3 py-1 bg-amber-500/10 text-amber-500 rounded-full text-xs font-medium">
+                                    <span style={{
+                                        padding: "0.25rem 0.75rem",
+                                        background: "#f59e0b1a",
+                                        color: "#f59e0b",
+                                        borderRadius: "var(--radius-full)",
+                                        fontSize: "0.75rem",
+                                        fontWeight: 500
+                                    }}>
                                         Not tracked
                                     </span>
                                 </div>
@@ -168,28 +182,43 @@ function Cards({ apiBase, refreshKey }: Props) {
             <div className="card">
                 <div className="card-header">
                     <h2>💳 Spending by Card</h2>
-                    <span className="text-xs text-text-muted">
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                         Click to see monthly breakdown
                     </span>
                 </div>
-                <div className="grid gap-4">
+                <div style={{ display: "grid", gap: "1rem" }}>
                     {accountData.map((account) => (
                         <div key={account.account_id}>
                             {/* Card Header Row */}
                             <div
                                 onClick={() => setExpandedCard(expandedCard === account.account_id ? null : account.account_id)}
-                                className={`flex items-center gap-4 p-4 bg-bg-input cursor-pointer transition-all hover:bg-bg-hover ${
-                                    expandedCard === account.account_id ? "rounded-t-lg" : "rounded-lg"
-                                }`}
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "1rem",
+                                    padding: "1rem",
+                                    background: "var(--bg-input)",
+                                    borderRadius: expandedCard === account.account_id ? "var(--radius-md) var(--radius-md) 0 0" : "var(--radius-md)",
+                                    cursor: "pointer",
+                                    transition: "all var(--transition-fast)",
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-input)")}
                             >
                                 {/* Card Icon */}
                                 <div
-                                    className="w-10 h-7 rounded flex items-center justify-center shrink-0"
                                     style={{
+                                        width: 40,
+                                        height: 28,
+                                        borderRadius: 4,
                                         background: account.account_name.includes("HDFC") ? "#004c8f" :
                                             account.account_name.includes("ICICI") ? "#f7941d" :
                                                 account.account_name.includes("SBI") ? "#22409a" :
                                                     "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        flexShrink: 0,
                                     }}
                                 >
                                     <svg width="20" height="14" fill="none" stroke="white" viewBox="0 0 24 24">
@@ -198,17 +227,24 @@ function Cards({ apiBase, refreshKey }: Props) {
                                 </div>
 
                                 {/* Card Name */}
-                                <div className="flex-1">
-                                    <div className="font-semibold text-text-primary text-[0.9375rem]">
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: "0.9375rem" }}>
                                         {account.account_name}
                                     </div>
-                                    <div className="text-xs text-text-muted mt-0.5">
+                                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
                                         {account.categories.slice(0, 3).map(c => c.category_name || "Other").join(", ")}
                                     </div>
                                 </div>
 
                                 {/* Total */}
-                                <div className="mono font-semibold text-red-500 text-base">
+                                <div
+                                    className="mono"
+                                    style={{
+                                        fontWeight: 600,
+                                        color: "#ef4444",
+                                        fontSize: "1rem",
+                                    }}
+                                >
                                     {formatCurrency(account.total_spent)}
                                 </div>
 
@@ -219,7 +255,11 @@ function Cards({ apiBase, refreshKey }: Props) {
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
-                                    className={`text-text-muted transition-transform ${expandedCard === account.account_id ? "rotate-180" : ""}`}
+                                    style={{
+                                        color: "var(--text-muted)",
+                                        transform: expandedCard === account.account_id ? "rotate(180deg)" : "rotate(0)",
+                                        transition: "transform var(--transition-fast)",
+                                    }}
                                 >
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                 </svg>
@@ -227,22 +267,36 @@ function Cards({ apiBase, refreshKey }: Props) {
 
                             {/* Expanded Details */}
                             {expandedCard === account.account_id && (
-                                <div className="bg-bg-secondary rounded-b-lg grid grid-cols-2 gap-0 border-t border-border-color">
+                                <div
+                                    style={{
+                                        background: "var(--bg-secondary)",
+                                        borderRadius: "0 0 var(--radius-md) var(--radius-md)",
+                                        display: "grid",
+                                        gridTemplateColumns: "1fr 1fr",
+                                        gap: "0",
+                                        borderTop: "1px solid var(--border-color)",
+                                    }}
+                                >
                                     {/* Category Breakdown */}
-                                    <div className="p-4 border-r border-border-color">
-                                        <div className="text-xs text-text-muted mb-2 font-medium">
+                                    <div style={{ padding: "1rem", borderRight: "1px solid var(--border-color)" }}>
+                                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.5rem", fontWeight: 500 }}>
                                             BY CATEGORY
                                         </div>
-                                        <div className="grid gap-1.5">
+                                        <div style={{ display: "grid", gap: "0.375rem" }}>
                                             {account.categories.slice(0, 6).map((cat, idx) => (
                                                 <div
                                                     key={idx}
-                                                    className="flex justify-between items-center text-sm"
+                                                    style={{
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                        fontSize: "0.875rem",
+                                                    }}
                                                 >
-                                                    <span className="text-text-secondary">
+                                                    <span style={{ color: "var(--text-secondary)" }}>
                                                         {cat.category_name || "Other"}
                                                     </span>
-                                                    <span className="mono text-text-primary">
+                                                    <span className="mono" style={{ color: "var(--text-primary)" }}>
                                                         {formatCurrency(cat.total)}
                                                     </span>
                                                 </div>
@@ -251,11 +305,11 @@ function Cards({ apiBase, refreshKey }: Props) {
                                     </div>
 
                                     {/* Monthly Bills */}
-                                    <div className="p-4">
-                                        <div className="text-xs text-text-muted mb-2 font-medium">
+                                    <div style={{ padding: "1rem" }}>
+                                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.5rem", fontWeight: 500 }}>
                                             MONTHLY BILLS
                                         </div>
-                                        <div className="grid gap-2">
+                                        <div style={{ display: "grid", gap: "0.5rem" }}>
                                             {account.monthly.map((m, idx) => {
                                                 const [year, month] = m.month.split("-");
                                                 const monthLabel = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString("en-IN", {
@@ -265,10 +319,15 @@ function Cards({ apiBase, refreshKey }: Props) {
                                                 return (
                                                     <div
                                                         key={idx}
-                                                        className="flex justify-between items-center text-sm"
+                                                        style={{
+                                                            display: "flex",
+                                                            justifyContent: "space-between",
+                                                            alignItems: "center",
+                                                            fontSize: "0.875rem",
+                                                        }}
                                                     >
-                                                        <span className="text-text-secondary">{monthLabel}</span>
-                                                        <span className="mono text-red-500">
+                                                        <span style={{ color: "var(--text-secondary)" }}>{monthLabel}</span>
+                                                        <span className="mono" style={{ color: "#ef4444" }}>
                                                             {formatCurrency(m.total)}
                                                         </span>
                                                     </div>
@@ -287,45 +346,79 @@ function Cards({ apiBase, refreshKey }: Props) {
             <div className="card">
                 <div className="card-header">
                     <h2>📊 Statement Coverage</h2>
-                    <span className="text-xs text-text-muted">
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                         Shows which months have uploaded statements
                     </span>
                 </div>
 
-                <div className="p-4">
+                <div style={{ padding: "1rem" }}>
                     {cardCoverage.length === 0 ? (
-                        <p className="text-text-muted">No credit card accounts found</p>
+                        <p style={{ color: "var(--text-muted)" }}>No credit card accounts found</p>
                     ) : (
-                        <div className="grid gap-6">
+                        <div style={{ display: "grid", gap: "1.5rem" }}>
                             {cardCoverage.map(card => (
-                                <div key={card.account_id} className="border border-border-color rounded-lg overflow-hidden mb-4">
-                                    <div className="p-4 bg-bg-secondary flex justify-between items-center">
+                                <div key={card.account_id} style={{
+                                    border: "1px solid var(--border-color)",
+                                    borderRadius: "var(--radius-md)",
+                                    overflow: "hidden",
+                                    marginBottom: "1rem"
+                                }}>
+                                    <div style={{
+                                        padding: "1rem",
+                                        background: "var(--bg-secondary)",
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center"
+                                    }}>
                                         <div>
-                                            <div className="font-semibold">{card.account_name}</div>
-                                            <div className="text-xs text-text-muted">
+                                            <div style={{ fontWeight: 600 }}>{card.account_name}</div>
+                                            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                                                 {card.total_statements} months with data • {card.gaps.length} gaps
                                                 {card.superseded_by_id && (
-                                                    <span className="text-accent ml-2">
+                                                    <span style={{ color: "var(--accent)", marginLeft: "0.5rem" }}>
                                                         • Upgraded to {allCardAccounts.find(a => a.id === card.superseded_by_id)?.name || "another card"}
                                                     </span>
                                                 )}
                                             </div>
                                         </div>
                                         {card.gaps.length > 0 && (
-                                            <span className="px-3 py-1 bg-red-500/10 text-red-500 rounded-full text-xs font-medium">
+                                            <span style={{
+                                                padding: "0.25rem 0.75rem",
+                                                background: "#ef44441a",
+                                                color: "#ef4444",
+                                                borderRadius: "var(--radius-full)",
+                                                fontSize: "0.75rem",
+                                                fontWeight: 500
+                                            }}>
                                                 {card.gaps.length} gaps
                                             </span>
                                         )}
                                     </div>
 
                                     {/* Upgrade Settings */}
-                                    <div className="px-4 py-3 bg-bg-input border-t border-b border-border-color flex items-center gap-4 text-sm">
-                                        <div className="text-text-secondary font-medium">Upgrade Settings:</div>
+                                    <div style={{
+                                        padding: "0.75rem 1rem",
+                                        background: "var(--bg-input)",
+                                        borderTop: "1px solid var(--border-color)",
+                                        borderBottom: "1px solid var(--border-color)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "1rem",
+                                        fontSize: "0.8125rem"
+                                    }}>
+                                        <div style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Upgrade Settings:</div>
                                         <select
                                             value={card.upgraded_from_id || ""}
                                             onChange={(e) => handleLinkAccount(card.account_id, e.target.value ? Number(e.target.value) : null)}
                                             disabled={updatingCardId === card.account_id}
-                                            className="bg-bg-secondary border border-border-subtle text-text-primary rounded px-2 py-0.5 outline-none"
+                                            style={{
+                                                background: "var(--bg-secondary)",
+                                                border: "1px solid var(--border-subtle)",
+                                                color: "var(--text-primary)",
+                                                borderRadius: "var(--radius-sm)",
+                                                padding: "2px 8px",
+                                                outline: "none"
+                                            }}
                                         >
                                             <option value="">This is a new card</option>
                                             {allCardAccounts
@@ -335,11 +428,11 @@ function Cards({ apiBase, refreshKey }: Props) {
                                                 ))
                                             }
                                         </select>
-                                        {updatingCardId === card.account_id && <span className="text-accent text-xs">Saving...</span>}
+                                        {updatingCardId === card.account_id && <span style={{ color: "var(--accent)", fontSize: "0.75rem" }}>Saving...</span>}
                                     </div>
 
                                     {/* Timeline */}
-                                    <div className="p-4 grid gap-2 max-h-[400px] overflow-y-auto">
+                                    <div style={{ padding: "1rem", display: "grid", gap: "0.5rem", maxHeight: "400px", overflowY: "auto" }}>
                                         {card.timeline.map((t, idx) => {
                                             const [year, month] = t.month.split("-");
                                             const monthLabel = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString("en-IN", {
@@ -349,20 +442,28 @@ function Cards({ apiBase, refreshKey }: Props) {
                                             return (
                                                 <div
                                                     key={idx}
-                                                    className={`flex items-center gap-4 px-3 py-2 rounded ${t.has_gap ? "bg-red-500/5 border-l-[3px] border-l-red-500" : "border-l-[3px] border-l-emerald-500"}`}
+                                                    style={{
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        gap: "1rem",
+                                                        padding: "0.5rem 0.75rem",
+                                                        background: t.has_gap ? "#ef44440a" : "transparent",
+                                                        borderRadius: "var(--radius-sm)",
+                                                        borderLeft: t.has_gap ? "3px solid #ef4444" : "3px solid #10b981"
+                                                    }}
                                                 >
-                                                    <div className="w-20 font-medium">{monthLabel}</div>
-                                                    <div className="flex-1">
+                                                    <div style={{ width: 80, fontWeight: 500 }}>{monthLabel}</div>
+                                                    <div style={{ flex: 1 }}>
                                                         {t.statements.length > 0 ? (
-                                                            <span className="text-emerald-500 text-sm">
+                                                            <span style={{ color: "#10b981", fontSize: "0.875rem" }}>
                                                                 ✓ {t.statements[0].transaction_count} transactions
                                                             </span>
                                                         ) : t.payments.length > 0 ? (
-                                                            <span className="text-red-500 text-sm">
+                                                            <span style={{ color: "#ef4444", fontSize: "0.875rem" }}>
                                                                 ⚠ Missing statement (paid {formatCurrency(t.payments.reduce((sum, p) => sum + p.amount, 0))})
                                                             </span>
                                                         ) : (
-                                                            <span className="text-text-muted text-sm">—</span>
+                                                            <span style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>—</span>
                                                         )}
                                                     </div>
                                                 </div>

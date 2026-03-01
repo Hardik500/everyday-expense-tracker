@@ -34,10 +34,30 @@ const Toggle = ({ checked, onChange }: { checked: boolean, onChange: (val: boole
   <button
     type="button"
     onClick={() => onChange(!checked)}
-    className={`relative w-11 h-6 rounded-full border-none cursor-pointer transition-colors shrink-0 ${checked ? "bg-[var(--accent)]" : "bg-[var(--bg-secondary)]"}`}
+    style={{
+      position: "relative",
+      width: 44,
+      height: 24,
+      borderRadius: 12,
+      border: "none",
+      background: checked ? "var(--accent)" : "var(--bg-secondary)",
+      cursor: "pointer",
+      transition: "background 0.2s ease",
+      flexShrink: 0,
+    }}
   >
     <span
-      className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all ${checked ? "left-[22px]" : "left-0.5"}`}
+      style={{
+        position: "absolute",
+        top: 2,
+        left: checked ? 22 : 2,
+        width: 20,
+        height: 20,
+        borderRadius: "50%",
+        background: "white",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+        transition: "left 0.2s ease",
+      }}
     />
   </button>
 );
@@ -148,18 +168,26 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
   }
 
   return (
-    <div className="grid gap-6">
+    <div style={{ display: "grid", gap: "1.5rem" }}>
       {/* Filters */}
-      <div className="card p-4">
-        <div className="flex gap-4 flex-wrap items-center">
+      <div className="card" style={{ padding: "1rem" }}>
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
           {/* Search */}
-          <div className="flex-[1_1_250px]">
+          <div style={{ flex: "1 1 250px" }}>
             <input
               type="text"
               placeholder="Search rules..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg border border-border-subtle bg-bg-input text-text-primary text-sm"
+              style={{
+                width: "100%",
+                padding: "0.625rem 1rem",
+                borderRadius: "var(--radius-md)",
+                border: "1px solid var(--border-subtle)",
+                background: "var(--bg-input)",
+                color: "var(--text-primary)",
+                fontSize: "0.875rem",
+              }}
             />
           </div>
 
@@ -172,42 +200,42 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
               ...categories.map((c) => ({ value: c.id, label: c.name }))
             ]}
             placeholder="Categories"
-            className="w-[180px]"
+            style={{ width: 180 }}
           />
 
           {/* Show inactive toggle */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-text-secondary">
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <span style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>
               {showInactive ? "Inactive rules" : "Active rules"}
             </span>
             <Toggle checked={showInactive} onChange={setShowInactive} />
           </div>
 
           {/* Stats */}
-          <div className="ml-auto text-sm text-text-muted">
+          <div style={{ marginLeft: "auto", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             {filteredRules.length} of {rules.length} rules
           </div>
         </div>
       </div>
 
       {/* Rules table */}
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+      <div className="card" style={{ overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr className="bg-bg-secondary text-left">
-                <th className="px-4 py-3 font-medium text-xs text-text-muted">Name</th>
-                <th className="px-4 py-3 font-medium text-xs text-text-muted">Pattern</th>
-                <th className="px-4 py-3 font-medium text-xs text-text-muted">Category</th>
-                <th className="px-4 py-3 font-medium text-xs text-text-muted text-center">Priority</th>
-                <th className="px-4 py-3 font-medium text-xs text-text-muted text-center">Active</th>
-                <th className="px-4 py-3 font-medium text-xs text-text-muted text-right">Actions</th>
+              <tr style={{ background: "var(--bg-secondary)", textAlign: "left" }}>
+                <th style={{ padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.8125rem", color: "var(--text-muted)" }}>Name</th>
+                <th style={{ padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.8125rem", color: "var(--text-muted)" }}>Pattern</th>
+                <th style={{ padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.8125rem", color: "var(--text-muted)" }}>Category</th>
+                <th style={{ padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.8125rem", color: "var(--text-muted)", textAlign: "center" }}>Priority</th>
+                <th style={{ padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.8125rem", color: "var(--text-muted)", textAlign: "center" }}>Active</th>
+                <th style={{ padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.8125rem", color: "var(--text-muted)", textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredRules.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-text-muted">
+                  <td colSpan={6} style={{ padding: "3rem", textAlign: "center", color: "var(--text-muted)" }}>
                     No rules found
                   </td>
                 </tr>
@@ -215,40 +243,70 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
                 filteredRules.map((rule) => (
                   <tr
                     key={rule.id}
-                    className="border-t border-border-subtle"
-                    style={{ opacity: rule.active ? 1 : 0.5 }}
+                    style={{
+                      borderTop: "1px solid var(--border-subtle)",
+                      opacity: rule.active ? 1 : 0.5,
+                    }}
                   >
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-sm text-text-primary">
+                    <td style={{ padding: "0.75rem 1rem" }}>
+                      <div style={{ fontWeight: 500, fontSize: "0.875rem", color: "var(--text-primary)" }}>
                         {rule.name}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <code className="text-xs px-2 py-1 bg-bg-input rounded text-accent">
+                    <td style={{ padding: "0.75rem 1rem" }}>
+                      <code
+                        style={{
+                          fontSize: "0.75rem",
+                          padding: "0.25rem 0.5rem",
+                          background: "var(--bg-input)",
+                          borderRadius: "var(--radius-sm)",
+                          color: "var(--accent)",
+                        }}
+                      >
                         {rule.pattern.length > 40 ? rule.pattern.slice(0, 40) + "..." : rule.pattern}
                       </code>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-block px-2 py-1 bg-purple-500/15 text-purple-400 rounded text-xs font-medium">
+                    <td style={{ padding: "0.75rem 1rem" }}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "0.25rem 0.5rem",
+                          background: "rgba(139, 92, 246, 0.15)",
+                          color: "#a78bfa",
+                          borderRadius: "var(--radius-sm)",
+                          fontSize: "0.75rem",
+                          fontWeight: 500,
+                        }}
+                      >
                         {rule.category_name || "—"}
                         {rule.subcategory_name && ` › ${rule.subcategory_name}`}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td style={{ padding: "0.75rem 1rem", textAlign: "center" }}>
                       <span
-                        className="inline-block min-w-[32px] px-2 py-1 rounded text-xs font-semibold"
                         style={{
+                          display: "inline-block",
+                          minWidth: 32,
+                          padding: "0.25rem 0.5rem",
                           background: rule.priority >= 70 ? "rgba(34, 197, 94, 0.15)" : rule.priority >= 40 ? "rgba(251, 191, 36, 0.15)" : "var(--bg-input)",
                           color: rule.priority >= 70 ? "#22c55e" : rule.priority >= 40 ? "#fbbf24" : "var(--text-muted)",
+                          borderRadius: "var(--radius-sm)",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
                         }}
                       >
                         {rule.priority}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td style={{ padding: "0.75rem 1rem", textAlign: "center" }}>
                       <button
                         onClick={() => handleToggle(rule)}
-                        className="bg-none border-none cursor-pointer p-1"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          padding: "0.25rem",
+                        }}
                         title={rule.active ? "Disable rule" : "Enable rule"}
                       >
                         {rule.active ? (
@@ -262,11 +320,17 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
                         )}
                       </button>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex gap-2 justify-end">
+                    <td style={{ padding: "0.75rem 1rem", textAlign: "right" }}>
+                      <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
                         <button
                           onClick={() => setEditingRule({ ...rule })}
-                          className="bg-none border-none text-text-muted cursor-pointer p-2"
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "var(--text-muted)",
+                            cursor: "pointer",
+                            padding: "0.5rem",
+                          }}
                           title="Edit"
                         >
                           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -275,7 +339,13 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
                         </button>
                         <button
                           onClick={() => handleDelete(rule)}
-                          className="bg-none border-none text-text-muted cursor-pointer p-2"
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "var(--text-muted)",
+                            cursor: "pointer",
+                            padding: "0.5rem",
+                          }}
                           title="Delete"
                         >
                           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -295,52 +365,88 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
       {/* Edit Modal */}
       {editingRule && ReactDOM.createPortal(
         <div
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0, 0, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
           onClick={(e) => e.target === e.currentTarget && setEditingRule(null)}
         >
           <div
-            className="card w-full max-w-[560px] max-h-[90vh] overflow-auto animate-[slideUp_0.2s_ease]"
+            className="card"
+            style={{
+              width: "100%",
+              maxWidth: "560px",
+              maxHeight: "90vh",
+              overflow: "auto",
+              animation: "slideUp 0.2s ease",
+            }}
           >
             <div className="card-header">
-              <h3 className="m-0">Edit Rule</h3>
+              <h3 style={{ margin: 0 }}>Edit Rule</h3>
               <button
                 onClick={() => setEditingRule(null)}
-                className="bg-none border-none text-text-muted cursor-pointer p-2"
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--text-muted)",
+                  cursor: "pointer",
+                  padding: "0.5rem",
+                }}
               >
                 ✕
               </button>
             </div>
 
-            <div className="grid gap-4">
+            <div style={{ display: "grid", gap: "1rem" }}>
               {/* Name */}
               <div>
-                <label className="block mb-2 text-sm text-text-secondary">
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
                   Rule Name
                 </label>
                 <input
                   type="text"
                   value={editingRule.name}
                   onChange={(e) => setEditingRule({ ...editingRule, name: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg border border-border-subtle bg-bg-input text-text-primary"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--border-subtle)",
+                    background: "var(--bg-input)",
+                    color: "var(--text-primary)",
+                  }}
                 />
               </div>
 
               {/* Pattern */}
               <div>
-                <label className="block mb-2 text-sm text-text-secondary">
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
                   Regex Pattern
                 </label>
                 <input
                   type="text"
                   value={editingRule.pattern}
                   onChange={(e) => setEditingRule({ ...editingRule, pattern: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg border border-border-subtle bg-bg-input text-accent font-mono"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--border-subtle)",
+                    background: "var(--bg-input)",
+                    color: "var(--accent)",
+                    fontFamily: "monospace",
+                  }}
                 />
               </div>
 
               {/* Category & Subcategory */}
               <div>
-                <label className="block mb-2 text-sm text-text-secondary">
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
                   Category
                 </label>
                 <SubcategorySearch
@@ -358,7 +464,7 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
 
               {/* Priority */}
               <div>
-                <label className="block mb-2 text-sm text-text-secondary">
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
                   Priority (0-100, higher = checked first)
                 </label>
                 <input
@@ -367,14 +473,21 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
                   max={100}
                   value={editingRule.priority}
                   onChange={(e) => setEditingRule({ ...editingRule, priority: Number(e.target.value) })}
-                  className="w-full px-4 py-3 rounded-lg border border-border-subtle bg-bg-input text-text-primary"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--border-subtle)",
+                    background: "var(--bg-input)",
+                    color: "var(--text-primary)",
+                  }}
                 />
               </div>
 
               {/* Amount Range */}
-              <div className="grid grid-cols-2 gap-4">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                 <div>
-                  <label className="block mb-2 text-sm text-text-secondary">
+                  <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
                     Min Amount (optional)
                   </label>
                   <input
@@ -384,11 +497,18 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
                       ...editingRule,
                       min_amount: e.target.value ? Number(e.target.value) : null,
                     })}
-                    className="w-full px-4 py-3 rounded-lg border border-border-subtle bg-bg-input text-text-primary"
+                    style={{
+                      width: "100%",
+                      padding: "0.75rem 1rem",
+                      borderRadius: "var(--radius-md)",
+                      border: "1px solid var(--border-subtle)",
+                      background: "var(--bg-input)",
+                      color: "var(--text-primary)",
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="block mb-2 text-sm text-text-secondary">
+                  <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
                     Max Amount (optional)
                   </label>
                   <input
@@ -398,16 +518,28 @@ function RulesManager({ apiBase, categories, subcategories, refreshKey, onRefres
                       ...editingRule,
                       max_amount: e.target.value ? Number(e.target.value) : null,
                     })}
-                    className="w-full px-4 py-3 rounded-lg border border-border-subtle bg-bg-input text-text-primary"
+                    style={{
+                      width: "100%",
+                      padding: "0.75rem 1rem",
+                      borderRadius: "var(--radius-md)",
+                      border: "1px solid var(--border-subtle)",
+                      background: "var(--bg-input)",
+                      color: "var(--text-primary)",
+                    }}
                   />
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3 justify-end mt-2">
+              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
                 <button
                   onClick={() => setEditingRule(null)}
-                  className="btn bg-bg-input text-text-secondary border border-border-subtle"
+                  className="btn"
+                  style={{
+                    background: "var(--bg-input)",
+                    color: "var(--text-secondary)",
+                    border: "1px solid var(--border-subtle)",
+                  }}
                 >
                   Cancel
                 </button>

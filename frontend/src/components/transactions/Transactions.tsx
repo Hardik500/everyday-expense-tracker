@@ -145,7 +145,7 @@ const MobileTransactionList: React.FC<MobileTransactionListProps> = ({
   };
 
   return (
-    <div className="mobile-transaction-list hidden">
+    <div className="mobile-transaction-list" style={{ display: "none" }}>
       <style>{
         `
           @media (max-width: 768px) {
@@ -189,10 +189,17 @@ const MobileTransactionList: React.FC<MobileTransactionListProps> = ({
           <SwipeableCard
             key={tx.id}
             actions={swipeActions}
-            className={idx === transactions.length - 1 ? "" : "mb-2"}
+            style={{ marginBottom: idx === transactions.length - 1 ? 0 : "8px" }}
           >
             <div
-              className={`flex items-center gap-3 p-4 rounded-lg cursor-pointer ${isSelected ? "bg-accent-glow" : "bg-bg-card"}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "16px",
+                background: isSelected ? "var(--accent-glow)" : "var(--bg-card)",
+                borderRadius: "var(--radius-md)",
+              }}
               onClick={() => onEdit(tx)}
             >
               {/* Checkbox */}
@@ -201,39 +208,78 @@ const MobileTransactionList: React.FC<MobileTransactionListProps> = ({
                   type="checkbox"
                   checked={isSelected}
                   onChange={() => onToggleSelection(tx.id)}
-                  className="cursor-pointer"
+                  style={{ cursor: "pointer" }}
                 />
               </div>
 
               {/* Category indicator */}
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: `${categoryColor}20` }}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  background: `${categoryColor}20`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
               >
                 <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ background: categoryColor }}
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: "50%",
+                    background: categoryColor,
+                  }}
                 />
               </div>
 
               {/* Transaction info */}
-              <div className="flex-1 min-w-0">
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div
-                  className="text-sm font-medium text-text-primary whitespace-nowrap overflow-hidden text-ellipsis mb-1"
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: 500,
+                    color: "var(--text-primary)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    marginBottom: "4px",
+                  }}
                   title={tx.description_norm}
                 >
                   {tx.description_norm}
                 </div>
-                <div className="text-xs text-text-muted flex items-center gap-2">
+                <div
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--text-muted)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
                   <span>{formatDate(tx.posted_at)}</span>
-                  <span className="opacity-50">•</span>
+                  <span style={{ opacity: 0.5 }}>•</span>
                   <span>{categoryName}</span>
                 </div>
               </div>
 
               {/* Amount */}
-              <div className="text-right shrink-0">
-                <div className={`text-sm font-semibold ${isExpense ? "text-danger" : "text-success"}`}>
+              <div
+                style={{
+                  textAlign: "right",
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: 600,
+                    color: isExpense ? "var(--danger)" : "var(--success)",
+                  }}
+                >
                   {isExpense ? "-" : "+"}
                   {formatCurrency(Math.abs(tx.amount))}
                 </div>
@@ -669,8 +715,8 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
     ? Math.ceil(totalCount / pageSize)
     : Math.ceil(filteredTransactions.length / pageSize);
 
-  // Only calculate amount for client-side validset (approximate for AI mode? Or use total from backend? Backend logic implies sum of ALL results?
-  // For now, let's just sum what we see or disable total amount in AI mode if it's confusing.
+  // Only calculate amount for client-side validset (approximate for AI mode? Or use total from backend? Backend logic implies sum of ALL results? 
+  // For now, let's just sum what we see or disable total amount in AI mode if it's confusing. 
   // Actually, showing sum of *visible* page is consistent.
   const totalAmount = pagedTransactions.reduce((sum, tx) => sum + tx.amount, 0);
 
@@ -705,7 +751,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
   }, [apiBase]);
 
   return (
-    <div className="grid gap-6">
+    <div style={{ display: "grid", gap: "1.5rem" }}>
       {/* Feature 7: Smart Search with Enhanced Filters */}
       <SmartFilters
         categories={categories}
@@ -721,10 +767,16 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
       {/* AI Mode Indicator */}
       {isAIMode && (
-        <div className="flex gap-2 flex-wrap items-center pl-2 -mt-2">
-          <span
-            className="badge text-xs flex items-center gap-2 px-3 py-1.5 bg-gradient-to-br from-violet-500 to-indigo-500 text-white"
-          >
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center", paddingLeft: "0.5rem", marginTop: "-0.5rem" }}>
+          <span className="badge" style={{
+            background: "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)",
+            color: "#fff",
+            fontSize: "0.75rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.375rem 0.75rem"
+          }}>
             <span>✨</span>
             AI Search Active
             <button
@@ -734,7 +786,16 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                 setRawAIFilters(null);
                 handleClearFilters();
               }}
-              className="bg-white/20 border-none text-white cursor-pointer text-[10px] px-1.5 py-0.5 rounded ml-1"
+              style={{
+                background: "rgba(255,255,255,0.2)",
+                border: "none",
+                color: "#fff",
+                cursor: "pointer",
+                fontSize: "0.625rem",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                marginLeft: "0.25rem"
+              }}
             >
               ✕
             </button>
@@ -743,11 +804,18 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
             if (!value) return null;
             const label = key.replace(/_/g, " ").replace("amount", "");
             return (
-              <span
-                key={key}
-                className="badge flex items-center gap-1.5 px-2 py-1 text-sm font-medium bg-bg-secondary border border-border-color text-text-primary"
-              >
-                <span className="text-text-muted text-[11px] uppercase tracking-wide">
+              <span key={key} className="badge" style={{
+                background: "var(--bg-secondary)",
+                border: "1px solid var(--border-color)",
+                color: "var(--text-primary)",
+                fontWeight: 500,
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "4px 8px",
+                fontSize: "0.8125rem"
+              }}>
+                <span style={{ color: "var(--text-muted)", textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.5px" }}>
                   {label}
                 </span>
                 {String(value)}
@@ -758,22 +826,41 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       )}
 
       {/* Export Button */}
-      <div className="px-2 flex justify-between items-center">
+      <div style={{ padding: "0 0.5rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         {/* Feature 8: Bulk Actions Toolbar */}
         {selectedTransactions.size > 0 && (
-          <div className="flex gap-2 items-center">
-            <span className="text-sm text-text-muted mr-2">
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <span style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginRight: "0.5rem" }}>
               {selectedTransactions.size} selected
             </span>
             <button
               onClick={selectNone}
-              className="px-3 py-2 bg-bg-input border border-border-subtle rounded-lg text-text-secondary cursor-pointer text-sm"
+              style={{
+                padding: "0.5rem 0.75rem",
+                background: "var(--bg-input)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-md)",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                fontSize: "0.8125rem",
+              }}
             >
               Select None
             </button>
             <button
               onClick={() => setShowBulkCategoryModal(true)}
-              className="px-4 py-2 bg-accent border-none rounded-lg text-white cursor-pointer text-sm flex items-center gap-1.5"
+              style={{
+                padding: "0.5rem 1rem",
+                background: "var(--accent)",
+                border: "none",
+                borderRadius: "var(--radius-md)",
+                color: "#fff",
+                cursor: "pointer",
+                fontSize: "0.8125rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.375rem",
+              }}
             >
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -782,7 +869,18 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
             </button>
             <button
               onClick={() => setShowBulkDeleteModal(true)}
-              className="px-4 py-2 bg-danger border-none rounded-lg text-white cursor-pointer text-sm flex items-center gap-1.5"
+              style={{
+                padding: "0.5rem 1rem",
+                background: "var(--danger)",
+                border: "none",
+                borderRadius: "var(--radius-md)",
+                color: "#fff",
+                cursor: "pointer",
+                fontSize: "0.8125rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.375rem",
+              }}
             >
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -792,10 +890,18 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
           </div>
         )}
         {selectedTransactions.size === 0 && (
-          <div className="flex items-center gap-2">
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <button
               onClick={selectAllVisible}
-              className="px-3 py-2 bg-bg-input border border-border-subtle rounded-lg text-text-secondary cursor-pointer text-sm"
+              style={{
+                padding: "0.5rem 0.75rem",
+                background: "var(--bg-input)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-md)",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                fontSize: "0.8125rem",
+              }}
             >
               Select All
             </button>
@@ -804,7 +910,19 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
         <button
           onClick={handleExport}
           disabled={!isAIMode && filteredTransactions.length === 0}
-          className={`flex items-center gap-2 px-4 py-2 bg-bg-input border border-border-subtle rounded-lg text-text-secondary text-sm ${(!isAIMode && filteredTransactions.length === 0) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.5rem 1rem",
+            background: "var(--bg-input)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-md)",
+            color: "var(--text-secondary)",
+            cursor: (!isAIMode && filteredTransactions.length === 0) ? "not-allowed" : "pointer",
+            fontSize: "0.8125rem",
+            opacity: (!isAIMode && filteredTransactions.length === 0) ? 0.5 : 1,
+          }}
           title="Export filtered results to CSV"
         >
           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -816,27 +934,27 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
 
       {/* Transactions Table */}
-      <div className="card p-0 overflow-hidden">
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         {loading ? (
           <PageLoading text="Loading transactions..." />
         ) : filteredTransactions.length === 0 ? (
-          <div className="empty-state p-12">
+          <div className="empty-state" style={{ padding: "3rem" }}>
             <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <p className="mt-4 font-medium">No transactions found</p>
-            <p className="mt-2">
+            <p style={{ marginTop: "1rem", fontWeight: 500 }}>No transactions found</p>
+            <p style={{ marginTop: "0.5rem" }}>
               {filters.searchQuery ? "Try a different search term" : "Import a statement to get started"}
             </p>
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div style={{ overflowX: "auto" }}>
               <table>
                 <thead>
                   <tr>
                     {/* Feature 8: Checkbox column */}
-                    <th className="w-10 text-center">
+                    <th style={{ width: 40, textAlign: "center" }}>
                       <input
                         type="checkbox"
                         checked={
@@ -854,46 +972,57 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                             });
                           }
                         }}
-                        className="cursor-pointer"
+                        style={{ cursor: "pointer" }}
                       />
                     </th>
-                    <th className="w-[90px]">Date</th>
-                    <th className="w-[140px]">Account</th>
+                    <th style={{ width: 90 }}>Date</th>
+                    <th style={{ width: 140 }}>Account</th>
                     <th>Description</th>
-                    <th className="w-[140px]">Category</th>
-                    <th className="w-[120px] text-right">Amount</th>
-                    <th className="w-[50px]"></th>
+                    <th style={{ width: 140 }}>Category</th>
+                    <th style={{ width: 120, textAlign: "right" }}>Amount</th>
+                    <th style={{ width: 50 }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {pagedTransactions.map((tx, idx) => (
                     <tr
                       key={tx.id}
-                      className={`animate-in cursor-pointer ${selectedTransactions.has(tx.id) ? "bg-accent-glow" : ""}`}
-                      style={{ animationDelay: `${idx * 20}ms` }}
+                      className="animate-in"
+                      style={{
+                        animationDelay: `${idx * 20}ms`,
+                        cursor: "pointer",
+                        background: selectedTransactions.has(tx.id) ? "var(--accent-glow)" : undefined,
+                      }}
                       onClick={() => openEdit(tx)}
                       title="Click to edit"
                     >
                       {/* Feature 8: Checkbox cell  */}
-                      <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                      <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={selectedTransactions.has(tx.id)}
                           onChange={() => toggleTransactionSelection(tx.id)}
-                          className="cursor-pointer"
+                          style={{ cursor: "pointer" }}
                         />
                       </td>
                       <td>
-                        <div className="font-medium text-text-primary">
+                        <div style={{ fontWeight: 500, color: "var(--text-primary)" }}>
                           {formatDate(tx.posted_at)}
                         </div>
-                        <div className="text-xs text-text-muted">
+                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                           {new Date(tx.posted_at).getFullYear()}
                         </div>
                       </td>
                       <td>
                         <div
-                          className="max-w-[140px] whitespace-nowrap overflow-hidden text-ellipsis text-sm text-text-secondary"
+                          style={{
+                            maxWidth: 140,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            fontSize: "0.85rem",
+                            color: "var(--text-secondary)",
+                          }}
                           title={tx.account_name || "Unknown"}
                         >
                           {tx.account_name || "Unknown"}
@@ -901,14 +1030,28 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                       </td>
                       <td>
                         <div
-                          className="max-w-[400px] whitespace-nowrap overflow-hidden text-ellipsis"
+                          style={{
+                            maxWidth: 400,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
                           title={tx.description_raw}
                         >
                           {tx.description_raw}
                         </div>
                         {tx.notes && (
                           <div
-                            className="max-w-[400px] whitespace-nowrap overflow-hidden text-ellipsis text-xs text-text-muted mt-0.5 italic"
+                            style={{
+                              maxWidth: 400,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              fontSize: "0.75rem",
+                              color: "var(--text-muted)",
+                              marginTop: "2px",
+                              fontStyle: "italic",
+                            }}
                             title={tx.notes}
                           >
                             📝 {tx.notes}
@@ -918,45 +1061,81 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                       <td>
                         {tx.category_id ? (
                           <span
-                            className="badge flex items-center gap-1.5"
+                            className="badge"
                             style={{
                               background: tx.is_uncertain
                                 ? "rgba(245, 158, 11, 0.15)"
                                 : getCategoryColor(tx.category_id, categories) ? `${getCategoryColor(tx.category_id, categories)}20`
                                   : "var(--accent-glow)",
                               color: tx.is_uncertain ? "var(--warning)" : getCategoryColor(tx.category_id, categories) || "var(--accent)",
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
                             }}
                           >
                             {getCategoryColor(tx.category_id, categories) && (
                               <span
-                                className="w-2 h-2 rounded-full inline-block"
-                                style={{ background: getCategoryColor(tx.category_id, categories) || undefined }}
+                                style={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: '50%',
+                                  background: getCategoryColor(tx.category_id, categories) || undefined,
+                                  display: 'inline-block',
+                                }}
                               />
                             )}
                             {categories.find((c) => c.id === tx.category_id)?.name || "Unknown"}
                           </span>
                         ) : (
-                          <span className="text-sm text-text-muted">
+                          <span
+                            style={{
+                              fontSize: "0.8125rem",
+                              color: "var(--text-muted)",
+                            }}
+                          >
                             —
                           </span>
                         )}
                       </td>
-                      <td className="text-right">
+                      <td style={{ textAlign: "right" }}>
                         <span
-                          className={`mono font-medium ${tx.amount < 0 ? "text-danger" : "text-success"}`}
+                          className="mono"
+                          style={{
+                            fontWeight: 500,
+                            color: tx.amount < 0 ? "var(--danger)" : "var(--success)",
+                          }}
                         >
                           {tx.amount < 0 ? "-" : "+"}
                           {formatCurrency(tx.amount)}
                         </span>
                       </td>
-                      <td className="text-center">
+                      <td style={{ textAlign: "center" }}>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setLinkingTx(tx);
                           }}
                           title="Link to CC payment"
-                          className="ghost p-1.5"
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "var(--text-muted)",
+                            cursor: "pointer",
+                            padding: "0.375rem",
+                            borderRadius: "var(--radius-sm)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "all var(--transition-fast)",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "var(--bg-input)";
+                            e.currentTarget.style.color = "var(--accent)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "transparent";
+                            e.currentTarget.style.color = "var(--text-muted)";
+                          }}
                         >
                           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -983,13 +1162,21 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex justify-between items-center px-5 py-4 border-t border-border-color">
-                <div className="text-sm text-text-muted">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "1rem 1.25rem",
+                  borderTop: "1px solid var(--border-color)",
+                }}
+              >
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
                   Showing {page * pageSize + 1}–
                   {Math.min((page + 1) * pageSize, isAIMode ? totalCount : filteredTransactions.length)} of{" "}
                   {isAIMode ? totalCount : filteredTransactions.length}
                 </div>
-                <div className="flex gap-2">
+                <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button
                     className="secondary"
                     onClick={() => {
@@ -1001,6 +1188,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                       }
                     }}
                     disabled={page === 0}
+                    style={{ padding: "0.5rem 1rem" }}
                   >
                     Previous
                   </button>
@@ -1015,6 +1203,7 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                       }
                     }}
                     disabled={page >= totalPages - 1}
+                    style={{ padding: "0.5rem 1rem" }}
                   >
                     Next
                   </button>
@@ -1065,15 +1254,23 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       {/* Feature 8: Bulk Categorize Modal */}
       {showBulkCategoryModal && createPortal(
         <div
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000]"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
           onClick={(e) => e.target === e.currentTarget && setShowBulkCategoryModal(false)}
         >
-          <div className="card w-full max-w-[400px] p-6">
-            <h3 className="mt-0 mb-6">Categorize {selectedTransactions.size} Transactions</h3>
+          <div className="card" style={{ width: "100%", maxWidth: "400px", padding: "1.5rem" }}>
+            <h3 style={{ marginTop: 0, marginBottom: "1.5rem" }}>Categorize {selectedTransactions.size} Transactions</h3>
 
-            <div className="grid gap-4 mb-6">
+            <div style={{ display: "grid", gap: "1rem", marginBottom: "1.5rem" }}>
               <div>
-                <label className="block mb-2 text-sm text-text-secondary">
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
                   Category *
                 </label>
                 <select
@@ -1082,7 +1279,14 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                     setBulkCategoryId(e.target.value);
                     setBulkSubcategoryId("");
                   }}
-                  className="w-full p-3 rounded-lg border border-border-subtle bg-bg-input text-text-primary"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--border-subtle)",
+                    background: "var(--bg-input)",
+                    color: "var(--text-primary)",
+                  }}
                 >
                   <option value="">Select category...</option>
                   {categories.map((cat) => (
@@ -1093,13 +1297,20 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
 
               {bulkCategoryId && subcategories.filter((s) => s.category_id === parseInt(bulkCategoryId)).length > 0 && (
                 <div>
-                  <label className="block mb-2 text-sm text-text-secondary">
+                  <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
                     Subcategory
                   </label>
                   <select
                     value={bulkSubcategoryId}
                     onChange={(e) => setBulkSubcategoryId(e.target.value)}
-                    className="w-full p-3 rounded-lg border border-border-subtle bg-bg-input text-text-primary"
+                    style={{
+                      width: "100%",
+                      padding: "0.75rem",
+                      borderRadius: "var(--radius-md)",
+                      border: "1px solid var(--border-subtle)",
+                      background: "var(--bg-input)",
+                      color: "var(--text-primary)",
+                    }}
                   >
                     <option value="">Select subcategory...</option>
                     {subcategories
@@ -1113,23 +1324,38 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
             </div>
 
             {bulkActionError && (
-              <div className="p-3 bg-red-500/10 rounded-lg text-danger text-sm mb-4">
+              <div style={{ padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "var(--radius-md)", color: "#ef4444", fontSize: "0.875rem", marginBottom: "1rem" }}>
                 {bulkActionError}
               </div>
             )}
 
-            <div className="flex gap-3 justify-end">
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
               <button
                 onClick={() => setShowBulkCategoryModal(false)}
                 disabled={bulkActionLoading}
-                className="px-4 py-2 bg-bg-input border border-border-subtle rounded-lg text-text-secondary cursor-pointer"
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: "var(--bg-input)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-md)",
+                  color: "var(--text-secondary)",
+                  cursor: "pointer",
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleBulkCategorize}
                 disabled={bulkActionLoading || !bulkCategoryId}
-                className={`px-4 py-2 border-none rounded-lg text-white ${bulkCategoryId ? "bg-accent cursor-pointer" : "bg-text-muted cursor-not-allowed opacity-50"}`}
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: bulkCategoryId ? "var(--accent)" : "var(--text-muted)",
+                  border: "none",
+                  borderRadius: "var(--radius-md)",
+                  color: "#fff",
+                  cursor: bulkCategoryId ? "pointer" : "not-allowed",
+                  opacity: bulkCategoryId ? 1 : 0.5,
+                }}
               >
                 {bulkActionLoading ? "Categorizing..." : "Apply"}
               </button>
@@ -1142,25 +1368,53 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
       {/* Feature 8: Bulk Delete Confirmation Modal */}
       {showBulkDeleteModal && createPortal(
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] backdrop-blur-sm"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            backdropFilter: "blur(4px)",
+          }}
           onClick={(e) => e.target === e.currentTarget && setShowBulkDeleteModal(false)}
         >
           <div
-            className="card w-full max-w-[400px] p-6 animate-[slideIn_0.2s_ease-out]"
+            className="card"
+            style={{
+              width: "100%",
+              maxWidth: "400px",
+              padding: "1.5rem",
+              animation: "slideIn 0.2s ease-out",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="mt-0 mb-4 text-text-primary">Delete Transactions</h3>
-            <p className="text-text-secondary mb-6">
+            <h3 style={{ marginTop: 0, marginBottom: "1rem", color: "var(--text-primary)" }}>Delete Transactions</h3>
+            <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>
               Are you sure you want to delete <strong>{selectedTransactions.size}</strong> transactions? This action cannot be undone.
             </p>
 
             {bulkActionError && (
-              <div className="p-3 bg-red-500/10 border border-danger rounded-lg mb-6 text-sm text-danger">
+              <div
+                style={{
+                  padding: "0.75rem",
+                  background: "rgba(239, 68, 68, 0.1)",
+                  border: "1px solid var(--danger)",
+                  borderRadius: "0.5rem",
+                  marginBottom: "1.5rem",
+                  fontSize: "0.875rem",
+                  color: "var(--danger)",
+                }}
+              >
                 {bulkActionError}
               </div>
             )}
 
-            <div className="flex justify-end gap-3">
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
               <button
                 className="secondary"
                 onClick={() => setShowBulkDeleteModal(false)}
@@ -1169,9 +1423,10 @@ function Transactions({ apiBase, categories, subcategories, refreshKey, onUpdate
                 Cancel
               </button>
               <button
-                className="danger flex items-center gap-2"
+                className="danger"
                 onClick={handleBulkDelete}
                 disabled={bulkActionLoading}
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
               >
                 {bulkActionLoading ? "Deleting..." : "Delete"}
               </button>

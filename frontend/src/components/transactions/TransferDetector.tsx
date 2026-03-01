@@ -178,7 +178,7 @@ function TransferDetector({ apiBase, refreshKey, onRefresh }: Props) {
   const highConfidence = visibleTransfers.filter((p) => p.confidence >= 80);
 
   return (
-    <div className="card border-l-4 border-l-amber-500">
+    <div className="card" style={{ borderLeft: "4px solid #f59e0b" }}>
       <div className="card-header">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-500">

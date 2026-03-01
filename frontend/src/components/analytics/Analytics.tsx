@@ -107,23 +107,28 @@ const TransactionRow = ({ tx, onClick }: { tx: Transaction; onClick: (tx: Transa
   return (
     <tr
       onClick={() => onClick(tx)}
-      className="cursor-pointer transition-colors hover:bg-bg-hover"
+      style={{
+        cursor: "pointer",
+        transition: "background-color 0.2s",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
     >
-      <td className="px-4 py-3 text-sm text-text-muted">
+      <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
         {formatDate(tx.posted_at)}
       </td>
-      <td className="px-4 py-3 text-sm max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap">
+      <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {tx.description_raw}
       </td>
-      <td className="px-4 py-3">
+      <td style={{ padding: "0.75rem 1rem" }}>
         {tx.subcategory_name ? (
-          <span className="badge text-xs">{tx.subcategory_name}</span>
+          <span className="badge" style={{ fontSize: "0.75rem" }}>{tx.subcategory_name}</span>
         ) : (
-          <span className="text-text-muted text-sm">—</span>
+          <span style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>—</span>
         )}
       </td>
-      <td className="px-4 py-3 text-right">
-        <span className="mono text-danger font-medium">
+      <td style={{ padding: "0.75rem 1rem", textAlign: "right" }}>
+        <span className="mono" style={{ color: "var(--danger)", fontWeight: 500 }}>
           -{formatCurrency(tx.amount)}
         </span>
       </td>
@@ -335,20 +340,26 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
       const hasIncome = payload.some((p: any) => p.name === "Income" && p.value > 0);
       const hasExpenses = payload.some((p: any) => p.name === "Expenses" && p.value > 0);
       const hasData = hasIncome || hasExpenses;
-
+      
       return (
-        <div className="bg-bg-card border border-border-color rounded-lg px-4 py-3 shadow-[0_4px_12px_rgba(0,0,0,0.3)]">
-          <p className="font-medium mb-2 text-text-primary">
+        <div style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border-color)",
+          borderRadius: "var(--radius-md)",
+          padding: "0.75rem 1rem",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+        }}>
+          <p style={{ fontWeight: 500, marginBottom: "0.5rem", color: "var(--text-primary)" }}>
             {formatDate(label)}
           </p>
           {!hasData ? (
-            <p className="text-text-muted text-sm italic">
+            <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", fontStyle: "italic" }}>
               No transactions
             </p>
           ) : (
             payload.map((entry: any, index: number) => (
               entry.value > 0 && (
-                <p key={index} className="text-sm my-1" style={{ color: entry.color }}>
+                <p key={index} style={{ color: entry.color, fontSize: "0.875rem", margin: "0.25rem 0" }}>
                   {entry.name}: {formatFullCurrency(entry.value)}
                 </p>
               )
@@ -365,16 +376,17 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
   }
 
   return (
-    <div className="grid gap-6">
+    <div style={{ display: "grid", gap: "1.5rem" }}>
       {/* Date Range Selector */}
-      <div className="card px-5 py-4">
-        <div className="flex gap-4 flex-wrap items-center">
-          <div className="flex gap-2 flex-wrap">
+      <div className="card" style={{ padding: "1rem 1.25rem" }}>
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
             {(["7d", "30d", "90d", "year", "2yr", "3yr", "5yr", "all"] as DateRange[]).map((range) => (
               <button
                 key={range}
                 className={dateRange === range ? "primary" : "secondary"}
                 onClick={() => setDateRange(range)}
+                style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
               >
                 {range === "7d" ? "7 Days" :
                   range === "30d" ? "30 Days" :
@@ -388,30 +400,31 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
             <button
               className={dateRange === "custom" ? "primary" : "secondary"}
               onClick={() => setDateRange("custom")}
+              style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
             >
               Custom
             </button>
           </div>
 
           {dateRange === "custom" && (
-            <div className="flex gap-2 items-center">
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
               <input
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="px-2 py-2 text-sm"
+                style={{ padding: "0.5rem", fontSize: "0.8125rem" }}
               />
-              <span className="text-text-muted">to</span>
+              <span style={{ color: "var(--text-muted)" }}>to</span>
               <input
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="px-2 py-2 text-sm"
+                style={{ padding: "0.5rem", fontSize: "0.8125rem" }}
               />
             </div>
           )}
 
-          <div className="ml-auto flex gap-3 items-center">
+          <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem", alignItems: "center" }}>
             {/* Account Filter */}
             <Select
               value={selectedAccountId || ""}
@@ -421,7 +434,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                 ...accounts.map((acc) => ({ value: acc.id, label: acc.name }))
               ]}
               placeholder="Accounts"
-              className="min-w-[150px]"
+              style={{ minWidth: 150 }}
             />
 
             {/* Category Filter */}
@@ -433,7 +446,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                 ...categories.map((cat) => ({ value: cat.id, label: cat.name }))
               ]}
               placeholder="Categories"
-              className="min-w-[150px]"
+              style={{ minWidth: 150 }}
             />
 
             <Select
@@ -445,7 +458,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                 { value: "month", label: "Monthly" },
               ]}
               placeholder="Duration"
-              className="min-w-[120px]"
+              style={{ minWidth: 120 }}
             />
           </div>
         </div>
@@ -453,19 +466,20 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
 
       {/* Category Detail View */}
       {selectedCategoryId && categoryDetail && (
-        <div className="grid gap-6">
+        <div style={{ display: "grid", gap: "1.5rem" }}>
           {/* Category Header */}
-          <div className="card p-5">
-            <div className="flex justify-between items-center">
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <h2 className="m-0 text-text-primary">{categoryDetail.category.name}</h2>
-                <p className="mt-1 mb-0 text-sm text-text-muted">
+                <h2 style={{ margin: 0, color: "var(--text-primary)" }}>{categoryDetail.category.name}</h2>
+                <p style={{ margin: "0.25rem 0 0", color: "var(--text-muted)", fontSize: "0.875rem" }}>
                   {categoryDetail.count} transactions in selected period
                 </p>
               </div>
               <button
                 className="secondary"
                 onClick={() => setSelectedCategoryId(null)}
+                style={{ padding: "0.5rem 1rem" }}
               >
                 ← Back to Overview
               </button>
@@ -473,41 +487,41 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
           </div>
 
           {/* Category Stats */}
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
-            <div className="card p-5">
-              <div className="text-sm text-text-muted mb-2">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
+            <div className="card" style={{ padding: "1.25rem" }}>
+              <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
                 Total Spent
               </div>
-              <div className="mono text-2xl font-semibold text-danger">
+              <div className="mono" style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--danger)" }}>
                 {formatFullCurrency(categoryDetail.total)}
               </div>
             </div>
-            <div className="card p-5">
-              <div className="text-sm text-text-muted mb-2">
+            <div className="card" style={{ padding: "1.25rem" }}>
+              <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
                 Transactions
               </div>
-              <div className="text-2xl font-semibold text-text-primary">
+              <div style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--text-primary)" }}>
                 {categoryDetail.count}
               </div>
             </div>
-            <div className="card p-5">
-              <div className="text-sm text-text-muted mb-2">
+            <div className="card" style={{ padding: "1.25rem" }}>
+              <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
                 Average
               </div>
-              <div className="mono text-2xl font-semibold text-text-primary">
+              <div className="mono" style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--text-primary)" }}>
                 {formatFullCurrency(categoryDetail.average)}
               </div>
             </div>
           </div>
 
           {/* Subcategory Breakdown */}
-          <div className="grid grid-cols-2 gap-6">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
             {/* Pie Chart */}
             <div className="card">
               <div className="card-header">
                 <h2>Subcategory Breakdown</h2>
               </div>
-              <div className="h-[300px]">
+              <div style={{ height: 300 }}>
                 {categoryDetail.subcategories.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -534,7 +548,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-text-muted">
+                  <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
                     No subcategory data
                   </div>
                 )}
@@ -546,34 +560,44 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
               <div className="card-header">
                 <h2>Subcategories</h2>
               </div>
-              <div className="max-h-[300px] overflow-auto">
+              <div style={{ maxHeight: 300, overflow: "auto" }}>
                 {categoryDetail.subcategories.length > 0 ? (
-                  <div className="grid gap-2">
+                  <div style={{ display: "grid", gap: "0.5rem" }}>
                     {categoryDetail.subcategories.map((sub, index) => (
                       <div
                         key={sub.id}
-                        className="flex items-center gap-3 px-4 py-3 bg-bg-input rounded-lg"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.75rem",
+                          padding: "0.75rem 1rem",
+                          background: "var(--bg-input)",
+                          borderRadius: "var(--radius-md)",
+                        }}
                       >
-                        <div
-                          className="w-2.5 h-2.5 rounded flex-shrink-0"
-                          style={{ background: COLORS[index % COLORS.length] }}
-                        />
-                        <div className="flex-1">
-                          <div className="text-sm text-text-primary font-medium">
+                        <div style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 3,
+                          background: COLORS[index % COLORS.length],
+                          flexShrink: 0,
+                        }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: "0.875rem", color: "var(--text-primary)", fontWeight: 500 }}>
                             {sub.name}
                           </div>
-                          <div className="text-xs text-text-muted">
+                          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                             {sub.count} transactions
                           </div>
                         </div>
-                        <div className="mono text-sm text-danger">
+                        <div className="mono" style={{ fontSize: "0.875rem", color: "var(--danger)" }}>
                           {formatCurrency(sub.total)}
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="p-8 text-center text-text-muted">
+                  <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
                     No subcategories found
                   </div>
                 )}
@@ -586,7 +610,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
             <div className="card-header">
               <h2>Spending Trend</h2>
             </div>
-            <div className="h-[250px]">
+            <div style={{ height: 250 }}>
               {categoryDetail.timeseries.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={categoryDetail.timeseries} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -612,7 +636,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-text-muted">
+                <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
                   No trend data
                 </div>
               )}
@@ -624,15 +648,15 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
             <div className="card-header">
               <h2>Recent Transactions</h2>
             </div>
-            <div className="max-h-[400px] overflow-auto">
+            <div style={{ maxHeight: 400, overflow: "auto" }}>
               {categoryDetail.transactions.length > 0 ? (
-                <table className="w-full">
+                <table style={{ width: "100%" }}>
                   <thead>
                     <tr>
-                      <th className="text-left px-4 py-3">Date</th>
-                      <th className="text-left px-4 py-3">Description</th>
-                      <th className="text-left px-4 py-3">Subcategory</th>
-                      <th className="text-right px-4 py-3">Amount</th>
+                      <th style={{ textAlign: "left", padding: "0.75rem 1rem" }}>Date</th>
+                      <th style={{ textAlign: "left", padding: "0.75rem 1rem" }}>Description</th>
+                      <th style={{ textAlign: "left", padding: "0.75rem 1rem" }}>Subcategory</th>
+                      <th style={{ textAlign: "right", padding: "0.75rem 1rem" }}>Amount</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -642,7 +666,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                   </tbody>
                 </table>
               ) : (
-                <div className="p-8 text-center text-text-muted">
+                <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
                   No transactions found
                 </div>
               )}
@@ -656,36 +680,40 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
         <>
           {/* Summary Stats */}
           {stats && (
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
-              <div className="card p-5">
-                <div className="text-sm text-text-muted mb-2">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+              <div className="card" style={{ padding: "1.25rem" }}>
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
                   Total Income
                 </div>
-                <div className="mono text-2xl font-semibold text-success">
+                <div className="mono" style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--success)" }}>
                   {formatFullCurrency(stats.total_income)}
                 </div>
               </div>
-              <div className="card p-5">
-                <div className="text-sm text-text-muted mb-2">
+              <div className="card" style={{ padding: "1.25rem" }}>
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
                   Total Expenses
                 </div>
-                <div className="mono text-2xl font-semibold text-danger">
+                <div className="mono" style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--danger)" }}>
                   {formatFullCurrency(stats.total_expenses)}
                 </div>
               </div>
-              <div className="card p-5">
-                <div className="text-sm text-text-muted mb-2">
+              <div className="card" style={{ padding: "1.25rem" }}>
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
                   Net Balance
                 </div>
-                <div className="mono text-2xl font-semibold" style={{ color: stats.net_balance >= 0 ? "var(--success)" : "var(--danger)" }}>
+                <div className="mono" style={{
+                  fontSize: "1.5rem",
+                  fontWeight: 600,
+                  color: stats.net_balance >= 0 ? "var(--success)" : "var(--danger)"
+                }}>
                   {formatFullCurrency(stats.net_balance)}
                 </div>
               </div>
-              <div className="card p-5">
-                <div className="text-sm text-text-muted mb-2">
+              <div className="card" style={{ padding: "1.25rem" }}>
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
                   Avg. Transaction
                 </div>
-                <div className="mono text-2xl font-semibold text-text-primary">
+                <div className="mono" style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--text-primary)" }}>
                   {formatFullCurrency(stats.avg_expense)}
                 </div>
               </div>
@@ -697,7 +725,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
             <div className="card-header">
               <h2>Income vs Expenses</h2>
             </div>
-            <div className="h-[350px]">
+            <div style={{ height: 350 }}>
               {timeSeries.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={timeSeries} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -748,7 +776,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-text-muted">
+                <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
                   No data for selected period
                 </div>
               )}
@@ -760,7 +788,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
             <div className="card-header">
               <h2>Spending Pattern</h2>
             </div>
-            <div className="h-[300px]">
+            <div style={{ height: 300 }}>
               {timeSeries.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={timeSeries} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -783,7 +811,7 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-text-muted">
+                <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
                   No data for selected period
                 </div>
               )}
@@ -795,11 +823,11 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
             <div className="card">
               <div className="card-header">
                 <h2>Top Spending Categories</h2>
-                <span className="text-sm text-text-muted">Click to view details</span>
+                <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Click to view details</span>
               </div>
-              <div className="grid grid-cols-2 gap-8 px-4">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", padding: "0 1rem" }}>
                 {/* Pie Chart */}
-                <div className="h-[280px]">
+                <div style={{ height: 280 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -829,23 +857,36 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
                 </div>
 
                 {/* Legend list - Clickable */}
-                <div className="flex flex-col justify-center gap-3">
+                <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "0.75rem" }}>
                   {stats.top_categories.map((cat, index) => {
                     const catData = categories.find((c) => c.name === cat.name);
                     return (
                       <div
                         key={cat.name}
                         onClick={() => catData && setSelectedCategoryId(catData.id)}
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors hover:bg-bg-input"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.75rem",
+                          padding: "0.5rem 0.75rem",
+                          borderRadius: "var(--radius-md)",
+                          cursor: "pointer",
+                          transition: "background var(--transition-fast)",
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-input)"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                       >
-                        <div
-                          className="w-3 h-3 rounded flex-shrink-0"
-                          style={{ background: COLORS[index % COLORS.length] }}
-                        />
-                        <div className="flex-1 text-sm text-text-primary">
+                        <div style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: 3,
+                          background: COLORS[index % COLORS.length],
+                          flexShrink: 0,
+                        }} />
+                        <div style={{ flex: 1, fontSize: "0.875rem", color: "var(--text-primary)" }}>
                           {cat.name}
                         </div>
-                        <div className="mono text-sm text-text-muted">
+                        <div className="mono" style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
                           {formatCurrency(cat.total)}
                         </div>
                         <svg width="16" height="16" fill="none" stroke="var(--text-muted)" viewBox="0 0 24 24">
@@ -860,14 +901,14 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
           )}
 
           {/* Transaction Activity */}
-          <div className="card p-5">
-            <div className="text-sm text-text-muted mb-2">
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
               Transaction Activity
             </div>
-            <div className="text-xl font-semibold text-text-primary">
+            <div style={{ fontSize: "1.25rem", fontWeight: 600, color: "var(--text-primary)" }}>
               {stats?.transaction_count || 0} transactions
             </div>
-            <div className="text-sm text-text-muted mt-1">
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
               in selected period
             </div>
           </div>
@@ -876,8 +917,16 @@ function Analytics({ apiBase, refreshKey, initialCategoryId, categories = [], su
 
       {/* Loading overlay for category detail */}
       {loadingCategory && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
-          <div className="card p-8">
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 100,
+        }}>
+          <div className="card" style={{ padding: "2rem" }}>
             <div className="loading">Loading category details...</div>
           </div>
         </div>

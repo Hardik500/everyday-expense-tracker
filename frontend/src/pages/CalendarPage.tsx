@@ -173,7 +173,9 @@ export default function CalendarPage({ apiBase }: Props) {
             <span className="total-label">Expenses</span>
             <span className="total-value">-{formatCurrency(calendar.month_total.expenses)}</span>
           </div>
-          <div className={`total-card net ${calendar.month_total.net >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+          <div className="total-card net" style={{ 
+            color: calendar.month_total.net >= 0 ? '#22c55e' : '#ef4444' 
+          }}>
             <span className="total-label">Net</span>
             <span className="total-value">
               {calendar.month_total.net >= 0 ? '+' : '-'}{formatCurrency(calendar.month_total.net)}

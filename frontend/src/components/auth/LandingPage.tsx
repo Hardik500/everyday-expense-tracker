@@ -153,35 +153,75 @@ const HeroSection = ({ isLoaded }: { isLoaded: boolean }) => {
           transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s"
         }}
       >
-        <div className="relative w-full max-w-[500px] aspect-[4/3] z-10">
+        <div style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: "500px",
+          aspectRatio: "4/3",
+          zIndex: 10
+        }}>
           {/* Main Dashboard Card */}
-          <div className="absolute inset-0 bg-[rgba(22,30,46,0.9)] backdrop-blur-xl rounded-3xl border border-white/10 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col">
+          <div style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(22, 30, 46, 0.9)", // Increased opacity
+            backdropFilter: "blur(20px)",
+            borderRadius: "1.5rem",
+            border: "1px solid rgba(255, 255, 255, 0.12)", // Slightly brighter border
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column"
+          }}>
             {/* Header */}
-            <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
-              <div className="flex gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+            <div style={{
+              padding: "1rem 1.5rem",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.08)", // Brighter separator
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem"
+            }}>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444" }} />
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#f59e0b" }} />
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22c55e" }} />
               </div>
-              <div className="flex-1 h-2 bg-white/5 rounded max-w-[120px] ml-4" />
+              <div style={{
+                flex: 1,
+                height: 8,
+                background: "rgba(255,255,255,0.05)",
+                borderRadius: 4,
+                maxWidth: 120,
+                marginLeft: "1rem"
+              }} />
             </div>
 
             {/* Body */}
-            <div className="p-6 flex-1 flex gap-6">
+            <div style={{ padding: "1.5rem", flex: 1, display: "flex", gap: "1.5rem" }}>
               {/* Sidebar */}
-              <div className="w-[60px] flex flex-col gap-4">
-                <div className="h-10 rounded-lg bg-indigo-500/20" />
-                <div className="h-2.5 w-4/5 rounded bg-white/5" />
-                <div className="h-2.5 w-3/5 rounded bg-white/5" />
-                <div className="h-2.5 w-[70%] rounded bg-white/5" />
+              <div style={{ width: 60, display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div style={{ height: 40, borderRadius: 8, background: "rgba(102, 126, 234, 0.2)" }} />
+                <div style={{ height: 10, width: "80%", borderRadius: 4, background: "rgba(255,255,255,0.05)" }} />
+                <div style={{ height: 10, width: "60%", borderRadius: 4, background: "rgba(255,255,255,0.05)" }} />
+                <div style={{ height: 10, width: "70%", borderRadius: 4, background: "rgba(255,255,255,0.05)" }} />
               </div>
 
               {/* Main Content Area */}
-              <div className="flex-1 flex flex-col gap-6">
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                 {/* Chart Area */}
-                <div className="flex-1 bg-gradient-to-b from-indigo-500/5 to-transparent rounded-xl border border-white/5 relative overflow-hidden">
+                <div style={{
+                  flex: 1,
+                  background: "linear-gradient(180deg, rgba(102, 126, 234, 0.05) 0%, transparent 100%)",
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.05)",
+                  position: "relative",
+                  overflow: "hidden"
+                }}>
                   {/* SVG Chart Line */}
-                  <svg width="100%" height="100%" preserveAspectRatio="none" className="absolute bottom-0">
+                  <svg width="100%" height="100%" preserveAspectRatio="none" style={{ position: "absolute", bottom: 0 }}>
                     <path d="M0 100 Q 50 20 100 60 T 200 80 T 300 30 L 300 150 L 0 150 Z" fill="url(#gradient)" opacity="0.4" />
                     <path d="M0 100 Q 50 20 100 60 T 200 80 T 300 30" stroke="#667eea" strokeWidth="3" fill="none" />
                     <defs>
@@ -194,31 +234,70 @@ const HeroSection = ({ isLoaded }: { isLoaded: boolean }) => {
                 </div>
 
                 {/* Grid Items */}
-                <div className="flex gap-3">
-                  <div className="flex-1 h-15 bg-white/[0.03] rounded-[10px]" />
-                  <div className="flex-1 h-15 bg-white/[0.03] rounded-[10px]" />
-                  <div className="flex-1 h-15 bg-white/[0.03] rounded-[10px]" />
+                <div style={{ display: "flex", gap: "0.75rem" }}>
+                  <div style={{ flex: 1, height: 60, background: "rgba(255,255,255,0.03)", borderRadius: 10 }} />
+                  <div style={{ flex: 1, height: 60, background: "rgba(255,255,255,0.03)", borderRadius: 10 }} />
+                  <div style={{ flex: 1, height: 60, background: "rgba(255,255,255,0.03)", borderRadius: 10 }} />
                 </div>
               </div>
             </div>
           </div>
 
           {/* Floating Card - Mobile App */}
-          <div className="absolute -bottom-5 -right-5 w-[140px] h-60 bg-slate-900 rounded-2xl border-4 border-slate-800 shadow-[0_20px_40px_rgba(0,0,0,0.4)] z-20 p-3 flex flex-col gap-3 animate-float">
-            <div className="h-1 w-2/5 bg-slate-700 rounded mx-auto" />
-            <div className="h-15 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl" />
-            <div className="flex-1 bg-white/5 rounded-xl" />
-            <div className="flex-1 bg-white/5 rounded-xl" />
+          <div style={{
+            position: "absolute",
+            bottom: -20,
+            right: -20,
+            width: 140,
+            height: 240,
+            background: "#0f172a",
+            borderRadius: 20,
+            border: "4px solid #1e293b",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
+            zIndex: 20,
+            animation: "float 6s ease-in-out infinite",
+            padding: "0.75rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.75rem"
+          }}>
+            <div style={{ height: 4, width: "40%", background: "#334155", borderRadius: 2, margin: "0 auto" }} />
+            <div style={{ height: 60, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", borderRadius: 12 }} />
+            <div style={{ flex: 1, background: "rgba(255,255,255,0.05)", borderRadius: 12 }} />
+            <div style={{ flex: 1, background: "rgba(255,255,255,0.05)", borderRadius: 12 }} />
           </div>
 
           {/* Floating Element - Success Notification */}
-          <div className="absolute top-10 -left-8 px-4 py-3 bg-white/95 backdrop-blur-sm rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.2)] z-20 flex items-center gap-3 text-slate-900 animate-float-delayed">
-            <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-lg">
-              ✓
-            </div>
+          <div style={{
+            position: "absolute",
+            top: 40,
+            left: -30,
+            padding: "0.75rem 1rem",
+            background: "rgba(255, 255, 255, 0.95)",
+            backdropFilter: "blur(10px)",
+            borderRadius: 12,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+            zIndex: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            animation: "float 5s ease-in-out infinite 1s",
+            color: "#0f172a"
+          }}>
+            <div style={{
+              width: 32,
+              height: 32,
+              background: "#10b981",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              fontSize: "1.2rem"
+            }}>✓</div>
             <div>
-              <div className="text-xs font-bold">Payment Received</div>
-              <div className="text-[0.65rem] text-slate-500">Just now</div>
+              <div style={{ fontSize: "0.75rem", fontWeight: 700 }}>Payment Received</div>
+              <div style={{ fontSize: "0.65rem", color: "#64748b" }}>Just now</div>
             </div>
           </div>
         </div>
@@ -322,7 +401,7 @@ const CTASection = () => {
         }}
       >
         <h2 className={styles.sectionTitle}>Ready to Start?</h2>
-        <p className={`${styles.sectionDesc} mb-8`}>
+        <p className={styles.sectionDesc} style={{ marginBottom: "2rem" }}>
           Join thousands of users who are already tracking their expenses with ease.
         </p>
         <button
@@ -337,7 +416,7 @@ const CTASection = () => {
 };
 
 const Footer = () => (
-  <div className="border-t border-white/10 bg-[#0b0f19] w-full">
+  <div style={{ borderTop: "1px solid var(--glass-border)", background: "#0b0f19", width: "100%" }}>
     <footer className={styles.footer}>
       <div className={styles.footerBrand}>
         <div className={styles.footerLogo}>💰 ExpenseTracker</div>

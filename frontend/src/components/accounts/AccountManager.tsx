@@ -16,9 +16,9 @@ type Account = {
 };
 
 const ACCOUNT_TYPES = [
-  { value: "bank", label: "Bank Account", icon: "🏦", color: "#3b82f6", borderClass: "border-blue-500", bgClass: "bg-blue-500/15", textClass: "text-blue-500" },
-  { value: "card", label: "Credit Card", icon: "💳", color: "#ec4899", borderClass: "border-pink-500", bgClass: "bg-pink-500/15", textClass: "text-pink-500" },
-  { value: "cash", label: "Cash", icon: "💵", color: "#22c55e", borderClass: "border-green-500", bgClass: "bg-green-500/15", textClass: "text-green-500" },
+  { value: "bank", label: "Bank Account", icon: "🏦", color: "#3b82f6" },
+  { value: "card", label: "Credit Card", icon: "💳", color: "#ec4899" },
+  { value: "cash", label: "Cash", icon: "💵", color: "#22c55e" },
 ];
 
 function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
@@ -135,20 +135,21 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
   }
 
   return (
-    <div className="grid gap-6">
+    <div style={{ display: "grid", gap: "1.5rem" }}>
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <h2 className="m-0 text-xl text-text-primary">
+          <h2 style={{ margin: 0, fontSize: "1.25rem", color: "var(--text-primary)" }}>
             Your Accounts
           </h2>
-          <p className="mt-2 mb-0 text-sm text-text-muted">
+          <p style={{ margin: "0.5rem 0 0", color: "var(--text-muted)", fontSize: "0.875rem" }}>
             Manage bank accounts, credit cards, and cash wallets
           </p>
         </div>
         <button
-          className="primary flex items-center gap-2"
+          className="primary"
           onClick={() => setShowForm(true)}
+          style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
         >
           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -160,28 +161,55 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
       {/* Account Form Modal */}
       {showForm && (
         <div
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000]"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
           onClick={(e) => e.target === e.currentTarget && resetForm()}
         >
           <div
-            className="card w-full max-w-md max-h-[90vh] overflow-auto"
+            className="card"
+            style={{
+              width: "100%",
+              maxWidth: "480px",
+              maxHeight: "90vh",
+              overflow: "auto",
+            }}
           >
             <div className="card-header">
-              <h3 className="m-0">
+              <h3 style={{ margin: 0 }}>
                 {editingAccount ? "Edit Account" : "New Account"}
               </h3>
               <button
                 onClick={resetForm}
-                className="bg-none border-none text-text-muted cursor-pointer p-2"
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--text-muted)",
+                  cursor: "pointer",
+                  padding: "0.5rem",
+                }}
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="grid gap-5">
+            <form onSubmit={handleSubmit} style={{ display: "grid", gap: "1.25rem" }}>
               {/* Account Name */}
               <div>
-                <label className="block mb-2 text-sm text-text-secondary">
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontSize: "0.875rem",
+                    color: "var(--text-secondary)",
+                  }}
+                >
                   Account Name
                 </label>
                 <input
@@ -189,30 +217,53 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g., HDFC Savings, ICICI Credit Card"
-                  className="w-full px-4 py-3 rounded-lg border border-border-subtle bg-bg-input text-text-primary text-[0.9375rem]"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--border-subtle)",
+                    background: "var(--bg-input)",
+                    color: "var(--text-primary)",
+                    fontSize: "0.9375rem",
+                  }}
                   autoFocus
                 />
               </div>
 
               {/* Account Type */}
               <div>
-                <label className="block mb-2 text-sm text-text-secondary">
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontSize: "0.875rem",
+                    color: "var(--text-secondary)",
+                  }}
+                >
                   Account Type
                 </label>
-                <div className="grid grid-cols-3 gap-3">
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
                   {ACCOUNT_TYPES.map((type) => (
                     <button
                       key={type.value}
                       type="button"
                       onClick={() => setFormData({ ...formData, type: type.value as "bank" | "card" | "cash" })}
-                      className={`p-4 rounded-lg border-2 cursor-pointer flex flex-col items-center gap-2 transition-all ${
-                        formData.type === type.value
-                          ? `${type.borderClass} ${type.bgClass} ${type.textClass}`
-                          : "border-border-subtle bg-bg-card text-text-secondary"
-                      }`}
+                      style={{
+                        padding: "1rem",
+                        borderRadius: "var(--radius-md)",
+                        border: `2px solid ${formData.type === type.value ? type.color : "var(--border-subtle)"}`,
+                        background: formData.type === type.value ? `${type.color}15` : "var(--bg-input)",
+                        color: formData.type === type.value ? type.color : "var(--text-secondary)",
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        transition: "all 0.15s ease",
+                      }}
                     >
-                      <span className="text-2xl">{type.icon}</span>
-                      <span className="text-xs font-medium">{type.label}</span>
+                      <span style={{ fontSize: "1.5rem" }}>{type.icon}</span>
+                      <span style={{ fontSize: "0.75rem", fontWeight: 500 }}>{type.label}</span>
                     </button>
                   ))}
                 </div>
@@ -220,7 +271,14 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
 
               {/* Currency */}
               <div>
-                <label className="block mb-2 text-sm text-text-secondary">
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontSize: "0.875rem",
+                    color: "var(--text-secondary)",
+                  }}
+                >
                   Currency
                 </label>
                 <Select
@@ -232,23 +290,37 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
                     { value: "EUR", label: "€ EUR - Euro" },
                     { value: "GBP", label: "£ GBP - British Pound" },
                   ]}
-                  className="w-full"
+                  style={{ width: "100%" }}
                 />
               </div>
 
               {/* Error */}
               {error && (
-                <div className="px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500 text-sm">
+                <div
+                  style={{
+                    padding: "0.75rem 1rem",
+                    background: "rgba(239, 68, 68, 0.1)",
+                    border: "1px solid rgba(239, 68, 68, 0.3)",
+                    borderRadius: "var(--radius-md)",
+                    color: "#ef4444",
+                    fontSize: "0.875rem",
+                  }}
+                >
                   {error}
                 </div>
               )}
 
               {/* Actions */}
-              <div className="flex gap-3 justify-end">
+              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="btn bg-bg-input text-text-secondary border border-border-subtle"
+                  className="btn"
+                  style={{
+                    background: "var(--bg-input)",
+                    color: "var(--text-secondary)",
+                    border: "1px solid var(--border-subtle)",
+                  }}
                 >
                   Cancel
                 </button>
@@ -269,41 +341,63 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
       {accounts.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <div className="text-5xl mb-4">🏦</div>
-            <p className="font-medium mb-2">No accounts yet</p>
-            <p className="text-text-muted">
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🏦</div>
+            <p style={{ fontWeight: 500, marginBottom: "0.5rem" }}>No accounts yet</p>
+            <p style={{ color: "var(--text-muted)" }}>
               Add your first account to start tracking expenses
             </p>
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
+        <div style={{ display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
           {accounts.map((account) => {
             const typeInfo = getTypeInfo(account.type);
             return (
               <div
                 key={account.id}
-                className={`card p-5 border-l-4 ${typeInfo.borderClass}`}
+                className="card"
+                style={{
+                  padding: "1.25rem",
+                  borderLeft: `4px solid ${typeInfo.color}`,
+                }}
               >
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl ${typeInfo.bgClass.replace('/15', '/20')}`}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <div
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: "var(--radius-md)",
+                        background: `${typeInfo.color}20`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "1.5rem",
+                      }}
                     >
                       {typeInfo.icon}
                     </div>
                     <div>
-                      <h3 className="m-0 text-base text-text-primary">
+                      <h3 style={{ margin: 0, fontSize: "1rem", color: "var(--text-primary)" }}>
                         {account.name}
                       </h3>
-                      <p className="mt-1 mb-0 text-xs text-text-muted">
+                      <p style={{ margin: "0.25rem 0 0", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
                         {typeInfo.label} • {account.currency}
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
                     <button
                       onClick={() => handleEdit(account)}
-                      className="bg-none border-none text-text-muted cursor-pointer p-2 rounded transition-all hover:text-text-primary"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--text-muted)",
+                        cursor: "pointer",
+                        padding: "0.5rem",
+                        borderRadius: "var(--radius-sm)",
+                        transition: "all 0.15s ease",
+                      }}
                       title="Edit"
                     >
                       <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -312,7 +406,15 @@ function AccountManager({ apiBase, refreshKey, onRefresh }: Props) {
                     </button>
                     <button
                       onClick={() => handleDelete(account)}
-                      className="bg-none border-none text-text-muted cursor-pointer p-2 rounded transition-all hover:text-text-primary"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--text-muted)",
+                        cursor: "pointer",
+                        padding: "0.5rem",
+                        borderRadius: "var(--radius-sm)",
+                        transition: "all 0.15s ease",
+                      }}
                       title="Delete"
                     >
                       <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">

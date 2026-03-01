@@ -91,7 +91,7 @@ function AISuggestions({ apiBase, refreshKey, onUpdated }: Props) {
 
   if (loading) {
     return (
-      <div className="card p-4 text-center text-text-muted">
+      <div className="card" style={{ padding: "1rem", textAlign: "center", color: "var(--text-muted)" }}>
         Loading AI suggestions...
       </div>
     );
@@ -102,75 +102,123 @@ function AISuggestions({ apiBase, refreshKey, onUpdated }: Props) {
   }
 
   return (
-    <div className="card mb-4 overflow-hidden">
-      <div className="px-5 py-4 bg-gradient-to-br from-purple-500/15 to-indigo-500/10 border-b border-border-color flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center">
+    <div className="card" style={{ marginBottom: "1rem", overflow: "hidden" }}>
+      <div
+        style={{
+          padding: "1rem 1.25rem",
+          background: "linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(99, 102, 241, 0.1))",
+          borderBottom: "1px solid var(--border-color)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              background: "linear-gradient(135deg, #8b5cf6, #6366f1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2}>
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
             </svg>
           </div>
           <div>
-            <div className="font-semibold text-text-primary">
+            <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>
               {suggestions.length} AI Category Suggestion{suggestions.length !== 1 ? "s" : ""}
             </div>
-            <div className="text-sm text-text-muted">
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
               Review and approve new categories suggested by AI
             </div>
           </div>
         </div>
         <button
           onClick={approveAll}
-          className="primary text-sm bg-gradient-to-br from-purple-500 to-indigo-500"
+          className="primary"
+          style={{
+            background: "linear-gradient(135deg, #8b5cf6, #6366f1)",
+            fontSize: "0.8125rem",
+          }}
         >
           Approve All
         </button>
       </div>
 
-      <div className="max-h-[300px] overflow-y-auto">
+      <div style={{ maxHeight: 300, overflowY: "auto" }}>
         {suggestions.map((s) => (
           <div
             key={s.id}
-            className="px-5 py-3.5 border-b border-border-color flex items-center justify-between gap-4"
+            style={{
+              padding: "0.875rem 1.25rem",
+              borderBottom: "1px solid var(--border-color)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "1rem",
+            }}
           >
-            <div className="flex-1 min-w-0">
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div
-                className="text-sm text-text-primary whitespace-nowrap overflow-hidden text-ellipsis"
+                style={{
+                  fontSize: "0.875rem",
+                  color: "var(--text-primary)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
                 title={s.description_raw}
               >
                 {s.description_raw}
               </div>
-              <div className="text-xs text-text-muted mt-1">
+              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
                 {formatDate(s.posted_at)} • {s.amount < 0 ? "-" : "+"}
                 {formatCurrency(s.amount)}
               </div>
             </div>
 
-            <div className="text-right">
+            <div style={{ textAlign: "right" }}>
               <div
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium ${
-                  s.existing_category_id
-                    ? "bg-bg-input text-text-secondary"
-                    : "bg-purple-500/15 text-purple-400"
-                }`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.375rem",
+                  padding: "0.25rem 0.625rem",
+                  background: s.existing_category_id ? "var(--bg-input)" : "rgba(139, 92, 246, 0.15)",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: "0.75rem",
+                  fontWeight: 500,
+                  color: s.existing_category_id ? "var(--text-secondary)" : "#a78bfa",
+                }}
               >
                 {!s.existing_category_id && <span>✨ New:</span>}
                 {s.suggested_category} → {s.suggested_subcategory}
               </div>
             </div>
 
-            <div className="flex gap-1.5">
+            <div style={{ display: "flex", gap: "0.375rem" }}>
               <button
                 onClick={() => reject(s.id)}
                 disabled={processing[s.id]}
-                className="ghost px-2.5 py-1.5 text-xs"
+                className="ghost"
+                style={{ padding: "0.375rem 0.625rem", fontSize: "0.75rem" }}
               >
                 ✕
               </button>
               <button
                 onClick={() => approve(s.id)}
                 disabled={processing[s.id]}
-                className="primary px-2.5 py-1.5 text-xs bg-gradient-to-br from-purple-500 to-indigo-500"
+                className="primary"
+                style={{
+                  padding: "0.375rem 0.625rem",
+                  fontSize: "0.75rem",
+                  background: "linear-gradient(135deg, #8b5cf6, #6366f1)",
+                }}
               >
                 ✓ Approve
               </button>
