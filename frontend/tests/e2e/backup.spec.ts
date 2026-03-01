@@ -2,7 +2,85 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Backup/Restore UI', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock supabase auth - store in localStorage
+    // Mock ALL fetch requests before page loads
+    await page.route('**/*', async (route) => {
+      const url = route.request().url();
+      
+      // Only intercept API calls
+      if (!url.includes('/api/')) {
+        await route.continue();
+        return;
+      }
+      
+      // Mock auth/me endpoint - CRITICAL for profile to load
+      if (url.includes('/api/auth/me')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ 
+            id: 1, 
+            username: 'testuser', 
+            email: 'test@example.com',
+            currency: 'INR',
+            locale: 'en-IN'
+          }),
+        });
+        return;
+      }
+      
+      // Mock user/profile endpoint
+      if (url.includes('/api/user/profile')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ 
+            id: 1, 
+            username: 'testuser', 
+            email: 'test@example.com',
+            currency: 'INR',
+            locale: 'en-IN',
+            theme: 'light'
+          }),
+        });
+        return;
+      }
+      
+      // Mock backup endpoints
+      if (url.includes('/api/backup/export')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            transactions: [],
+            accounts: [],
+            categories: [],
+            goals: []
+          }),
+        });
+        return;
+      }
+      
+      if (url.includes('/api/backup/import')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',  
+          body: JSON.stringify({
+            imported: { transactions: 0, accounts: 0 },
+            errors: []
+          }),
+        });
+        return;
+      }
+      
+      // Default: return empty success response
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true }),
+      });
+    });
+
+    // Set up localStorage auth after route handler
     await page.addInitScript(() => {
       (window as any).supabase = {
         auth: {
@@ -16,11 +94,11 @@ test.describe('Backup/Restore UI', () => {
       localStorage.setItem('auth_token', 'mock-token');
       localStorage.setItem('auth_user', JSON.stringify({ id: 1, username: 'testuser' }));
     });
-    // MSW handles the API calls - no need for page.route()
   });
 
   test('should display backup section with export button', async ({ page }) => {
     await page.goto('/profile');
+    // Wait for the page to load (backup section appears after profile loads)
     await expect(page.getByText('Data Backup')).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('Export your data as JSON')).toBeVisible();
     const exportButton = page.getByRole('button', { name: /export backup/i });
