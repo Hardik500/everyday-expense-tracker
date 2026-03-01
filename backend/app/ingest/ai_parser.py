@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 from typing import List, Tuple, Optional
 import httpx
 
@@ -17,10 +18,8 @@ def parse_with_gemini(text: str) -> List[Tuple[str, str, float, bool]]:
         return []
 
     print(f"Sending to AI parser - text length: {len(text)} chars")
-    print(f"First 200 chars: {text[:200]!r}")
 
-    # Limit text length to avoid token limits (though Gemini has large context, stay safe)
-    # 100k chars is usually plenty for a statement page
+    # Limit text length to avoid token limits
     text_chunk = text[:100000]
 
     prompt = f"""
@@ -44,60 +43,79 @@ def parse_with_gemini(text: str) -> List[Tuple[str, str, float, bool]]:
     {text_chunk}
     """
 
-    try:
-        response = httpx.post(
-            f"{GEMINI_API_URL}?key={api_key}",
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": 0.1,
-                    "responseMimeType": "application/json"
-                }
-            },
-            timeout=30.0,
-        )
+    max_retries = 3
+    retry_delay = 15  # Base delay of 15 seconds
 
-        if response.status_code != 200:
-            print(f"Gemini API error: {response.status_code} - {response.text}")
-            return []
+    for attempt in range(max_retries):
+        try:
+            response = httpx.post(
+                f"{GEMINI_API_URL}?key={api_key}",
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "temperature": 0.1,
+                        "responseMimeType": "application/json"
+                    }
+                },
+                timeout=30.0,
+            )
 
-        data = response.json()
-        candidate = data.get("candidates", [{}])[0]
-        content = candidate.get("content", {}).get("parts", [{}])[0].get("text", "")
-        
-        # Clean potential markdown
-        content = content.replace("```json", "").replace("```", "").strip()
-        
-        txs_json = json.loads(content)
-        
-        results = []
-        for tx in txs_json:
-            date_str = tx.get("date")
-            desc = tx.get("description")
-            amount = tx.get("amount")
-            tx_type = tx.get("type", "debit").lower()
+            if response.status_code == 429:
+                if attempt < max_retries - 1:
+                    print(f"Gemini API rate limit (429). Retrying in {retry_delay}s... (Attempt {attempt + 1}/{max_retries})")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                    continue
+                else:
+                    print(f"Gemini API rate limit exhausted after {max_retries} attempts.")
+                    return []
+            elif response.status_code != 200:
+                print(f"Gemini API error: {response.status_code} - {response.text}")
+                return []
+
+            data = response.json()
+            candidate = data.get("candidates", [{}])[0]
+            content = candidate.get("content", {}).get("parts", [{}])[0].get("text", "")
             
-            if not date_str or not desc or amount is None:
-                continue
+            # Clean potential markdown
+            content = content.replace("```json", "").replace("```", "").strip()
+            
+            txs_json = json.loads(content)
+            
+            results = []
+            for tx in txs_json:
+                date_str = tx.get("date")
+                desc = tx.get("description")
+                amount = tx.get("amount")
+                tx_type = tx.get("type", "debit").lower()
                 
-            try:
-                # Ensure date is DD/MM/YYYY
-                # If AI returns YYYY-MM-DD, convert it
-                if "-" in date_str and date_str.index("-") == 4: # 2024-01-01
-                     parts = date_str.split("-")
-                     date_str = f"{parts[2]}/{parts[1]}/{parts[0]}"
+                if not date_str or not desc or amount is None:
+                    continue
+                    
+                try:
+                    # Ensure date is DD/MM/YYYY
+                    if "-" in date_str and date_str.index("-") == 4: # 2024-01-01
+                         parts = date_str.split("-")
+                         date_str = f"{parts[2]}/{parts[1]}/{parts[0]}"
+                    
+                    amount_float = float(amount)
+                    is_credit = tx_type in ["credit", "cr"]
+                    
+                    results.append((date_str, desc, amount_float, is_credit))
+                except Exception:
+                    continue
+                    
+            return results
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"AI Parsing failed with error: {e}. Retrying...")
+                time.sleep(retry_delay)
+                retry_delay *= 2
+            else:
+                print(f"AI Parsing failed after {max_retries} attempts: {e}")
+                import traceback
+                traceback.print_exc()
+                return []
                 
-                amount_float = float(amount)
-                is_credit = tx_type in ["credit", "cr"]
-                
-                results.append((date_str, desc, amount_float, is_credit))
-            except Exception:
-                continue
-                
-        return results
-
-    except Exception as e:
-        print(f"AI Parsing failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return []
+    return []
