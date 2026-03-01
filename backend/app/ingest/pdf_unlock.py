@@ -32,9 +32,9 @@ def _generate_password_variants(base_passwords: List[str]) -> List[str]:
             
     return list(variants)
 
-def try_unlock_pdf(conn, payload: bytes, user_id: int) -> bytes:
+def try_unlock_pdf(conn, payload: bytes, user_id: int, extra_passwords: List[str] = None) -> bytes:
     """
-    Attempt to unlock an encrypted PDF with user's stored passwords.
+    Attempt to unlock an encrypted PDF with user's stored passwords and extra ones from context.
     Returns the unlocked bytes if successful or if not encrypted.
     Raises ValueError if unlocking fails.
     """
@@ -50,6 +50,9 @@ def try_unlock_pdf(conn, payload: bytes, user_id: int) -> bytes:
         return payload
 
     user_passwords = _get_user_passwords(conn, user_id)
+    if extra_passwords:
+        user_passwords.extend(extra_passwords)
+    
     variants = _generate_password_variants(user_passwords)
     
     for pwd in variants:

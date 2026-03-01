@@ -2,6 +2,7 @@ import time
 import base64
 import logging
 import threading
+import re
 from datetime import datetime, timezone
 from app.db import get_conn
 from app.gmail import get_gmail_service
@@ -102,6 +103,39 @@ def _get_attachment_source(filename: str):
     elif ext in ("csv", "txt"):
         return "csv"
     return None
+
+
+def _extract_text_from_payload(payload: dict) -> list:
+    """Recursively extract plain text from Gmail message payload."""
+    text_content = []
+    
+    # Base case: direct body data
+    if payload.get('body', {}).get('data'):
+        try:
+            data = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8', errors='ignore')
+            text_content.append(data)
+        except Exception:
+            pass
+            
+    # Recursive case: multipart
+    if 'parts' in payload:
+        for part in payload['parts']:
+            mime_type = part.get('mimeType', '')
+            if mime_type == 'text/plain' or mime_type == 'text/html':
+                text_content.extend(_extract_text_from_payload(part))
+            elif 'parts' in part:
+                text_content.extend(_extract_text_from_payload(part))
+                
+    return text_content
+
+def _extract_potential_passwords_from_email(payload: dict) -> list:
+    """Find any 4-digit numbers in the email body that might be a card ending."""
+    texts = _extract_text_from_payload(payload)
+    full_text = " ".join(texts)
+    
+    # Find any standalone 4-digit numbers
+    matches = re.findall(r'\b\d{4}\b', full_text)
+    return list(set(matches))
 
 
 def process_user_sync(conn, user):
@@ -219,8 +253,10 @@ def process_user_sync(conn, user):
                     # ── Attempt PDF Unlock ──
                     if source == "pdf":
                         from app.ingest.pdf_unlock import try_unlock_pdf
+                        extra_passwords = _extract_potential_passwords_from_email(msg_data.get('payload', {}))
+                        
                         try:
-                            data = try_unlock_pdf(conn, data, user_id)
+                            data = try_unlock_pdf(conn, data, user_id, extra_passwords=extra_passwords)
                         except ValueError as e:
                             print(f"Failed to unlock encrypted PDF {filename}: {e}")
                             # Record as a missing statement due to password failure
