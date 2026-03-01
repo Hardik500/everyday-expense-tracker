@@ -32,6 +32,7 @@ const TransactionsPage = lazy(() => import("./pages/TransactionsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const GoalsPage = lazy(() => import("./pages/GoalsPage"));
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
+const EmailImportsPage = lazy(() => import("./pages/EmailImportsPage"));
 
 // Auth pages
 import Login from "./components/auth/Login";
@@ -296,6 +297,16 @@ function AppContent() {
           <Route
             path="/duplicates"
             element={<Navigate to="/review" replace />}
+          />
+          <Route
+            path="/email-imports"
+            element={
+              <EmailImportsPage
+                apiBase={API_BASE}
+                refreshKey={refreshKey}
+                onRefresh={handleRefresh}
+              />
+            }
           />
           <Route
             path="/calendar"

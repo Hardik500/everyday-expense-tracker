@@ -366,6 +366,230 @@ def update_gmail_config(
         return schemas.User(**dict(user_row))
 
 
+# ========== EMAIL IMPORT PIPELINE ENDPOINTS ==========
+
+@app.get("/email-imports", response_model=List[schemas.EmailImport])
+def list_email_imports(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    status: Optional[str] = Query(None),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """List email import history with pagination and optional status filter."""
+    offset = (page - 1) * limit
+    with get_conn() as conn:
+        query = "SELECT * FROM email_imports WHERE user_id = ?"
+        params: list = [current_user.id]
+
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+
+        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        rows = conn.execute(query, tuple(params)).fetchall()
+    return [schemas.EmailImport(**dict(row)) for row in rows]
+
+
+@app.get("/email-imports/{import_id}", response_model=schemas.EmailImportDetail)
+def get_email_import_detail(
+    import_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Get detail for a single email import, including linked statements."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM email_imports WHERE id = ? AND user_id = ?",
+            (import_id, current_user.id)
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Email import not found")
+
+        statements = conn.execute(
+            "SELECT id, account_id, source, file_name, imported_at, storage_path FROM statements WHERE gmail_message_id = ? AND user_id = ?",
+            (row["gmail_message_id"], current_user.id)
+        ).fetchall()
+
+    result = dict(row)
+    result["statements"] = [dict(s) for s in statements]
+    return schemas.EmailImportDetail(**result)
+
+
+@app.get("/missing-statements", response_model=List[schemas.MissingStatement])
+def list_missing_statements(
+    resolved: Optional[bool] = Query(None),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """List emails where no valid statement attachment was found."""
+    with get_conn() as conn:
+        query = "SELECT * FROM missing_statements WHERE user_id = ?"
+        params: list = [current_user.id]
+
+        if resolved is not None:
+            query += " AND resolved = ?"
+            params.append(1 if resolved else 0)
+
+        query += " ORDER BY created_at DESC"
+        rows = conn.execute(query, tuple(params)).fetchall()
+    return [schemas.MissingStatement(**dict(row)) for row in rows]
+
+
+@app.post("/missing-statements/{ms_id}/resolve")
+def resolve_missing_statement(
+    ms_id: int,
+    file: UploadFile = File(...),
+    account_id: int = Form(...),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Upload a statement file to resolve a missing statement."""
+    from app.storage import upload_statement as upload_to_storage
+
+    with get_conn() as conn:
+        ms_row = conn.execute(
+            "SELECT * FROM missing_statements WHERE id = ? AND user_id = ? AND resolved = 0",
+            (ms_id, current_user.id)
+        ).fetchone()
+        if not ms_row:
+            raise HTTPException(status_code=404, detail="Missing statement not found or already resolved")
+
+        validate_upload(file)
+        payload = file.file.read()
+        filename = file.filename or "uploaded_statement"
+
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        source_map = {"pdf": "pdf", "ofx": "ofx", "qfx": "ofx", "xls": "xls", "xlsx": "xls", "csv": "csv", "txt": "csv"}
+        source = source_map.get(ext)
+        if not source:
+            raise HTTPException(status_code=400, detail="Unsupported file type")
+
+        storage_path = upload_to_storage(current_user.id, filename, payload)
+
+        cursor = conn.execute(
+            """INSERT INTO statements
+               (account_id, source, file_name, user_id, storage_path)
+               VALUES (?, ?, ?, ?, ?)""",
+            (account_id, source, filename, current_user.id, storage_path)
+        )
+        statement_id = cursor.lastrowid
+
+        inserted, skipped = 0, 0
+        if source == "csv":
+            inserted, skipped, _ = ingest_csv(conn, account_id, statement_id, payload, user_id=current_user.id)
+        elif source == "xls":
+            inserted, skipped, _ = ingest_xls(conn, account_id, statement_id, payload, user_id=current_user.id)
+        elif source == "pdf":
+            inserted, skipped = ingest_pdf(conn, account_id, statement_id, payload, user_id=current_user.id)
+        elif source == "ofx":
+            inserted, skipped, _ = ingest_ofx(conn, account_id, statement_id, payload, user_id=current_user.id)
+
+        if inserted > 0:
+            apply_rules(conn, account_id=account_id, statement_id=statement_id, user_id=current_user.id)
+            link_card_payments(conn, account_id=account_id, user_id=current_user.id)
+
+        conn.execute(
+            "UPDATE missing_statements SET resolved = 1, resolved_statement_id = ? WHERE id = ?",
+            (statement_id, ms_id)
+        )
+
+        email_import_id = ms_row["email_import_id"]
+        if email_import_id:
+            conn.execute(
+                """UPDATE email_imports
+                   SET status = 'success', transactions_imported = transactions_imported + ?,
+                       transactions_skipped = transactions_skipped + ?
+                   WHERE id = ?""",
+                (inserted, skipped, email_import_id)
+            )
+
+        conn.commit()
+
+    return {
+        "status": "resolved",
+        "statement_id": statement_id,
+        "transactions_imported": inserted,
+        "transactions_skipped": skipped,
+    }
+
+
+@app.post("/user/gmail/sync")
+def trigger_manual_sync(
+    background_tasks: BackgroundTasks,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Trigger an immediate Gmail sync for the current user."""
+    from app.worker import trigger_sync, is_syncing
+
+    if is_syncing():
+        return {"status": "already_syncing", "message": "A sync is already in progress. Please wait."}
+
+    if not current_user.gmail_enabled:
+        raise HTTPException(status_code=400, detail="Gmail sync is not enabled. Connect your Gmail account first.")
+
+    background_tasks.add_task(trigger_sync, current_user.id)
+    return {"status": "started", "message": "Gmail sync started in the background."}
+
+
+@app.get("/user/gmail/status", response_model=schemas.GmailSyncStatus)
+def get_gmail_sync_status(current_user: schemas.User = Depends(get_current_user)):
+    """Get the current Gmail sync status for the user."""
+    from app.worker import is_syncing
+
+    with get_conn() as conn:
+        user_row = conn.execute(
+            "SELECT gmail_enabled, gmail_refresh_token, gmail_last_sync FROM users WHERE id = ?",
+            (current_user.id,)
+        ).fetchone()
+
+        import_stats = conn.execute(
+            """SELECT
+                COUNT(*) as total_imports,
+                COALESCE(SUM(transactions_imported), 0) as total_transactions
+            FROM email_imports WHERE user_id = ?""",
+            (current_user.id,)
+        ).fetchone()
+
+        missing_count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM missing_statements WHERE user_id = ? AND resolved = 0",
+            (current_user.id,)
+        ).fetchone()
+
+    return schemas.GmailSyncStatus(
+        gmail_enabled=bool(user_row["gmail_enabled"]) if user_row else False,
+        gmail_connected=bool(user_row["gmail_refresh_token"]) if user_row else False,
+        last_sync=user_row["gmail_last_sync"] if user_row else None,
+        total_imports=import_stats["total_imports"] if import_stats else 0,
+        total_transactions_imported=import_stats["total_transactions"] if import_stats else 0,
+        total_missing=missing_count["cnt"] if missing_count else 0,
+        is_syncing=is_syncing()
+    )
+
+
+@app.get("/statements/{statement_id}/download")
+def download_statement(
+    statement_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Get a signed download URL for a statement's original file."""
+    from app.storage import get_download_url
+
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT storage_path, file_name FROM statements WHERE id = ? AND user_id = ?",
+            (statement_id, current_user.id)
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Statement not found")
+        if not row["storage_path"]:
+            raise HTTPException(status_code=404, detail="Original file not available for this statement")
+
+    url = get_download_url(row["storage_path"])
+    if not url:
+        raise HTTPException(status_code=500, detail="Failed to generate download URL")
+
+    return {"download_url": url, "file_name": row["file_name"]}
+
+
 @app.post("/accounts", response_model=schemas.Account)
 def create_account(
     payload: schemas.AccountCreate,
