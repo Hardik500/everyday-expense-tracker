@@ -9,6 +9,7 @@ interface User {
     username: string;
     email?: string;
     full_name?: string;
+    onboarding_completed?: boolean;
 }
 
 interface AuthContextType {

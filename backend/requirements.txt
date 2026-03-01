@@ -24,6 +24,7 @@ python-dateutil==2.9.0.post0
 pdfplumber==0.11.4
 ofxparse==0.21
 openpyxl==3.1.5
+pikepdf==8.13.0
 
 # AI Integration
 google-genai==1.59.0

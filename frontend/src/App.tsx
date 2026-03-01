@@ -32,6 +32,7 @@ const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const GoalsPage = lazy(() => import("./pages/GoalsPage"));
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 const EmailImportsPage = lazy(() => import("./pages/EmailImportsPage"));
+const OnboardingPage = lazy(() => import("./pages/OnboardingPage"));
 
 // Auth pages
 import Login from "./components/auth/Login";
@@ -137,6 +138,10 @@ function AppContent() {
     );
   }
 
+  // Redirect to onboarding if not completed
+  if (user.onboarding_completed === false && location.pathname !== "/onboarding" && location.pathname !== "/auth/google/callback") {
+    return <Navigate to="/onboarding" replace />;
+  }
 
   // Authenticated routes with layout
   const handleLogOut = async () => {

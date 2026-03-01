@@ -397,7 +397,114 @@ def update_gmail_config(
         return schemas.User(**dict(user_row))
 
 
-# ========== EMAIL IMPORT PIPELINE ENDPOINTS ==========
+# ========== PDF PASSWORDS & ONBOARDING ==========
+
+@app.get("/user/pdf-passwords", response_model=List[schemas.PdfPassword])
+def get_pdf_passwords(current_user: schemas.User = Depends(get_current_user)):
+    """List all stored PDF passwords for the user (masked values)."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, label, value, created_at FROM pdf_passwords WHERE user_id = ?",
+            (current_user.id,)
+        ).fetchall()
+        
+        passwords = []
+        for r in rows:
+            p = dict(r)
+            p["value"] = "••••" + p["value"][-4:] if len(p["value"]) >= 4 else "••••"
+            passwords.append(schemas.PdfPassword(**p))
+            
+        return passwords
+
+@app.post("/user/pdf-passwords", response_model=schemas.PdfPassword)
+def create_pdf_password(
+    payload: schemas.PdfPasswordCreate,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Add a new PDF password."""
+    if not payload.value.strip() or not payload.label.strip():
+        raise HTTPException(status_code=400, detail="Label and value are required")
+        
+    with get_conn() as conn:
+        try:
+            cursor = conn.execute(
+                "INSERT INTO pdf_passwords (user_id, label, value) VALUES (?, ?, ?)",
+                (current_user.id, payload.label.strip(), payload.value.strip())
+            )
+            conn.commit()
+            
+            row = conn.execute(
+                "SELECT id, label, value, created_at FROM pdf_passwords WHERE id = ?",
+                (cursor.lastrowid,)
+            ).fetchone()
+            
+            p = dict(row)
+            p["value"] = "••••" + p["value"][-4:] if len(p["value"]) >= 4 else "••••"
+            return schemas.PdfPassword(**p)
+            
+        except Exception as e:
+            conn.rollback()
+            raise HTTPException(status_code=400, detail="Password already exists or invalid data")
+
+@app.delete("/user/pdf-passwords/{password_id}")
+def delete_pdf_password(
+    password_id: int,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Delete a stored PDF password."""
+    with get_conn() as conn:
+        cursor = conn.execute(
+            "DELETE FROM pdf_passwords WHERE id = ? AND user_id = ?",
+            (password_id, current_user.id)
+        )
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Password not found")
+        conn.commit()
+    return {"status": "success", "message": "Password deleted"}
+
+
+@app.post("/user/onboarding")
+def complete_onboarding(
+    payload: schemas.OnboardingData,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Save onboarding data (passwords) and mark onboarding as complete."""
+    with get_conn() as conn:
+        def save_password(label, value):
+            if not value or not value.strip(): return
+            v = value.strip()
+            # First check if exists to avoid unique constraint error
+            row = conn.execute("SELECT id FROM pdf_passwords WHERE user_id = ? AND label = ? AND value = ?", 
+                              (current_user.id, label, v)).fetchone()
+            if not row:
+                try:
+                    conn.execute("INSERT INTO pdf_passwords (user_id, label, value) VALUES (?, ?, ?)",
+                                (current_user.id, label, v))
+                except Exception:
+                    pass
+
+        save_password("PAN", payload.pan)
+        save_password("DOB", payload.dob)
+        save_password("Name", payload.name)
+        save_password("Card Last 4", payload.card_last_4)
+            
+        if payload.custom_passwords:
+            for p in payload.custom_passwords:
+                save_password("Custom", p)
+                    
+        # SQLite/PostgreSQL safe BOOLEAN/INTEGER TRUE
+        conn.execute(
+            "UPDATE users SET onboarding_completed = TRUE WHERE id = ?",
+            (current_user.id,)
+        )
+        conn.commit()
+        
+    return {"status": "success", "message": "Onboarding completed"}
+
+@app.get("/user/onboarding/status")
+def get_onboarding_status(current_user: schemas.User = Depends(get_current_user)):
+    """Check if the user has completed onboarding."""
+    return {"onboarding_completed": bool(current_user.onboarding_completed)}
 
 @app.get("/email-imports", response_model=List[schemas.EmailImport])
 def list_email_imports(

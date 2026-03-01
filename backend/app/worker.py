@@ -216,6 +216,22 @@ def process_user_sync(conn, user):
 
                     print(f"Processing attachment: {filename}")
 
+                    # ── Attempt PDF Unlock ──
+                    if source == "pdf":
+                        from app.ingest.pdf_unlock import try_unlock_pdf
+                        try:
+                            data = try_unlock_pdf(conn, data, user_id)
+                        except ValueError as e:
+                            print(f"Failed to unlock encrypted PDF {filename}: {e}")
+                            # Record as a missing statement due to password failure
+                            _update_email_import(conn, import_id, status='skipped',
+                                                error_message=f'Password required for {filename}')
+                            _create_missing_statement(
+                                conn, user_id, import_id, sender, subject,
+                                received_at, reason='password_failed'
+                            )
+                            continue  # Skip to next attachment or email
+
                     # Detect which account this belongs to
                     matched_acc = detect_statement_account(conn, filename, data, user_id=user_id)
                     account_id = matched_acc["id"] if matched_acc else None

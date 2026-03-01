@@ -15,6 +15,13 @@ type UserProfile = {
     gmail_filter_query: string | null;
 };
 
+type PdfPassword = {
+    id: number;
+    label: string;
+    value: string;
+    created_at: string;
+};
+
 function Profile({ apiBase }: Props) {
     const [user, setUser] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
@@ -32,6 +39,12 @@ function Profile({ apiBase }: Props) {
     const [importing, setImporting] = useState(false);
     const [importFile, setImportFile] = useState<File | null>(null);
 
+    // PDF Password states
+    const [passwords, setPasswords] = useState<PdfPassword[]>([]);
+    const [newPasswordLabel, setNewPasswordLabel] = useState("PAN");
+    const [newPasswordValue, setNewPasswordValue] = useState("");
+    const [passwordLoading, setPasswordLoading] = useState(false);
+
     const fetchProfile = async () => {
         try {
             const res = await fetchWithAuth(`${apiBase}/auth/me`);
@@ -40,10 +53,63 @@ function Profile({ apiBase }: Props) {
                 setUser(data);
                 setFilterQuery(data.gmail_filter_query || "");
             }
+
+            // Fetch passwords
+            const pwRes = await fetchWithAuth(`${apiBase}/user/pdf-passwords`);
+            if ((pwRes as Response).ok) {
+                const pwData = await (pwRes as Response).json();
+                setPasswords(pwData);
+            }
         } catch (err) {
             setError("Failed to load profile");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleAddPassword = async () => {
+        if (!newPasswordValue.trim() || !newPasswordLabel) return;
+        setPasswordLoading(true);
+        setError("");
+        try {
+            const res = await fetchWithAuth(`${apiBase}/user/pdf-passwords`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ label: newPasswordLabel, value: newPasswordValue }),
+            });
+            if ((res as Response).ok) {
+                const newPw = await (res as Response).json();
+                setPasswords([...passwords, newPw]);
+                setNewPasswordValue("");
+                setSuccess("Password added successfully");
+                setTimeout(() => setSuccess(""), 3000);
+            } else {
+                const data = await (res as Response).json();
+                setError(data.detail || "Failed to add password");
+            }
+        } catch (err) {
+            setError("Network error adding password");
+        } finally {
+            setPasswordLoading(false);
+        }
+    };
+
+    const handleDeletePassword = async (id: number) => {
+        if (!window.confirm("Delete this password?")) return;
+        setError("");
+        try {
+            const res = await fetchWithAuth(`${apiBase}/user/pdf-passwords/${id}`, {
+                method: "DELETE",
+            });
+            if ((res as Response).ok) {
+                setPasswords(passwords.filter((p) => p.id !== id));
+                setSuccess("Password deleted");
+                setTimeout(() => setSuccess(""), 3000);
+            } else {
+                setError("Failed to delete password");
+            }
+        } catch (err) {
+            setError("Network error deleting password");
         }
     };
 
@@ -286,6 +352,75 @@ function Profile({ apiBase }: Props) {
                         </label>
                         <p className="text-text">{user?.email || "Not provided"}</p>
                     </div>
+                </div>
+            </section>
+
+            {/* Statement Passwords */}
+            <section className="bg-bg-card border border-border rounded-xl p-6 mb-8">
+                <div className="flex justify-between items-start mb-6">
+                    <div>
+                        <h2 className="flex items-center gap-2.5 text-xl font-semibold">
+                            <span className="text-2xl">🔑</span> Statement Passwords
+                        </h2>
+                        <p className="text-text-muted mt-1">
+                            Add passwords like your PAN, DOB, or card last 4 digits so we can automatically unlock encrypted bank statements.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    {passwords.map((pw) => (
+                        <div key={pw.id} className="flex items-center justify-between p-4 bg-bg-input rounded-lg border border-border">
+                            <div className="flex flex-col">
+                                <span className="font-medium text-text">{pw.label}</span>
+                                <span className="text-sm font-mono text-text-muted mt-1">{pw.value}</span>
+                            </div>
+                            <button
+                                onClick={() => handleDeletePassword(pw.id)}
+                                className="text-danger hover:text-danger/80 text-sm font-medium px-3 py-1.5 border border-danger/30 rounded-lg hover:bg-danger/10"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    ))}
+                    {passwords.length === 0 && (
+                        <div className="text-center p-6 border border-dashed border-border rounded-lg text-text-muted">
+                            No passwords saved yet. Add one below.
+                        </div>
+                    )}
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-border flex flex-col sm:flex-row gap-3 items-start">
+                    <div className="w-full sm:w-1/3 text-text-secondary">
+                        <select
+                            value={newPasswordLabel}
+                            onChange={(e) => setNewPasswordLabel(e.target.value)}
+                            className="w-full px-3 py-2 bg-transparent border border-border rounded-lg text-text text-sm focus:outline-none focus:border-accent"
+                        >
+                            <option value="PAN">PAN Number</option>
+                            <option value="DOB">DOB (DDMMYYYY or DD-MM-YYYY)</option>
+                            <option value="Name">Name (as on account)</option>
+                            <option value="Card Last 4">Card Last 4 Digits</option>
+                            <option value="Custom">Custom Password</option>
+                        </select>
+                    </div>
+                    <div className="flex-1 w-full">
+                        <input
+                            type={newPasswordLabel === "DOB" ? "text" : "password"}
+                            value={newPasswordValue}
+                            onChange={(e) => setNewPasswordValue(newPasswordLabel === "PAN" ? e.target.value.toUpperCase() : e.target.value)}
+                            placeholder={newPasswordLabel === "PAN" ? "ABCDE1234F" : newPasswordLabel === "DOB" ? "DD-MM-YYYY or DDMMYYYY" : "Enter password"}
+                            className="w-full px-3 py-2 bg-bg-input border border-border rounded-lg text-text text-sm focus:outline-none focus:border-accent"
+                            onKeyDown={(e) => e.key === "Enter" && handleAddPassword()}
+                        />
+                    </div>
+                    <button
+                        onClick={handleAddPassword}
+                        disabled={passwordLoading || !newPasswordValue.trim()}
+                        className="w-full sm:w-auto px-5 py-2 bg-accent text-white rounded-lg font-medium text-sm hover:opacity-90 disabled:opacity-50 whitespace-nowrap"
+                    >
+                        {passwordLoading ? "Adding..." : "Add Password"}
+                    </button>
                 </div>
             </section>
 

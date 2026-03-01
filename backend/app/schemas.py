@@ -21,6 +21,25 @@ class User(BaseModel):
     gmail_enabled: bool = False
     gmail_last_sync: Optional[datetime] = None
     gmail_filter_query: Optional[str] = None
+    onboarding_completed: bool = False
+
+
+class PdfPassword(BaseModel):
+    id: int
+    label: str
+    value: str  # Will be masked when sent to frontend
+    created_at: Union[datetime, str]
+
+class PdfPasswordCreate(BaseModel):
+    label: str
+    value: str
+
+class OnboardingData(BaseModel):
+    pan: Optional[str] = None
+    dob: Optional[str] = None
+    name: Optional[str] = None
+    card_last_4: Optional[str] = None
+    custom_passwords: Optional[List[str]] = None
 
 class GmailConfigUpdate(BaseModel):
     gmail_enabled: Optional[bool] = None
