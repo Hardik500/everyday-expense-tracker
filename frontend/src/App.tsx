@@ -154,6 +154,17 @@ function AppContent() {
     }
   };
 
+  // Render onboarding full screen, outside of layout
+  if (location.pathname === "/onboarding") {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/onboarding" element={<OnboardingPage apiBase={API_BASE} />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
   return (
     <Layout
       reviewCount={reviewCount}
@@ -170,7 +181,6 @@ function AppContent() {
 
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route path="/onboarding" element={<OnboardingPage apiBase={API_BASE} />} />
           <Route
             path="/"
             element={
