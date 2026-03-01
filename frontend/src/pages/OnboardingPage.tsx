@@ -64,7 +64,7 @@ export default function OnboardingPage({ apiBase }: Props) {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-bg-main p-5">
-            <div className="w-full max-w-lg bg-bg-card border border-border rounded-2xl p-8 shadow-xl">
+            <div className="w-full max-w-3xl bg-bg-card border border-border rounded-2xl p-8 shadow-xl">
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold mb-3 text-text">Welcome to ExpenseTracker! 🎉</h1>
                     <p className="text-text-muted">
