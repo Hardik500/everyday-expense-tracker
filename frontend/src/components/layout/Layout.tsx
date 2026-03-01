@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-type Tab = "dashboard" | "analytics" | "accounts" | "categories" | "rules" | "recurring" | "upload" | "review" | "transactions" | "profile" | "goals" | "calendar";
+type Tab = "dashboard" | "analytics" | "accounts" | "categories" | "rules" | "recurring" | "upload" | "review" | "transactions" | "profile" | "goals" | "calendar" | "email-imports";
 
 type NavItem = {
   id: Tab;
@@ -18,9 +18,8 @@ type LayoutProps = {
 
 const NavIcon = ({ active, children }: { active: boolean; children: ReactNode }) => (
   <div
-    className={`w-10 h-10 rounded-[10px] flex items-center justify-center transition-all duration-150 ${
-      active ? "bg-accent text-white" : "bg-transparent text-text-muted"
-    }`}
+    className={`w-10 h-10 rounded-[10px] flex items-center justify-center transition-all duration-150 ${active ? "bg-accent text-white" : "bg-transparent text-text-muted"
+      }`}
   >
     {children}
   </div>
@@ -126,6 +125,15 @@ const navItems: NavItem[] = [
       </svg>
     ),
   },
+  {
+    id: "email-imports" as Tab,
+    label: "Email Sync",
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
 ];
 
 export default function Layout({ reviewCount = 0, user, onLogout, children }: LayoutProps) {
@@ -135,7 +143,7 @@ export default function Layout({ reviewCount = 0, user, onLogout, children }: La
   // Get current tab from pathname
   const getCurrentTab = (): Tab => {
     const path = location.pathname.slice(1); // Remove leading /
-    const validTabs: Tab[] = ["dashboard", "analytics", "accounts", "categories", "rules", "recurring", "upload", "review", "transactions", "profile", "goals", "calendar"];
+    const validTabs: Tab[] = ["dashboard", "analytics", "accounts", "categories", "rules", "recurring", "upload", "review", "transactions", "profile", "goals", "calendar", "email-imports"];
     return validTabs.includes(path as Tab) ? (path as Tab) : "dashboard";
   };
 
@@ -177,9 +185,8 @@ export default function Layout({ reviewCount = 0, user, onLogout, children }: La
             <button
               key={item.id}
               onClick={() => handleNavClick(item.id)}
-              className={`bg-transparent border-none p-0 relative transition-opacity ${
-                activeTab === item.id ? "cursor-default opacity-100" : "cursor-pointer opacity-70 hover:opacity-100"
-              }`}
+              className={`bg-transparent border-none p-0 relative transition-opacity ${activeTab === item.id ? "cursor-default opacity-100" : "cursor-pointer opacity-70 hover:opacity-100"
+                }`}
               title={item.label}
             >
               <NavIcon active={activeTab === item.id}>{item.icon}</NavIcon>
@@ -199,11 +206,10 @@ export default function Layout({ reviewCount = 0, user, onLogout, children }: La
           <button
             onClick={() => navigate("/profile")}
             title={user?.full_name || user?.username || "Profile"}
-            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
-              activeTab === "profile"
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${activeTab === "profile"
                 ? "bg-bg-primary border-2 border-accent text-accent"
                 : "bg-bg-primary border border-border-color text-accent"
-            }`}
+              }`}
           >
             {(user?.full_name || user?.username || "?")?.[0].toUpperCase()}
           </button>

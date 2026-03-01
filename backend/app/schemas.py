@@ -374,3 +374,45 @@ class CashFlowCalendar(BaseModel):
     days: List[CalendarDayData]
     month_total: Dict[str, float]
 
+
+# ========== EMAIL IMPORT PIPELINE ==========
+
+class EmailImport(BaseModel):
+    id: int
+    gmail_message_id: str
+    sender: Optional[str] = None
+    subject: Optional[str] = None
+    received_at: Optional[datetime] = None
+    status: str
+    error_message: Optional[str] = None
+    attachments_found: int = 0
+    transactions_imported: int = 0
+    transactions_skipped: int = 0
+    created_at: Union[datetime, str]
+
+
+class EmailImportDetail(EmailImport):
+    statements: List[Dict[str, Any]] = []
+
+
+class MissingStatement(BaseModel):
+    id: int
+    email_import_id: Optional[int] = None
+    sender: Optional[str] = None
+    subject: Optional[str] = None
+    received_at: Optional[datetime] = None
+    reason: str
+    resolved: bool = False
+    resolved_statement_id: Optional[int] = None
+    created_at: Union[datetime, str]
+
+
+class GmailSyncStatus(BaseModel):
+    gmail_enabled: bool = False
+    gmail_connected: bool = False
+    last_sync: Optional[datetime] = None
+    total_imports: int = 0
+    total_transactions_imported: int = 0
+    total_missing: int = 0
+    is_syncing: bool = False
+
