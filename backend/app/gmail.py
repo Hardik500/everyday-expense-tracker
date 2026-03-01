@@ -60,7 +60,8 @@ def get_gmail_service(refresh_token):
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
             
-    return build('gmail', 'v1', credentials=creds)
+    # Disable cache discovery to silence the harmless "file_cache is only supported" warning
+    return build('gmail', 'v1', credentials=creds, cache_discovery=False)
 
 def sync_user_gmail(user_id, refresh_token, query):
     """Placeholder for the actual sync logic (to be implemented in worker.py)."""
