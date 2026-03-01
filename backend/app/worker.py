@@ -146,6 +146,8 @@ def process_user_sync(conn, user):
     last_sync = user["gmail_last_sync"]
 
     print(f"Starting Gmail sync for user {user_id} ({user['username']})")
+    print(f"  -> Using query: {query}")
+    print(f"  -> Last sync timestamp: {last_sync}")
 
     service = None
     try:
@@ -167,17 +169,18 @@ def process_user_sync(conn, user):
         messages = results.get('messages', [])
 
         if not messages:
-            print(f"No new messages for user {user_id}")
+            print(f"No new messages for user {user_id}. Query returned 0 results.")
             return
 
-        print(f"Found {len(messages)} potential messages for user {user_id}")
+        print(f"Found {len(messages)} potential messages matching the query.")
 
         for msg in messages:
             gmail_message_id = msg['id']
+            print(f"\n--- Processing Message ID: {gmail_message_id} ---")
 
             # ── Dedup: skip already-processed messages ──
             if _is_message_processed(conn, user_id, gmail_message_id):
-                print(f"Skipping already processed message {gmail_message_id}")
+                print(f"  [SKIP] Message {gmail_message_id} is already in the database.")
                 continue
 
             msg_data = service.users().messages().get(userId='me', id=gmail_message_id).execute()
@@ -225,8 +228,10 @@ def process_user_sync(conn, user):
                         conn, user_id, import_id, sender, subject,
                         received_at, reason='no_attachment'
                     )
-                    print(f"No attachments in message {gmail_message_id} from {sender}")
+                    print(f"  [SKIPPED] No valid attachments inside '{subject}' from {sender}")
                     continue
+                    
+                print(f"  Found {len(attachment_parts)} potential attachments.")
 
                 total_imported = 0
                 total_skipped = 0
@@ -248,17 +253,21 @@ def process_user_sync(conn, user):
 
                     data = base64.urlsafe_b64decode(attachment['data'].encode('UTF-8'))
 
-                    print(f"Processing attachment: {filename}")
+                    print(f"  Processing attachment: {filename} (Type: {source})")
 
                     # ── Attempt PDF Unlock ──
                     if source == "pdf":
+                        print(f"    -> Attempting to unlock PDF...")
                         from app.ingest.pdf_unlock import try_unlock_pdf
                         extra_passwords = _extract_potential_passwords_from_email(msg_data.get('payload', {}))
+                        if extra_passwords:
+                            print(f"    -> Found {len(extra_passwords)} potential 4-digit card endings in email body.")
                         
                         try:
                             data = try_unlock_pdf(conn, data, user_id, extra_passwords=extra_passwords)
+                            print(f"    -> Successfully unlocked or verified PDF.")
                         except ValueError as e:
-                            print(f"Failed to unlock encrypted PDF {filename}: {e}")
+                            print(f"    [ERROR] Failed to unlock encrypted PDF {filename}: {e}")
                             # Record as a missing statement due to password failure
                             _update_email_import(conn, import_id, status='skipped',
                                                 error_message=f'Password required for {filename}')
@@ -273,9 +282,11 @@ def process_user_sync(conn, user):
                     account_id = matched_acc["id"] if matched_acc else None
 
                     if not account_id:
-                        print(f"Skipping {filename}: Could not determine account.")
+                        print(f"    [SKIP] {filename}: Could not auto-detect the associated account.")
                         total_skipped += 1
                         continue
+                    
+                    print(f"    -> Mapped to Bank Account ID: {account_id}")
 
                     # Upload to Supabase Storage
                     storage_path = upload_statement(user_id, filename, data)
