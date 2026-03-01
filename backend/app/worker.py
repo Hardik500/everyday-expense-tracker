@@ -49,15 +49,37 @@ def _is_message_processed(conn, user_id: int, gmail_message_id: str) -> bool:
 
 def _create_email_import(conn, user_id: int, gmail_message_id: str,
                          sender: str, subject: str, received_at: str) -> int:
-    """Create an email_imports row and return its ID."""
-    cursor = conn.execute(
-        """INSERT INTO email_imports
-           (user_id, gmail_message_id, sender, subject, received_at, status)
-           VALUES (?, ?, ?, ?, ?, 'processing')""",
-        (user_id, gmail_message_id, sender, subject, received_at)
-    )
-    conn.commit()
-    return cursor.lastrowid
+    """Create or reset an email_imports row and return its ID."""
+    row = conn.execute(
+        "SELECT id FROM email_imports WHERE user_id = ? AND gmail_message_id = ?",
+        (user_id, gmail_message_id)
+    ).fetchone()
+    
+    if row:
+        import_id = row['id']
+        conn.execute(
+            """UPDATE email_imports 
+               SET status = 'processing', error_message = NULL,
+                   attachments_found = 0, transactions_imported = 0, transactions_skipped = 0
+               WHERE id = ?""",
+            (import_id,)
+        )
+        # Clear any missing_statements for this import to start fresh
+        conn.execute(
+            "DELETE FROM missing_statements WHERE email_import_id = ?",
+            (import_id,)
+        )
+        conn.commit()
+        return import_id
+    else:
+        cursor = conn.execute(
+            """INSERT INTO email_imports
+               (user_id, gmail_message_id, sender, subject, received_at, status)
+               VALUES (?, ?, ?, ?, ?, 'processing')""",
+            (user_id, gmail_message_id, sender, subject, received_at)
+        )
+        conn.commit()
+        return cursor.lastrowid
 
 
 def _update_email_import(conn, import_id: int, status: str,
