@@ -170,6 +170,7 @@ function AppContent() {
 
       <Suspense fallback={<PageLoader />}>
         <Routes>
+          <Route path="/onboarding" element={<OnboardingPage apiBase={API_BASE} />} />
           <Route
             path="/"
             element={
