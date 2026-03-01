@@ -23,6 +23,13 @@ def _generate_password_variants(base_passwords: List[str]) -> List[str]:
             variants.add(f"{d}-{m}-{y}")
             variants.add(f"{d}{m}{y[-2:]}")
             
+        # If it looks like DD-MM-YYYY, generate DDMMYYYY, DDMMYY
+        if len(pwd) == 10 and pwd[2] == '-' and pwd[5] == '-':
+            d, m, y = pwd[:2], pwd[3:5], pwd[6:]
+            if d.isdigit() and m.isdigit() and y.isdigit():
+                variants.add(f"{d}{m}{y}")
+                variants.add(f"{d}{m}{y[-2:]}")
+            
     return list(variants)
 
 def try_unlock_pdf(conn, payload: bytes, user_id: int) -> bytes:
