@@ -179,24 +179,37 @@ export const worker = setupWorker(
     return HttpResponse.json({ imported: 0, errors: [] });
   }),
 
-  // Recurring
-  http.get(`${API_BASE}/api/recurring`, () => {
+  // Recurring Expenses
+  http.get(`${API_BASE}/recurring-expenses`, () => {
     return HttpResponse.json([
-      { id: 1, name: 'Netflix', amount: 15, frequency: 'monthly', category_id: 1, next_date: '2026-03-01' },
+      { id: 1, name: 'Netflix', amount: 199, currency: 'INR', frequency: 'monthly', category_id: 1, next_due_date: '2026-03-01', is_active: true, auto_detected: false, alert_days_before: 3, start_date: '2026-01-01', category_name: 'Entertainment' },
+      { id: 2, name: 'Internet Bill', amount: 999, currency: 'INR', frequency: 'monthly', category_id: 2, next_due_date: '2026-03-05', is_active: true, auto_detected: false, alert_days_before: 3, start_date: '2026-01-01', category_name: 'Utilities' },
+      { id: 3, name: 'Spotify', amount: 399, currency: 'INR', frequency: 'monthly', category_id: 1, next_due_date: '2026-03-10', is_active: false, auto_detected: true, alert_days_before: 3, start_date: '2026-01-01', category_name: 'Entertainment' },
     ]);
   }),
 
-  http.post(`${API_BASE}/api/recurring`, async ({ request }) => {
-    const body = await request.json();
-    return HttpResponse.json({ id: 2, ...body }, { status: 201 });
+  http.get(`${API_BASE}/recurring-expenses/stats/summary`, () => {
+    return HttpResponse.json({
+      total_active: 2,
+      upcoming_count: 1,
+      overdue_count: 0,
+      monthly_total: 1198,
+      by_frequency: { monthly: { count: 2, total: 1198 } },
+      by_category: []
+    });
   }),
 
-  http.put(`${API_BASE}/api/recurring/:id`, async ({ params, request }) => {
+  http.post(`${API_BASE}/recurring-expenses`, async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({ id: 4, ...body }, { status: 201 });
+  }),
+
+  http.patch(`${API_BASE}/recurring-expenses/:id`, async ({ params, request }) => {
     const body = await request.json();
     return HttpResponse.json({ id: params.id, ...body });
   }),
 
-  http.delete(`${API_BASE}/api/recurring/:id`, () => {
+  http.delete(`${API_BASE}/recurring-expenses/:id`, () => {
     return HttpResponse.json({ success: true });
   }),
 
