@@ -252,4 +252,84 @@ export const worker = setupWorker(
       { account_id: 2, account_name: 'Cash', total_income: 500, total_expenses: 200, balance: 500 },
     ]);
   }),
+  // ========= V1 API Handlers =========
+  // These handle /api/v1/* routes used by P0 features
+
+  // Goals v1
+  http.get(`${API_BASE}/api/v1/goals`, () => {
+    return HttpResponse.json([
+      { id: 1, name: 'Emergency Fund', target_amount: 5000, current_amount: 2500, deadline: '2026-12-31', category_id: null },
+      { id: 2, name: 'Vacation', target_amount: 2000, current_amount: 500, deadline: '2026-06-30', category_id: null },
+    ]);
+  }),
+
+  http.post(`${API_BASE}/api/v1/goals`, async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({ id: 3, ...body }, { status: 201 });
+  }),
+
+  http.put(`${API_BASE}/api/v1/goals/:id`, async ({ params, request }) => {
+    const body = await request.json();
+    return HttpResponse.json({ id: params.id, ...body });
+  }),
+
+  http.post(`${API_BASE}/api/v1/goals/:id/contribute`, async ({ params, request }) => {
+    const body = await request.json();
+    return HttpResponse.json({ id: params.id, current_amount: body.amount, success: true });
+  }),
+
+  http.delete(`${API_BASE}/api/v1/goals/:id`, () => {
+    return HttpResponse.json({ success: true });
+  }),
+
+  // Duplicates v1
+  http.get(`${API_BASE}/api/v1/duplicates`, () => {
+    return HttpResponse.json({
+      duplicates: [],
+      total: 0,
+    });
+  }),
+
+  http.post(`${API_BASE}/api/v1/duplicates/detect`, () => {
+    return HttpResponse.json({ scanned: 0, found: 0 });
+  }),
+
+  http.post(`${API_BASE}/api/v1/duplicates/action`, async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({ merged: body.ids?.length || 0 });
+  }),
+
+  // Calendar v1
+  http.get(`${API_BASE}/api/v1/calendar/month`, ({ request }) => {
+    const url = new URL(request.url);
+    const year = url.searchParams.get('year') || '2026';
+    const month = url.searchParams.get('month') || '2';
+    
+    const days = [];
+    const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      days.push({
+        date: `${year}-${month.padStart(2, '0')}-${d.toString().padStart(2, '0')}`,
+        income: Math.random() > 0.7 ? Math.floor(Math.random() * 2000) : 0,
+        expenses: Math.random() > 0.3 ? Math.floor(Math.random() * 500) : 0,
+      });
+    }
+    
+    return HttpResponse.json(days);
+  }),
+
+  // Backup v1
+  http.get(`${API_BASE}/api/v1/backup/export`, () => {
+    return HttpResponse.json({
+      accounts: [],
+      categories: [],
+      transactions: [],
+      goals: [],
+      exported_at: new Date().toISOString(),
+    });
+  }),
+
+  http.post(`${API_BASE}/api/v1/backup/import`, () => {
+    return HttpResponse.json({ imported: 0, errors: [] });
+  }),
 );
