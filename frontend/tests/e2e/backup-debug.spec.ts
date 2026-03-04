@@ -1,36 +1,30 @@
 import { test, expect } from '@playwright/test';
 
 test('debug profile loading', async ({ page }) => {
-  const errors = [];
-  page.on('console', msg => {
-    if (msg.type() === 'error') {
-      errors.push(msg.text());
-    }
-  });
-  
-  page.on('requestfailed', request => {
-    console.log('REQUEST FAILED:', request.url(), request.failure()?.errorText);
-  });
-  
+  // Set up localStorage auth BEFORE page loads
   await page.addInitScript(() => {
     (window as any).supabase = {
       auth: {
         getSession: async () => ({ 
-          data: { session: { user: { id: 'test-user' }, access_token: 'mock-token' } }, 
+          data: { session: { user: { id: 'test-user-123' }, access_token: 'mock-access-token' } }, 
           error: null 
         }),
         onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } }, error: null }),
       },
     };
-    localStorage.setItem('auth_token', 'mock-token');
-    localStorage.setItem('auth_user', JSON.stringify({ id: 1, username: 'testuser' }));
   });
 
-  await page.route('**/api/**', async (route) => {
+  // Mock API
+  await page.route('**/*', async (route) => {
     const url = route.request().url();
-    console.log('API REQUEST:', url);
+    console.log('REQUEST:', url);
     
-    if (url.includes('/api/auth/me')) {
+    if (!url.includes('/api/')) {
+      await route.continue();
+      return;
+    }
+    
+    if (url.includes('/auth/me')) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -39,7 +33,8 @@ test('debug profile loading', async ({ page }) => {
           username: 'testuser', 
           email: 'test@example.com',
           currency: 'INR',
-          locale: 'en-IN'
+          locale: 'en-IN',
+          onboarding_completed: true
         }),
       });
       return;
@@ -55,6 +50,8 @@ test('debug profile loading', async ({ page }) => {
   await page.goto('/profile');
   await page.waitForTimeout(3000);
   
-  console.log('CONSOLE ERRORS:', JSON.stringify(errors));
-  console.log('Page URL:', page.url());
+  // Print URL and visible text
+  console.log('CURRENT URL:', page.url());
+  const bodyText = await page.locator('body').textContent();
+  console.log('BODY TEXT:', bodyText?.substring(0, 500));
 });

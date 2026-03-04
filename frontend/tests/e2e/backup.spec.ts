@@ -2,6 +2,33 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Backup/Restore UI', () => {
   test.beforeEach(async ({ page }) => {
+    // Set up localStorage auth BEFORE page loads - this is critical
+    await page.addInitScript(() => {
+      // Mock Supabase auth
+      (window as any).supabase = {
+        auth: {
+          getSession: async () => ({ 
+            data: { session: { user: { id: 'test-user-123' }, access_token: 'mock-access-token' } }, 
+            error: null 
+          }),
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } }, error: null }),
+        },
+      };
+      
+      // Set localStorage auth data - frontend checks this
+      localStorage.setItem('supabase.auth.token', JSON.stringify({
+        access_token: 'mock-access-token',
+        user: { id: 'test-user-123', email: 'test@example.com' }
+      }));
+      localStorage.setItem('auth_token', 'mock-access-token');
+      localStorage.setItem('auth_user', JSON.stringify({ 
+        id: 1, 
+        username: 'testuser', 
+        email: 'test@example.com',
+        onboarding_completed: true
+      }));
+    });
+
     // Mock ALL fetch requests before page loads
     await page.route('**/*', async (route) => {
       const url = route.request().url();
@@ -22,7 +49,8 @@ test.describe('Backup/Restore UI', () => {
             username: 'testuser', 
             email: 'test@example.com',
             currency: 'INR',
-            locale: 'en-IN'
+            locale: 'en-IN',
+            onboarding_completed: true
           }),
         });
         return;
@@ -78,21 +106,6 @@ test.describe('Backup/Restore UI', () => {
         contentType: 'application/json',
         body: JSON.stringify({ success: true }),
       });
-    });
-
-    // Set up localStorage auth after route handler
-    await page.addInitScript(() => {
-      (window as any).supabase = {
-        auth: {
-          getSession: async () => ({ 
-            data: { session: { user: { id: 'test-user' }, access_token: 'mock-token' } }, 
-            error: null 
-          }),
-          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } }, error: null }),
-        },
-      };
-      localStorage.setItem('auth_token', 'mock-token');
-      localStorage.setItem('auth_user', JSON.stringify({ id: 1, username: 'testuser' }));
     });
   });
 
