@@ -155,8 +155,8 @@ export const handlers = [
     const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
     for (let d = 1; d <= daysInMonth; d++) {
       days.push({
-        date: year + '-' + month.padStart(2, '0') + '-' + d.toString()., '0'),
-padStart(2        income: Math.random() > 0.7 ? Math.floor(Math.random() * 2000) : 0,
+        date: `${year}-${month.padStart(2, '0')}-${d.toString().padStart(2, '0')}`,
+        income: Math.random() > 0.7 ? Math.floor(Math.random() * 2000) : 0,
         expenses: Math.random() > 0.3 ? Math.floor(Math.random() * 500) : 0,
       });
     }
