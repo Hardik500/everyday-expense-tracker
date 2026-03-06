@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Backup/Restore UI', () => {
   test.beforeEach(async ({ page }) => {
-    // Set up localStorage auth BEFORE page loads - this is critical
+    // CRITICAL: Start MSW first, then set up mocks
     await page.addInitScript(() => {
-      // Mock Supabase auth
+      // Mock supabase at window level - this is what AuthContext calls
       (window as any).supabase = {
         auth: {
           getSession: async () => ({ 
@@ -15,11 +15,7 @@ test.describe('Backup/Restore UI', () => {
         },
       };
       
-      // Set localStorage auth data - frontend checks this
-      localStorage.setItem('supabase.auth.token', JSON.stringify({
-        access_token: 'mock-access-token',
-        user: { id: 'test-user-123', email: 'test@example.com' }
-      }));
+      // Set localStorage auth data BEFORE page loads
       localStorage.setItem('auth_token', 'mock-access-token');
       localStorage.setItem('auth_user', JSON.stringify({ 
         id: 1, 
@@ -27,91 +23,154 @@ test.describe('Backup/Restore UI', () => {
         email: 'test@example.com',
         onboarding_completed: true
       }));
+      
+      // Also set the supabase token format
+      localStorage.setItem('supabase.auth.token', JSON.stringify({
+        access_token: 'mock-access-token',
+        user: { id: 'test-user-123', email: 'test@example.com' }
+      }));
     });
 
-    // Mock ALL fetch requests before page loads
+    // Intercept ALL requests - including supabase
     await page.route('**/*', async (route) => {
       const url = route.request().url();
+      const method = route.request().method();
       
-      // Only intercept API calls
-      if (!url.includes('/api/')) {
-        await route.continue();
-        return;
+      // Handle Supabase auth requests
+      if (url.includes('supabase') || url.includes('auth/v1')) {
+        if (url.includes('session')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              access_token: 'mock-access-token',
+              user: { id: 'test-user-123', email: 'test@example.com' }
+            }),
+          });
+          return;
+        }
       }
       
-      // Mock auth/me endpoint - CRITICAL for profile to load
-      if (url.includes('/api/auth/me')) {
+      // Handle API requests
+      if (url.includes('/api/')) {
+        // Auth/me - critical for authenticated routes
+        if (url.includes('/api/auth/me') || url.includes('/auth/me')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ 
+              id: 1, 
+              username: 'testuser', 
+              email: 'test@example.com',
+              currency: 'INR',
+              locale: 'en-IN',
+              onboarding_completed: true
+            }),
+          });
+          return;
+        }
+        
+        // Categories
+        if (url.includes('/api/categories')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([]),
+          });
+          return;
+        }
+        
+        // Accounts
+        if (url.includes('/api/accounts')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([]),
+          });
+          return;
+        }
+        
+        // Goals
+        if (url.includes('/api/goals')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([]),
+          });
+          return;
+        }
+        
+        // Review count
+        if (url.includes('/api/review') && url.includes('count')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([]),
+          });
+          return;
+        }
+        
+        // Backup export
+        if (url.includes('/api/backup/export') || url.includes('/backup/export')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              transactions: [],
+              accounts: [],
+              categories: [],
+              goals: []
+            }),
+          });
+          return;
+        }
+        
+        // Backup import
+        if (url.includes('/api/backup/import') || url.includes('/backup/import')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',  
+            body: JSON.stringify({
+              imported: { transactions: 0, accounts: 0 },
+              errors: []
+            }),
+          });
+          return;
+        }
+        
+        // Profile
+        if (url.includes('/api/user/profile')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ 
+              id: 1, 
+              username: 'testuser', 
+              email: 'test@example.com',
+              currency: 'INR',
+              locale: 'en-IN',
+              theme: 'light'
+            }),
+          });
+          return;
+        }
+        
+        // Default: return success
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ 
-            id: 1, 
-            username: 'testuser', 
-            email: 'test@example.com',
-            currency: 'INR',
-            locale: 'en-IN',
-            onboarding_completed: true
-          }),
+          body: JSON.stringify({ success: true }),
         });
         return;
       }
       
-      // Mock user/profile endpoint
-      if (url.includes('/api/user/profile')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ 
-            id: 1, 
-            username: 'testuser', 
-            email: 'test@example.com',
-            currency: 'INR',
-            locale: 'en-IN',
-            theme: 'light'
-          }),
-        });
-        return;
-      }
-      
-      // Mock backup endpoints
-      if (url.includes('/api/backup/export')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            transactions: [],
-            accounts: [],
-            categories: [],
-            goals: []
-          }),
-        });
-        return;
-      }
-      
-      if (url.includes('/api/backup/import')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',  
-          body: JSON.stringify({
-            imported: { transactions: 0, accounts: 0 },
-            errors: []
-          }),
-        });
-        return;
-      }
-      
-      // Default: return empty success response
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true }),
-      });
+      // Let all other requests through (static assets, etc.)
+      await route.continue();
     });
   });
 
   test('should display backup section with export button', async ({ page }) => {
     await page.goto('/profile');
-    // Wait for the page to load (backup section appears after profile loads)
     await expect(page.getByText('Data Backup')).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('Export your data as JSON')).toBeVisible();
     const exportButton = page.getByRole('button', { name: /export backup/i });
@@ -128,7 +187,6 @@ test.describe('Backup/Restore UI', () => {
   test('should display both export and import sections', async ({ page }) => {
     await page.goto('/profile');
     await expect(page.getByText('Data Backup')).toBeVisible({ timeout: 15000 });
-    // Check both sections are present
     await expect(page.getByText('Export Backup')).toBeVisible();
     await expect(page.getByText('Restore Data')).toBeVisible();
   });

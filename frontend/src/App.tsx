@@ -31,6 +31,7 @@ const TransactionsPage = lazy(() => import("./pages/TransactionsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const GoalsPage = lazy(() => import("./pages/GoalsPage"));
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
+const DuplicatesPage = lazy(() => import("./pages/DuplicatesPage"));
 const EmailImportsPage = lazy(() => import("./pages/EmailImportsPage"));
 const OnboardingPage = lazy(() => import("./pages/OnboardingPage"));
 
@@ -310,7 +311,7 @@ function AppContent() {
           />
           <Route
             path="/duplicates"
-            element={<Navigate to="/review" replace />}
+            element={<DuplicatesPage apiBase={API_BASE} onRefresh={handleRefresh} />}
           />
           <Route
             path="/email-imports"
